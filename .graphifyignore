@@ -1,0 +1,12 @@
+# Nunca indexar datos ni artefactos
+*.xlsx
+*.xls
+*:Zone.Identifier
+node_modules/
+dist/
+.next/
+coverage/
+storage/
+package-lock.json
+apps/api/migrations/meta/
+graphify-out/
