@@ -1,0 +1,12 @@
+# Sesión: 2026-09-23 - verificación SMTP y activación
+- Responsable / agente: Claude Code
+- Objetivo e incidencias: ESS-AUTH-002
+- Rama y commit inicial: feat/ESS-AUTH-002-verificacion-smtp sobre feat/ESS-AUTH-003-login
+- Cambios realizados: tabla verification_codes (migración 0003); accounts/verification.service (emisión, reenvío, activación); mail/{mailer,mail.module} con nodemailer; endpoints POST /auth/activate y /auth/verify-email/resend; createAccountByAdmin envía el código; SESSION_SECRET de pruebas movido a vitest.config
+- Decisiones / ADR / cambios al SRS: la activación exige clave temporal + código + clave nueva en una sola operación (dos factores y cambio obligatorio); el correo lleva solo el código, nunca la clave temporal; respuesta 400 genérica y 202 uniforme en el reenvío
+- Pruebas y evidencia: `DATABASE_URL=... npm test` 35 OK (10 nuevas con FakeMailer); verificado además contra SMTP real 192.168.1.44:25 (EHLO, MAIL FROM, RCPT TO, RSET; sin entregar correo)
+- Migraciones, configuración y datos de ejemplo necesarios: SMTP_HOST/PORT/SECURE/REQUIRE_TLS/USER/PASS/FROM; docker compose up -d mailpit para desarrollo
+- Bloqueos y riesgos: el servidor 192.168.1.44 (Postfix) NO ofrece STARTTLS: con SMTP_REQUIRE_TLS=false el código viaja sin cifrar por la red interna; habilitar TLS en Postfix antes de producción. Sin envío real de correo probado (falta destinatario de prueba). Sin límite por IP en endpoints públicos. Entrega de la clave temporal por canal separado sigue pendiente (la devuelve el servicio).
+- Estado final: parcial
+- Rama, commit final y PR: ver PR
+- Próximo paso exacto y responsable: endpoint HTTP de alta administrativa protegido por sesión + rol HR_ADMIN con reautenticación; enviar un correo real de prueba a un buzón que el responsable indique

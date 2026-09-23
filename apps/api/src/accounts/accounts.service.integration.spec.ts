@@ -4,6 +4,7 @@ import { createDb } from '../db/client';
 import { runMigrations } from '../db/migrate';
 import { accounts, auditLogs, employeeSnapshots, roleAssignments } from '../db/schema';
 import { AccountError, createAccountByAdmin } from './accounts.service';
+import type { Mailer } from '../mail/mailer';
 import { verifyPassword } from './password.service';
 
 const url = process.env.DATABASE_URL;
@@ -13,6 +14,7 @@ describe.skipIf(!url)('alta administrativa de cuentas', () => {
   const db = ctx.db;
   let adminId = '';
   let plainId = '';
+  const mailer: Mailer = { send: () => Promise.resolve() };
 
   beforeAll(async () => {
     await runMigrations(url ?? '');
@@ -47,7 +49,7 @@ describe.skipIf(!url)('alta administrativa de cuentas', () => {
 
   it('crea la cuenta pendiente con clave temporal Argon2id y correo normalizado', async () => {
     await emp();
-    const r = await createAccountByAdmin(db, adminId, '100');
+    const r = await createAccountByAdmin(db, adminId, '100', mailer);
     const [acc] = await db
       .select()
       .from(accounts)
@@ -61,7 +63,7 @@ describe.skipIf(!url)('alta administrativa de cuentas', () => {
 
   it('rechaza a quien no tiene HR_ADMIN vigente', async () => {
     await emp();
-    await expect(createAccountByAdmin(db, plainId, '100')).rejects.toMatchObject({
+    await expect(createAccountByAdmin(db, plainId, '100', mailer)).rejects.toMatchObject({
       code: 'FORBIDDEN',
     });
   });
@@ -72,30 +74,32 @@ describe.skipIf(!url)('alta administrativa de cuentas', () => {
       .update(roleAssignments)
       .set({ validTo: '2021-01-01' })
       .where(sql`account_id = ${adminId}`);
-    await expect(createAccountByAdmin(db, adminId, '100')).rejects.toBeInstanceOf(AccountError);
+    await expect(createAccountByAdmin(db, adminId, '100', mailer)).rejects.toBeInstanceOf(
+      AccountError,
+    );
   });
 
   it('rechaza empleado inexistente y contrato cancelado', async () => {
-    await expect(createAccountByAdmin(db, adminId, '999')).rejects.toMatchObject({
+    await expect(createAccountByAdmin(db, adminId, '999', mailer)).rejects.toMatchObject({
       code: 'EMPLOYEE_NOT_FOUND',
     });
     await emp({ nIde: '200', est: 'C' });
-    await expect(createAccountByAdmin(db, adminId, '200')).rejects.toMatchObject({
+    await expect(createAccountByAdmin(db, adminId, '200', mailer)).rejects.toMatchObject({
       code: 'NO_ACTIVE_CONTRACT',
     });
   });
 
   it('rechaza correo vacío', async () => {
     await emp({ email: '  ' });
-    await expect(createAccountByAdmin(db, adminId, '100')).rejects.toMatchObject({
+    await expect(createAccountByAdmin(db, adminId, '100', mailer)).rejects.toMatchObject({
       code: 'EMAIL_MISSING',
     });
   });
 
   it('rechaza una segunda cuenta para el mismo N_IDE', async () => {
     await emp();
-    await createAccountByAdmin(db, adminId, '100');
-    await expect(createAccountByAdmin(db, adminId, '100')).rejects.toMatchObject({
+    await createAccountByAdmin(db, adminId, '100', mailer);
+    await expect(createAccountByAdmin(db, adminId, '100', mailer)).rejects.toMatchObject({
       code: 'ACCOUNT_EXISTS',
     });
   });
@@ -107,10 +111,15 @@ describe.skipIf(!url)('alta administrativa de cuentas', () => {
 
   it('audita éxito y rechazo sin claves ni identificación completa', async () => {
     await emp({ nIde: '1234567890' });
-    const r = await createAccountByAdmin(db, adminId, '1234567890');
-    await createAccountByAdmin(db, plainId, '1234567890').catch(() => undefined);
+    const r = await createAccountByAdmin(db, adminId, '1234567890', mailer);
+    await createAccountByAdmin(db, plainId, '1234567890', mailer).catch(() => undefined);
     const logs = await db.select().from(auditLogs);
-    expect(logs.map((l) => l.result).sort()).toEqual(['FORBIDDEN', 'SUCCESS']);
+    expect(
+      logs
+        .filter((l) => l.action === 'ACCOUNT_CREATE')
+        .map((l) => l.result)
+        .sort(),
+    ).toEqual(['FORBIDDEN', 'SUCCESS']);
     const dump = JSON.stringify(logs);
     expect(dump).not.toContain(r.temporaryPassword);
     expect(dump).not.toContain('"100"');

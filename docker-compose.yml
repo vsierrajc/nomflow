@@ -10,3 +10,6 @@ services:
     image: minio/minio
     command: server /data
     ports: ['9000:9000']
+  mailpit:
+    image: axllent/mailpit
+    ports: ['1025:1025', '8025:8025']
