@@ -8,6 +8,13 @@
       "when": 1790193365703,
       "tag": "0000_cuentas_roles_auditoria",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790193747927,
+      "tag": "0001_employee_snapshots",
+      "breakpoints": true
     }
   ]
 }
