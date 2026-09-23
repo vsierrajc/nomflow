@@ -1,0 +1,8 @@
+title = "NOMFLOW gitleaks"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Plantillas de ejemplo sin secretos reales"
+paths = ['''\.env\.example$''']
