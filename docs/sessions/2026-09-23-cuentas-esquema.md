@@ -1,0 +1,12 @@
+# Sesión: 2026-09-23 - cuentas (esquema)
+- Responsable / agente: Claude Code
+- Objetivo e incidencias: ESS-AUTH-001, ESS-AUTH-004 (parte inicial)
+- Rama y commit inicial: feat/ESS-AUTH-001-cuentas sobre docs/ESS-AUTH-001-adr-orm
+- Cambios realizados: apps/api/src/db (esquema Drizzle, cliente, migrador), migración 0000, accounts/password.service (Argon2id vía @node-rs/argon2), pruebas
+- Decisiones / ADR / cambios al SRS: ADR-002 aceptado provisionalmente; @node-rs/argon2 en lugar de argon2 (sin compilación nativa)
+- Pruebas y evidencia: `DATABASE_URL=... npm test` 7 pruebas OK contra PostgreSQL 16 en docker; typecheck y lint OK
+- Migraciones, configuración y datos de ejemplo necesarios: docker compose up -d postgres
+- Bloqueos y riesgos: CodeQL requiere activar Code scanning en GitHub (job no bloqueante); esquema aún sin EmployeeSnapshot
+- Estado final: parcial
+- Rama, commit final y PR: ver PR
+- Próximo paso exacto y responsable: endpoint de alta administrativa (valida EST=V vía EmployeeSnapshot), verificación SMTP, sesiones
