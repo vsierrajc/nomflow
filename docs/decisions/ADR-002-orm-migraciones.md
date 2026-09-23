@@ -1,6 +1,6 @@
 # ADR-002: ORM y migraciones
 
-- Estado: Propuesta (2026-09-23), pendiente de revisión
+- Estado: Aceptada provisionalmente (2026-09-23), sujeta a revisión en el PR
 
 ## Contexto
 La SSD exige: importes `Decimal` exactos (`NUMERIC(18,6)`), índices únicos parciales (un contrato vigente por `N_IDE`, una versión publicada por alcance), bloqueos de fila para serializar aprobaciones de vacaciones y publicaciones de nómina (`SELECT ... FOR UPDATE`), migraciones revisadas y no editables tras aplicarse (11.3), y consultas siempre parametrizadas (3.2).
