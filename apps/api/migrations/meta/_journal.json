@@ -22,6 +22,13 @@
       "when": 1790193971727,
       "tag": "0002_sesiones_login",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790194226530,
+      "tag": "0003_verificacion_smtp",
+      "breakpoints": true
     }
   ]
 }

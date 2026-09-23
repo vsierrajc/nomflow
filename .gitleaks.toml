@@ -4,5 +4,8 @@ title = "NOMFLOW gitleaks"
 useDefault = true
 
 [allowlist]
-description = "Plantillas de ejemplo sin secretos reales"
-paths = ['''\.env\.example$''']
+description = "Plantillas de ejemplo y pruebas con credenciales ficticias"
+paths = [
+  '''\.env\.example$''',
+  '''\.spec\.ts$''',
+]

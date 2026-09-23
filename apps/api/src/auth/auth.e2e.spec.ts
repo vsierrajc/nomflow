@@ -11,7 +11,6 @@ import { accounts, auditLogs, employeeSnapshots, sessions } from '../db/schema';
 import { revokeAllForAccount } from './session.service';
 
 const url = process.env.DATABASE_URL;
-process.env.SESSION_SECRET = 'test-secret-test-secret-test-secret-1234';
 
 describe.skipIf(!url)('login y sesiones (HTTP + PostgreSQL)', () => {
   const ctx = createDb(url ?? '');

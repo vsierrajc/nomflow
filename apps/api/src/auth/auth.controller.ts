@@ -15,6 +15,12 @@ import type { Response } from 'express';
 import { z } from 'zod';
 import type { Db } from '../db/client';
 import { DB } from '../db/db.module';
+import {
+  ActivationError,
+  activateAccount,
+  resendVerificationCode,
+} from '../accounts/verification.service';
+import { MAILER, type Mailer } from '../mail/mailer';
 import { LoginError, login } from './auth.service';
 import { SESSION_COOKIE, SessionGuard, type AuthedRequest } from './session.guard';
 import { ABSOLUTE_TIMEOUT_MS, csrfTokenFor, revokeSession } from './session.service';
@@ -24,9 +30,42 @@ const LoginDto = z.object({
   password: z.string().min(1).max(200),
 });
 
+const ActivateDto = z.object({
+  email: z.string().trim().email().max(254),
+  temporaryPassword: z.string().min(1).max(200),
+  code: z.string().min(1).max(32),
+  newPassword: z.string().min(1).max(200),
+});
+
+const ResendDto = z.object({ email: z.string().trim().email().max(254) });
+
 @Controller('auth')
 export class AuthController {
-  constructor(@Inject(DB) private readonly db: Db) {}
+  constructor(
+    @Inject(DB) private readonly db: Db,
+    @Inject(MAILER) private readonly mailer: Mailer,
+  ) {}
+
+  @Post('activate')
+  @HttpCode(204)
+  async activate(@Body() body: unknown): Promise<void> {
+    const dto = ActivateDto.safeParse(body);
+    if (!dto.success) throw new BadRequestException();
+    try {
+      await activateAccount(this.db, dto.data);
+    } catch (e) {
+      if (e instanceof ActivationError) throw new BadRequestException('Datos inválidos');
+      throw e;
+    }
+  }
+
+  @Post('verify-email/resend')
+  @HttpCode(202)
+  async resend(@Body() body: unknown): Promise<void> {
+    const dto = ResendDto.safeParse(body);
+    if (!dto.success) throw new BadRequestException();
+    await resendVerificationCode(this.db, this.mailer, dto.data.email);
+  }
 
   @Post('login')
   @HttpCode(200)

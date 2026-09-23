@@ -1,6 +1,8 @@
 import { and, eq, gte, isNull, lte, or } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { accounts, auditLogs, employeeSnapshots, roleAssignments } from '../db/schema';
+import type { Mailer } from '../mail/mailer';
+import { issueVerificationCode } from './verification.service';
 import { generateTemporaryPassword, hashPassword } from './password.service';
 
 export type AccountErrorCode =
@@ -15,6 +17,7 @@ export class AccountError extends Error {
 export interface CreatedAccount {
   accountId: string;
   temporaryPassword: string;
+  verificationSent: boolean;
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -23,9 +26,12 @@ export async function createAccountByAdmin(
   db: Db,
   actorAccountId: string,
   nIde: string,
+  mailer: Mailer,
 ): Promise<CreatedAccount> {
   try {
-    const created = await create(db, actorAccountId, nIde);
+    const base = await create(db, actorAccountId, nIde);
+    const verificationSent = await issueVerificationCode(db, mailer, base.accountId);
+    const created = { ...base, verificationSent };
     await audit(db, actorAccountId, 'ACCOUNT_CREATE', 'SUCCESS', created.accountId, nIde);
     return created;
   } catch (e) {
@@ -36,7 +42,11 @@ export async function createAccountByAdmin(
   }
 }
 
-async function create(db: Db, actorAccountId: string, nIde: string): Promise<CreatedAccount> {
+async function create(
+  db: Db,
+  actorAccountId: string,
+  nIde: string,
+): Promise<Omit<CreatedAccount, 'verificationSent'>> {
   const d = today();
   const roles = await db
     .select({ id: roleAssignments.id })
