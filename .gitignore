@@ -31,3 +31,17 @@ Thumbs.db
 # Cobertura
 coverage/
 .nyc_output/
+
+# Metadatos de Windows/WSL
+*:Zone.Identifier
+
+# Datos sensibles (nunca commitear)
+*.xlsx
+*.xls
+!**/fixtures/**/*.xlsx
+storage/
+*.dump
+*.sql.gz
+*.pem
+*.key
+*.p12
