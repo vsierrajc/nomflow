@@ -4,6 +4,8 @@ import type { Db } from '../db/client';
 import {
   accounts,
   auditLogs,
+  catalogEntries,
+  companies,
   employeeSnapshots,
   importBatchRows,
   importBatches,
@@ -20,7 +22,14 @@ export const MAX_STORED_ERRORS = 1000;
 export const IMPORT_TYPE = 'EMPLEADOS';
 
 export type ImportErrorCode =
-  'NOT_XLSX' | 'DUPLICATE_FILE' | 'NOT_FOUND' | 'NOT_READY' | 'APPLY_FAILED';
+  | 'NOT_XLSX'
+  | 'DUPLICATE_FILE'
+  | 'NOT_FOUND'
+  | 'NOT_READY'
+  | 'APPLY_FAILED'
+  | 'COMPANY_REQUIRED'
+  | 'COMPANY_NOT_FOUND'
+  | 'UNKNOWN_CATALOG';
 
 export class ImportError extends Error {
   constructor(readonly code: ImportErrorCode) {
@@ -39,6 +48,7 @@ export interface UploadInput {
 
 export interface BatchSummary {
   id: string;
+  type: string;
   status: string;
   rowCount: number;
   errorCount: number;
@@ -121,6 +131,74 @@ const COMPARED = [
 
 type Tx = Pick<Db, 'select'>;
 
+const norm = (v: string | null) =>
+  (v ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+export async function catalogIssues(
+  db: Tx,
+  rows: EmployeeRow[],
+): Promise<{ errors: ImportIssue[]; warnings: ImportIssue[] }> {
+  const errors: ImportIssue[] = [];
+  const warnings: ImportIssue[] = [];
+  if (rows.length === 0) return { errors, warnings };
+  const comps = new Set(
+    (await db.select({ c: companies.cEmp }).from(companies).where(eq(companies.active, true))).map(
+      (c) => c.c,
+    ),
+  );
+  const entries = await db.select().from(catalogEntries).where(eq(catalogEntries.active, true));
+  const index = new Map(entries.map((e) => [`${e.type}\u0000${e.cEmp}\u0000${e.code}`, e.name]));
+
+  const check = (
+    row: EmployeeRow,
+    type: string,
+    cEmp: string,
+    code: string | null,
+    col: string,
+    desc: string | null,
+    descCol: string,
+  ) => {
+    if (code === null) return;
+    const name = index.get(`${type}\u0000${cEmp}\u0000${code}`);
+    if (name === undefined) {
+      errors.push({
+        row: row.rowNumber,
+        column: col,
+        value: type === 'TIPO_CONTRATO' ? code : null,
+        rule: 'código inexistente en el catálogo publicado',
+      });
+    } else if (desc !== null && norm(desc) !== norm(name)) {
+      warnings.push({
+        row: row.rowNumber,
+        column: descCol,
+        value: null,
+        rule: 'la descripción no coincide con el catálogo (se usa la del catálogo)',
+      });
+    }
+  };
+  for (const row of rows) {
+    if (!comps.has(row.cEmp)) {
+      errors.push({
+        row: row.rowNumber,
+        column: 'C_EMP',
+        value: row.cEmp,
+        rule: 'empresa inexistente o inactiva',
+      });
+      continue;
+    }
+    check(row, 'AREA', row.cEmp, row.cArea, 'C_AREA', row.area, 'AREA');
+    check(row, 'CCOSTO', row.cEmp, row.cCos, 'C_COS', row.cCosto, 'CCOSTO');
+    check(row, 'CARGO', row.cEmp, row.cCar, 'C_CAR', row.cargo, 'CARGO');
+    check(row, 'TIPO_CONTRATO', '', row.tipoContrato, 'TIPO_CONTRATO', null, 'TIPO_CONTRATO');
+  }
+  return { errors, warnings };
+}
+
 async function databaseConflicts(db: Tx, rows: EmployeeRow[]): Promise<ImportIssue[]> {
   const issues: ImportIssue[] = [];
   if (rows.length === 0) return issues;
@@ -202,6 +280,8 @@ export async function uploadEmployees(
   }
 
   const errors = [...parsed.errors, ...validateEmployeeRows(parsed.rows)];
+  const catalogs = await catalogIssues(db, parsed.rows);
+  errors.push(...catalogs.errors);
   if (errors.length === 0) errors.push(...(await databaseConflicts(db, parsed.rows)));
 
   const ides = [...new Set(parsed.rows.map((r) => r.nIde))];
@@ -241,7 +321,7 @@ export async function uploadEmployees(
     unchanged,
     toCancel,
     missingInFile,
-    warnings: parsed.warnings.length,
+    warnings: parsed.warnings.length + catalogs.warnings.length,
   };
   const status = errors.length === 0 ? 'LISTO' : 'OBSERVADO';
 
@@ -269,7 +349,14 @@ export async function uploadEmployees(
       .values(parsed.rows.map((r) => ({ batchId: batch.id, rowNumber: r.rowNumber, data: r })));
   }
   await audit(db, actorId, 'IMPORT_UPLOAD', batch.id, status);
-  return { id: batch.id, status, rowCount: parsed.rows.length, errorCount: errors.length, stats };
+  return {
+    id: batch.id,
+    type: IMPORT_TYPE,
+    status,
+    rowCount: parsed.rows.length,
+    errorCount: errors.length,
+    stats,
+  };
 }
 
 export async function getBatch(
@@ -280,6 +367,7 @@ export async function getBatch(
   if (!b) throw new ImportError('NOT_FOUND');
   return {
     id: b.id,
+    type: b.type,
     status: b.status,
     rowCount: b.rowCount,
     errorCount: b.errorCount,
@@ -315,7 +403,8 @@ export async function applyEmployeesBatch(
         .map((s) => s.data as EmployeeRow)
         .sort((a, b) => (a.est === b.est ? a.rowNumber - b.rowNumber : a.est === 'C' ? -1 : 1));
       const conflicts = await databaseConflicts(tx, rows);
-      if (conflicts.length > 0) throw new ImportError('APPLY_FAILED');
+      const catalogErrors = (await catalogIssues(tx, rows)).errors;
+      if (conflicts.length > 0 || catalogErrors.length > 0) throw new ImportError('APPLY_FAILED');
 
       for (const row of rows) {
         const values = dbValues(row, batchId);

@@ -43,6 +43,13 @@
       "when": 1790197220648,
       "tag": "0005_importacion_empleados",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790198073353,
+      "tag": "0006_catalogos_organizacionales",
+      "breakpoints": true
     }
   ]
 }

@@ -92,13 +92,13 @@ export interface ParseResult {
   warnings: ImportIssue[];
 }
 
-type Raw = string | number | boolean | Date | null;
+export type Raw = string | number | boolean | Date | null;
 
-function issue(row: number, column: string, raw: Raw, rule: string): ImportIssue {
+export function issue(row: number, column: string, raw: Raw, rule: string): ImportIssue {
   return { row, column, value: ECHO_VALUE.has(column) && raw !== null ? String(raw) : null, rule };
 }
 
-function readCell(value: ExcelJS.CellValue): { raw: Raw; problem?: string } {
+export function readCell(value: ExcelJS.CellValue): { raw: Raw; problem?: string } {
   if (value === null || value === undefined) return { raw: null };
   if (typeof value === 'string') return { raw: value.trim() === '' ? null : value.trim() };
   if (typeof value === 'number' || typeof value === 'boolean' || value instanceof Date) {
