@@ -8,7 +8,8 @@
     "start": "node dist/main.js",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node dist/db/migrate.js"
+    "db:migrate": "node dist/db/migrate.js",
+    "admin:bootstrap": "node dist/db/bootstrap-admin.js"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.6",

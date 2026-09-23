@@ -21,7 +21,7 @@ import {
   resendVerificationCode,
 } from '../accounts/verification.service';
 import { MAILER, type Mailer } from '../mail/mailer';
-import { LoginError, login } from './auth.service';
+import { LoginError, login, reauthenticate } from './auth.service';
 import { SESSION_COOKIE, SessionGuard, type AuthedRequest } from './session.guard';
 import { ABSOLUTE_TIMEOUT_MS, csrfTokenFor, revokeSession } from './session.service';
 
@@ -36,6 +36,8 @@ const ActivateDto = z.object({
   code: z.string().min(1).max(32),
   newPassword: z.string().min(1).max(200),
 });
+
+const ReauthDto = z.object({ password: z.string().min(1).max(200) });
 
 const ResendDto = z.object({ email: z.string().trim().email().max(254) });
 
@@ -99,6 +101,20 @@ export class AuthController {
   @UseGuards(SessionGuard)
   me(@Req() req: AuthedRequest): { accountId: string; csrfToken: string } {
     return { accountId: req.auth.accountId, csrfToken: csrfTokenFor(req.auth.sessionId) };
+  }
+
+  @Post('reauth')
+  @HttpCode(204)
+  @UseGuards(SessionGuard)
+  async reauth(@Body() body: unknown, @Req() req: AuthedRequest): Promise<void> {
+    const dto = ReauthDto.safeParse(body);
+    if (!dto.success) throw new BadRequestException();
+    try {
+      await reauthenticate(this.db, req.auth.accountId, req.auth.sessionId, dto.data.password);
+    } catch (e) {
+      if (e instanceof LoginError) throw new UnauthorizedException('Credenciales inválidas');
+      throw e;
+    }
   }
 
   @Post('logout')

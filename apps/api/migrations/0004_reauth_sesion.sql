@@ -1,0 +1,1 @@
+ALTER TABLE "sessions" ADD COLUMN "reauth_at" timestamp with time zone;

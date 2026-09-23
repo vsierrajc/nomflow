@@ -1,6 +1,7 @@
-import { and, eq, gte, isNull, lte, or } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { Db } from '../db/client';
-import { accounts, auditLogs, employeeSnapshots, roleAssignments } from '../db/schema';
+import { hasActiveRole } from '../auth/roles';
+import { accounts, auditLogs, employeeSnapshots } from '../db/schema';
 import type { Mailer } from '../mail/mailer';
 import { issueVerificationCode } from './verification.service';
 import { generateTemporaryPassword, hashPassword } from './password.service';
@@ -19,8 +20,6 @@ export interface CreatedAccount {
   temporaryPassword: string;
   verificationSent: boolean;
 }
-
-const today = () => new Date().toISOString().slice(0, 10);
 
 export async function createAccountByAdmin(
   db: Db,
@@ -47,20 +46,9 @@ async function create(
   actorAccountId: string,
   nIde: string,
 ): Promise<Omit<CreatedAccount, 'verificationSent'>> {
-  const d = today();
-  const roles = await db
-    .select({ id: roleAssignments.id })
-    .from(roleAssignments)
-    .where(
-      and(
-        eq(roleAssignments.accountId, actorAccountId),
-        eq(roleAssignments.role, 'HR_ADMIN'),
-        lte(roleAssignments.validFrom, d),
-        or(isNull(roleAssignments.validTo), gte(roleAssignments.validTo, d)),
-      ),
-    )
-    .limit(1);
-  if (roles.length === 0) throw new AccountError('FORBIDDEN');
+  if (!(await hasActiveRole(db, actorAccountId, ['HR_ADMIN']))) {
+    throw new AccountError('FORBIDDEN');
+  }
 
   const rows = await db.select().from(employeeSnapshots).where(eq(employeeSnapshots.nIde, nIde));
   if (rows.length === 0) throw new AccountError('EMPLOYEE_NOT_FOUND');
