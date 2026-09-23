@@ -1,0 +1,12 @@
+# Sesión: 2026-09-23 - importación de EMPLEADOS
+- Responsable / agente: Claude Code
+- Objetivo e incidencias: ESS-IMPORT-002 (y base de ESS-IMPORT-001)
+- Rama y commit inicial: feat/ESS-IMPORT-002-empleados sobre feat/ESS-AUTH-005-endpoint-alta (PR #7)
+- Cambios realizados: imports/{employees.parser,imports.service,imports.controller}; tablas import_batches e import_batch_rows; employee_snapshots ampliada a las 24 columnas (migración 0005); exceljs y multer
+- Decisiones / ADR / cambios al SRS: validación y staging síncronos dentro de la petición (la cola Redis de la sección 2 queda pendiente); las filas validadas se guardan en import_batch_rows y la aplicación lee de ahí (lo revisado = lo aplicado); el reporte de errores solo repite el valor de columnas no sensibles; el mismo archivo ya aplicado se rechaza (409); aplicar usa advisory lock y verifica conteo; EST=C revoca sesiones tras confirmar la transacción; ausencias del archivo no dan de baja
+- Pruebas y evidencia: `DATABASE_URL=... npm test` 60 OK (17 nuevas, incluye aplicación concurrente). Con EMPLEADOS.xlsx real (no versionado, ignorado por git): el analizador rechaza las 240 filas por EST=A; con una copia temporal con EST=V (borrada) da 240 filas/240 personas, tipos 01-05, 3 sin celular, 0 errores
+- Migraciones, configuración y datos de ejemplo necesarios: IMPORT_MAX_BYTES (10 MB) e IMPORT_MAX_ROWS (20000) opcionales
+- Bloqueos y riesgos: el archivo real sigue con EST=A hasta recibir la exportación corregida; sin validación contra catálogos (áreas, cargos, centros de costo, tipos de contrato) porque esas tablas aún no existen; sin defensa específica contra zip bombs más allá del límite de tamaño; los importes se leen como doble de Excel (exacto hasta ~15 dígitos); las filas de staging conservan datos personales y salarios sin política de retención definida (sección 12); npm audit reporta 6 avisos moderados (esbuild en drizzle-kit, uuid en exceljs), sin altos
+- Estado final: parcial
+- Rama, commit final y PR: ver PR
+- Próximo paso exacto y responsable: catálogos organizacionales (EMPRESA, AREA, CCOSTOS, CARGOS, TIPO_CONTRATO) con importación y validación cruzada de EMPLEADOS; corregir EST en el origen

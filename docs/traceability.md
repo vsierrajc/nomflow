@@ -11,7 +11,7 @@ Estados: BACKLOG, READY, IN_PROGRESS, IN_REVIEW, BLOCKED, DONE.
 | ESS-AUD-001 | Auditoría sin datos sensibles (3.2, 5) | 1 | — | — | — | — | BACKLOG |
 | ESS-ORG-001 | CRUD Company/Area/CostCenter/JobPosition/ContractType, jefes con vigencia (9.6) | 2 | — | — | — | — | BACKLOG |
 | ESS-IMPORT-001 | Importación Excel por lotes, staging, idempotencia, reversión (9.2-9.3) | 2 | — | — | — | — | BLOCKED (datos origen) |
-| ESS-IMPORT-002 | Importación EMPLEADOS con EST V/C y contrato único vigente (9.1) | 2 | — | — | — | — | BLOCKED (EST=A) |
+| ESS-IMPORT-002 | Importación EMPLEADOS con EST V/C y contrato único vigente (9.1) | 2 | — | PR ESS-IMPORT-002 | imports.e2e.spec.ts | — | IN_REVIEW (datos reales aún con EST=A) |
 | ESS-PAY-001 | Volantes PDF, SLRIO histórico, modos SIN_AJUSTE/ENTERO_SUPERIOR (9.2, 9.4) | 3 | — | — | — | — | BACKLOG |
 | ESS-CERT-001 | Plantillas de certificado versionadas (6.1.1) | 3 | — | — | — | — | BACKLOG |
 | ESS-CERT-002 | Certificado laboral: aprobación, firma, código de validación (6.1, 6.1.2) | 3 | — | — | — | — | BACKLOG |

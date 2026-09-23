@@ -10,6 +10,8 @@ import {
   date,
   boolean,
   integer,
+  numeric,
+  primaryKey,
   jsonb,
 } from 'drizzle-orm/pg-core';
 
@@ -39,6 +41,26 @@ export const employeeSnapshots = pgTable(
     nCont: text('n_cont').notNull(),
     email: text('email').notNull(),
     est: employmentStatus('est').notNull(),
+    cEmp: text('c_emp'),
+    nombre: text('nombre'),
+    cCos: text('c_cos'),
+    cCosto: text('c_costo'),
+    sAct: numeric('s_act', { precision: 18, scale: 6 }),
+    cCar: text('c_car'),
+    cArea: text('c_area'),
+    fecNac: date('fec_nac'),
+    cargo: text('cargo'),
+    area: text('area'),
+    hliq: text('hliq'),
+    sexo: text('sexo'),
+    fIni: date('f_ini'),
+    turno: text('turno'),
+    nombres: text('nombres'),
+    apellidos: text('apellidos'),
+    celular: text('celular'),
+    profesion: text('profesion'),
+    nivelEducativo: text('nivel_educativo'),
+    tipoContrato: text('tipo_contrato'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -141,4 +163,51 @@ export const verificationCodes = pgTable(
     usedAt: timestamp('used_at', { withTimezone: true }),
   },
   (t) => [index('verification_codes_account_idx').on(t.accountId, t.createdAt)],
+);
+
+export const importStatus = pgEnum('import_status', [
+  'RECIBIDO',
+  'VALIDANDO',
+  'OBSERVADO',
+  'LISTO',
+  'APLICANDO',
+  'APLICADO',
+  'FALLIDO',
+]);
+
+export const importBatches = pgTable(
+  'import_batches',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    type: text('type').notNull(),
+    status: importStatus('status').notNull().default('RECIBIDO'),
+    fileHash: text('file_hash').notNull(),
+    fileName: text('file_name'),
+    sheetName: text('sheet_name'),
+    sourceSystem: text('source_system').notNull(),
+    responsible: text('responsible').notNull(),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => accounts.id),
+    confirmedBy: uuid('confirmed_by').references(() => accounts.id),
+    rowCount: integer('row_count').notNull().default(0),
+    stats: jsonb('stats').notNull().default({}),
+    errors: jsonb('errors').notNull().default([]),
+    errorCount: integer('error_count').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    appliedAt: timestamp('applied_at', { withTimezone: true }),
+  },
+  (t) => [index('import_batches_type_hash_idx').on(t.type, t.fileHash)],
+);
+
+export const importBatchRows = pgTable(
+  'import_batch_rows',
+  {
+    batchId: uuid('batch_id')
+      .notNull()
+      .references(() => importBatches.id),
+    rowNumber: integer('row_number').notNull(),
+    data: jsonb('data').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.batchId, t.rowNumber] })],
 );
