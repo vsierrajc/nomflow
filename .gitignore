@@ -1,0 +1,33 @@
+# Dependencias
+node_modules/
+vendor/
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+
+# Build / salida
+dist/
+build/
+out/
+*.egg-info/
+
+# Entorno y secretos
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Editores / SO
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Cobertura
+coverage/
+.nyc_output/
