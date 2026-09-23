@@ -31,7 +31,7 @@ Usar consultas parametrizadas (incluidas consultas SQL inevitables), validación
 
 ## 4. Convenciones de datos
 
-`N_IDE` identifica a la persona; `N_CONT` identifica un contrato y solo uno puede estar vigente por persona. `PER` de nómina es `AAAAMM`; `N_LIQ` es 1 o 2. `SLRIO` es salario histórico de liquidación, `S_ACT` salario actual del empleado. El período programado de vacaciones (`PROG_VAC.PER_INI`, `PER_FIN`) usa **fechas** y es independiente de `PER` de nómina. `DIAS`/`DISP` y los días asignados a períodos son hábiles; `VACACIONES.DIAS_DIS` mide días calendario según las fechas de disfrute y no se descuenta directamente de `DISP`. Los importes y cantidades usan decimales exactos. Los identificadores se preservan como texto. La fuente de cada dato y su versión se conservan en documentos emitidos.
+`N_IDE` identifica a la persona; `N_CONT` identifica un contrato y solo uno puede estar vigente por persona. `PER` de nómina es `AAAAMM`; `N_LIQ` es 1 o 2. `SLRIO` es salario histórico de liquidación, `S_ACT` salario actual del empleado. El período programado de vacaciones (`PROG_VAC.PER_INI`, `PER_FIN`) usa **fechas** y es independiente de `PER` de nómina. `DIAS`/`DISP` y los días asignados a períodos son hábiles; `VACACIONES.DIAS_DIS` mide días calendario según las fechas de disfrute y no se descuenta directamente de `DISP`. `HLIQ` de `EMPLEADOS` es informativo (indica liquidación cada 15 días): es opcional, se conserva tal cual y no interviene en cálculos ni validaciones; la quincena efectiva de un volante la define `N_LIQ`. Los importes y cantidades usan decimales exactos. Los identificadores se preservan como texto. La fuente de cada dato y su versión se conservan en documentos emitidos.
 
 ## 5. Modelo de dominio canónico de NOMFLOW
 
