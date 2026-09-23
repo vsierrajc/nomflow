@@ -293,7 +293,7 @@ Una mejora de feature sigue esta secuencia: propuesta/incidencia → revisión d
 
 ### 10.2 Protocolo obligatorio al iniciar y cerrar una sesión
 
-**Inicio:** leer `docs/STATUS.md`, la sesión previa, incidencias asignadas, SRS y ADR relevantes. Verificar rama, estado de trabajo (`git status`), último commit, dependencias y ambiente. No iniciar sobre cambios ajenos sin identificarlos. Registrar objetivo y alcance de la sesión y asociar las incidencias.
+**Inicio:** leer `docs/STATUS.md`, la sesión previa, incidencias asignadas, SRS y ADR relevantes. Verificar rama, estado de trabajo (`git status`), último commit, dependencias y ambiente. No iniciar sobre cambios ajenos sin identificarlos. Registrar objetivo y alcance de la sesión y asociar las incidencias. Estimar el impacto de los cambios con el mapa del código (`docs/graphify.md`: `graphify affected`), sin indexar nunca datos reales.
 
 **Durante:** registrar decisiones y desviaciones de alcance; abrir o actualizar incidencia para trabajos descubiertos. Ejecutar las verificaciones pertinentes al cambio y anotar comandos y resultados. No colocar información personal de empleados, salarios reales, archivos de nómina, secretos o certificados privados en bitácoras, incidencias, commits o evidencias.
 

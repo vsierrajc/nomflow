@@ -45,3 +45,20 @@ jobs:
       - uses: github/codeql-action/init@v3
         with: { languages: javascript-typescript }
       - uses: github/codeql-action/analyze@v3
+  graph:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install graphifyy
+      - run: graphify update .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: graphify-${{ github.sha }}
+          path: |
+            graphify-out/GRAPH_REPORT.md
+            graphify-out/graph.html
+            graphify-out/graph.json
+          retention-days: 30

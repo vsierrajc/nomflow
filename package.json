@@ -15,7 +15,8 @@
     "format:check": "prettier --check .",
     "format": "prettier --write .",
     "test": "npm run test --workspaces --if-present",
-    "audit:deps": "npm audit --audit-level=high"
+    "audit:deps": "npm audit --audit-level=high",
+    "graph": "graphify update ."
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
