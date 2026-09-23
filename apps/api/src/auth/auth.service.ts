@@ -2,7 +2,8 @@ import { and, eq, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { accounts, auditLogs, employeeSnapshots } from '../db/schema';
 import { hashPassword, verifyPassword } from '../accounts/password.service';
-import { createSession, type SessionMeta } from './session.service';
+import { hasActiveRole } from './roles';
+import { createSession, markReauthenticated, type SessionMeta } from './session.service';
 
 export const MAX_FAILED_ATTEMPTS = 5;
 export const LOCK_MINUTES = 15;
@@ -70,12 +71,15 @@ export async function login(
   if (account.status !== 'ACTIVA') return fail(db, account.id, 'ACCOUNT_NOT_ACTIVE');
   if (account.mustChangePassword) return fail(db, account.id, 'PASSWORD_CHANGE_REQUIRED');
 
-  const [active] = await db
-    .select({ id: employeeSnapshots.id })
-    .from(employeeSnapshots)
-    .where(and(eq(employeeSnapshots.nIde, account.nIde), eq(employeeSnapshots.est, 'V')))
-    .limit(1);
-  if (!active) return fail(db, account.id, 'EMPLOYMENT_NOT_ACTIVE');
+  const isAdmin = await hasActiveRole(db, account.id, ['HR_ADMIN', 'SYSTEM_ADMIN']);
+  if (!isAdmin) {
+    const [active] = await db
+      .select({ id: employeeSnapshots.id })
+      .from(employeeSnapshots)
+      .where(and(eq(employeeSnapshots.nIde, account.nIde), eq(employeeSnapshots.est, 'V')))
+      .limit(1);
+    if (!active) return fail(db, account.id, 'EMPLOYMENT_NOT_ACTIVE');
+  }
 
   await db
     .update(accounts)
@@ -84,4 +88,30 @@ export async function login(
   const session = await createSession(db, account.id, meta);
   await audit(db, account.id, 'LOGIN', 'SUCCESS');
   return { ...session, accountId: account.id };
+}
+
+export async function reauthenticate(
+  db: Db,
+  accountId: string,
+  sessionId: string,
+  password: string,
+): Promise<void> {
+  const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId));
+  if (!account || (account.lockedUntil && account.lockedUntil.getTime() > Date.now())) {
+    return fail(db, accountId, 'ACCOUNT_LOCKED');
+  }
+  if (!(await verifyPassword(account.passwordHash, password))) {
+    await db
+      .update(accounts)
+      .set({
+        failedAttempts: sql`${accounts.failedAttempts} + 1`,
+        lockedUntil: sql`CASE WHEN ${accounts.failedAttempts} + 1 >= ${MAX_FAILED_ATTEMPTS}
+          THEN now() + make_interval(mins => ${LOCK_MINUTES}) ELSE ${accounts.lockedUntil} END`,
+      })
+      .where(eq(accounts.id, accountId));
+    await audit(db, accountId, 'REAUTH', 'INVALID_CREDENTIALS');
+    throw new LoginError('INVALID_CREDENTIALS');
+  }
+  await markReauthenticated(db, sessionId);
+  await audit(db, accountId, 'REAUTH', 'SUCCESS');
 }

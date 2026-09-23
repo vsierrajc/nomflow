@@ -11,9 +11,12 @@ export interface SessionMeta {
   userAgent?: string | undefined;
 }
 
+export const REAUTH_WINDOW_MS = 10 * 60 * 1000;
+
 export interface AuthContext {
   accountId: string;
   sessionId: string;
+  authenticatedAt: Date;
 }
 
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
@@ -62,6 +65,8 @@ export async function authenticateSession(db: Db, token: string): Promise<AuthCo
       sessionId: sessions.id,
       accountId: sessions.accountId,
       lastSeenAt: sessions.lastSeenAt,
+      createdAt: sessions.createdAt,
+      reauthAt: sessions.reauthAt,
       status: accounts.status,
     })
     .from(sessions)
@@ -79,7 +84,9 @@ export async function authenticateSession(db: Db, token: string): Promise<AuthCo
     return null;
   }
   await db.update(sessions).set({ lastSeenAt: now }).where(eq(sessions.id, row.sessionId));
-  return { accountId: row.accountId, sessionId: row.sessionId };
+  const authenticatedAt =
+    row.reauthAt && row.reauthAt > row.createdAt ? row.reauthAt : row.createdAt;
+  return { accountId: row.accountId, sessionId: row.sessionId, authenticatedAt };
 }
 
 export async function revokeSession(db: Db, sessionId: string): Promise<void> {
@@ -94,4 +101,8 @@ export async function revokeAllForAccount(db: Db, accountId: string): Promise<vo
     .update(sessions)
     .set({ revokedAt: new Date() })
     .where(and(eq(sessions.accountId, accountId), isNull(sessions.revokedAt)));
+}
+
+export async function markReauthenticated(db: Db, sessionId: string): Promise<void> {
+  await db.update(sessions).set({ reauthAt: new Date() }).where(eq(sessions.id, sessionId));
 }

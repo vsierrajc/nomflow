@@ -1,0 +1,12 @@
+# Sesión: 2026-09-23 - endpoint de alta administrativa
+- Responsable / agente: Claude Code
+- Objetivo e incidencias: ESS-AUTH-003/004/005 (autorización y reautenticación)
+- Rama y commit inicial: feat/ESS-AUTH-005-endpoint-alta desde main (4586b13)
+- Cambios realizados: auth/{roles,guards}.ts (RolesGuard, RecentAuthGuard); sessions.reauth_at (migración 0004); POST /auth/reauth; POST /admin/accounts; login sin exigir EST=V a HR_ADMIN/SYSTEM_ADMIN; db/bootstrap-admin.ts
+- Decisiones / ADR / cambios al SRS: reautenticación válida 10 min (createdAt o reauth_at); el administrador conserva acceso sin contrato vigente (sección 3.1, "acceso auditado"); la clave temporal se devuelve una vez con Cache-Control: no-store para entregarla por canal separado; errores mapeados 404/409/422/403/400
+- Pruebas y evidencia: `DATABASE_URL=... npm test` 43 OK (8 nuevas); comando admin:bootstrap probado (crea, rechaza duplicado y clave corta)
+- Migraciones, configuración y datos de ejemplo necesarios: BOOTSTRAP_ADMIN_EMAIL, BOOTSTRAP_ADMIN_PASSWORD, BOOTSTRAP_ADMIN_ID (opcional) para el primer administrador
+- Bloqueos y riesgos: sin límite por IP; sin segundo factor por correo en login; el acceso administrativo a datos de empleados con motivo aún no existe; la cuenta bootstrap debería cambiar su clave y limitarse en producción; no se ha revisado por otra persona
+- Estado final: parcial
+- Rama, commit final y PR: ver PR
+- Próximo paso exacto y responsable: importación Excel de EMPLEADOS (ESS-IMPORT-001/002) con staging, validación EST V/C y publicación atómica
