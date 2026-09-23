@@ -7,7 +7,7 @@ Estados: BACKLOG, READY, IN_PROGRESS, IN_REVIEW, BLOCKED, DONE.
 | ESS-AUTH-001 | Alta administrativa, clave temporal Argon2id, cambio obligatorio (3.1) | 1 | — | — | — | — | BACKLOG |
 | ESS-AUTH-002 | Verificación de correo por secreto de un solo uso vía SMTP (3.1) | 1 | — | — | — | — | BACKLOG |
 | ESS-AUTH-003 | Login, sesiones revocables, CSRF, reautenticación (3.1) | 1 | — | — | — | — | BACKLOG |
-| ESS-AUTH-004 | Roles con alcance y vigencia; autorización por N_IDE (3.1, 5) | 1 | — | — | — | — | BACKLOG |
+| ESS-AUTH-004 | Roles con alcance y vigencia; autorización por N_IDE (3.1, 5) | 1 | — | PR #7 y ESS-ORG-002 | admin-accounts.e2e.spec.ts, org.e2e.spec.ts | — | IN_REVIEW |
 | ESS-AUD-001 | Auditoría sin datos sensibles (3.2, 5) | 1 | — | — | — | — | BACKLOG |
 | ESS-ORG-001 | CRUD Company/Area/CostCenter/JobPosition/ContractType, jefes con vigencia (9.6) | 2 | — | PR ESS-ORG-001 | catalogs.e2e.spec.ts | — | IN_REVIEW (parcial: empresas CRUD e importación; faltan CRUD de entradas y jefes) |
 | ESS-IMPORT-001 | Importación Excel por lotes, staging, idempotencia, reversión (9.2-9.3) | 2 | — | — | — | — | BLOCKED (datos origen) |
@@ -23,3 +23,4 @@ Estados: BACKLOG, READY, IN_PROGRESS, IN_REVIEW, BLOCKED, DONE.
 | ESS-HOL-001 | Calendario de festivos: API, Excel, CRUD, respaldo local (6.2.1) | 4 | — | — | — | — | BACKLOG |
 | ESS-PERM-001 | Permisos por tipo, sin consumir DISP (6.2) | 4 | — | — | — | — | BACKLOG |
 | ESS-OPS-001 | Endurecimiento, respaldo/restauración, despliegue, monitoreo (8, 11) | 5 | — | — | — | — | BACKLOG |
+| ESS-ORG-002 | Asignación de jefe de área con vigencia e historial (5, 9.1) | 2 | — | PR ESS-ORG-002 | org.e2e.spec.ts | — | IN_REVIEW |
