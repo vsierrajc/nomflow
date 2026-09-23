@@ -28,6 +28,7 @@ jobs:
       - run: npm run audit:deps
   secrets:
     runs-on: ubuntu-latest
+    permissions: { contents: read, pull-requests: read }
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -35,7 +36,7 @@ jobs:
         env: { GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
   codeql:
     runs-on: ubuntu-latest
-    permissions: { contents: read, security-events: write }
+    permissions: { contents: read, actions: read, security-events: write }
     steps:
       - uses: actions/checkout@v4
       - uses: github/codeql-action/init@v3
