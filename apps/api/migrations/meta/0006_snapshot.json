@@ -369,12 +369,8 @@
           "name": "catalog_entry_history_entry_id_catalog_entries_id_fk",
           "tableFrom": "catalog_entry_history",
           "tableTo": "catalog_entries",
-          "columnsFrom": [
-            "entry_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["entry_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -718,12 +714,8 @@
           "name": "import_batch_rows_batch_id_import_batches_id_fk",
           "tableFrom": "import_batch_rows",
           "tableTo": "import_batches",
-          "columnsFrom": [
-            "batch_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["batch_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -731,10 +723,7 @@
       "compositePrimaryKeys": {
         "import_batch_rows_batch_id_row_number_pk": {
           "name": "import_batch_rows_batch_id_row_number_pk",
-          "columns": [
-            "batch_id",
-            "row_number"
-          ]
+          "columns": ["batch_id", "row_number"]
         }
       },
       "uniqueConstraints": {},
@@ -879,12 +868,8 @@
           "name": "import_batches_created_by_accounts_id_fk",
           "tableFrom": "import_batches",
           "tableTo": "accounts",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -892,12 +877,8 @@
           "name": "import_batches_confirmed_by_accounts_id_fk",
           "tableFrom": "import_batches",
           "tableTo": "accounts",
-          "columnsFrom": [
-            "confirmed_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["confirmed_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -979,12 +960,8 @@
           "name": "role_assignments_account_id_accounts_id_fk",
           "tableFrom": "role_assignments",
           "tableTo": "accounts",
-          "columnsFrom": [
-            "account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1100,12 +1077,8 @@
           "name": "sessions_account_id_accounts_id_fk",
           "tableFrom": "sessions",
           "tableTo": "accounts",
-          "columnsFrom": [
-            "account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1194,12 +1167,8 @@
           "name": "verification_codes_account_id_accounts_id_fk",
           "tableFrom": "verification_codes",
           "tableTo": "accounts",
-          "columnsFrom": [
-            "account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1215,42 +1184,22 @@
     "public.account_status": {
       "name": "account_status",
       "schema": "public",
-      "values": [
-        "PENDIENTE_VERIFICACION",
-        "ACTIVA",
-        "BLOQUEADA"
-      ]
+      "values": ["PENDIENTE_VERIFICACION", "ACTIVA", "BLOQUEADA"]
     },
     "public.catalog_type": {
       "name": "catalog_type",
       "schema": "public",
-      "values": [
-        "AREA",
-        "CCOSTO",
-        "CARGO",
-        "TIPO_CONTRATO"
-      ]
+      "values": ["AREA", "CCOSTO", "CARGO", "TIPO_CONTRATO"]
     },
     "public.employment_status": {
       "name": "employment_status",
       "schema": "public",
-      "values": [
-        "V",
-        "C"
-      ]
+      "values": ["V", "C"]
     },
     "public.import_status": {
       "name": "import_status",
       "schema": "public",
-      "values": [
-        "RECIBIDO",
-        "VALIDANDO",
-        "OBSERVADO",
-        "LISTO",
-        "APLICANDO",
-        "APLICADO",
-        "FALLIDO"
-      ]
+      "values": ["RECIBIDO", "VALIDANDO", "OBSERVADO", "LISTO", "APLICANDO", "APLICADO", "FALLIDO"]
     },
     "public.role_code": {
       "name": "role_code",

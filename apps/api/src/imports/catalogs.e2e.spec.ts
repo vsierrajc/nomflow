@@ -135,15 +135,13 @@ describe.skipIf(!url)('empresas y catálogos organizacionales (HTTP + PostgreSQL
       await db
         .insert(employeeSnapshots)
         .values({ nIde: 'E1', nCont: '1', email: 'e1@x.co', est: 'V' });
-      await db
-        .insert(accounts)
-        .values({
-          nIde: 'E1',
-          email: 'e1@x.co',
-          passwordHash: await hashPassword(PASSWORD),
-          status: 'ACTIVA',
-          mustChangePassword: false,
-        });
+      await db.insert(accounts).values({
+        nIde: 'E1',
+        email: 'e1@x.co',
+        passwordHash: await hashPassword(PASSWORD),
+        status: 'ACTIVA',
+        mustChangePassword: false,
+      });
       const l = await request(srv())
         .post('/auth/login')
         .send({ email: 'e1@x.co', password: PASSWORD });
