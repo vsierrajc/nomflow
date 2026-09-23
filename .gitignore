@@ -45,3 +45,8 @@ storage/
 *.pem
 *.key
 *.p12
+
+# Next.js
+next-env.d.ts
+tsconfig.tsbuildinfo
+.next/

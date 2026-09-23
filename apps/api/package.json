@@ -1,0 +1,24 @@
+{
+  "name": "@nomflow/api",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/main.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.2.6",
+    "@nestjs/core": "^11.2.6",
+    "@nestjs/platform-express": "^11.2.6",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@swc/core": "^1.7.0",
+    "@types/node": "^20.14.0",
+    "unplugin-swc": "^2.0.0",
+    "vitest": "^4.1.11"
+  }
+}
