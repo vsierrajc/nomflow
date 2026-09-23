@@ -1,7 +1,8 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, ne, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
-import { accounts, auditLogs, employeeSnapshots } from '../db/schema';
+import { accounts, auditLogs, employeeSnapshots, sessions } from '../db/schema';
 import { hashPassword, verifyPassword } from '../accounts/password.service';
+import { MIN_PASSWORD_LENGTH } from '../accounts/verification.service';
 import { hasActiveRole } from './roles';
 import { createSession, markReauthenticated, type SessionMeta } from './session.service';
 
@@ -114,4 +115,68 @@ export async function reauthenticate(
   }
   await markReauthenticated(db, sessionId);
   await audit(db, accountId, 'REAUTH', 'SUCCESS');
+}
+
+export type ChangePasswordFailure = 'INVALID_CREDENTIALS' | 'ACCOUNT_LOCKED' | 'WEAK_PASSWORD';
+
+export class ChangePasswordError extends Error {
+  constructor(readonly reason: ChangePasswordFailure) {
+    super(reason);
+  }
+}
+
+export async function changePassword(
+  db: Db,
+  accountId: string,
+  sessionId: string,
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  const reject = async (reason: ChangePasswordFailure): Promise<never> => {
+    await audit(db, accountId, 'PASSWORD_CHANGE', reason);
+    throw new ChangePasswordError(reason);
+  };
+  const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId));
+  if (!account || (account.lockedUntil && account.lockedUntil.getTime() > Date.now())) {
+    return reject('ACCOUNT_LOCKED');
+  }
+  if (!(await verifyPassword(account.passwordHash, currentPassword))) {
+    await db
+      .update(accounts)
+      .set({
+        failedAttempts: sql`${accounts.failedAttempts} + 1`,
+        lockedUntil: sql`CASE WHEN ${accounts.failedAttempts} + 1 >= ${MAX_FAILED_ATTEMPTS}
+          THEN now() + make_interval(mins => ${LOCK_MINUTES}) ELSE ${accounts.lockedUntil} END`,
+      })
+      .where(eq(accounts.id, accountId));
+    return reject('INVALID_CREDENTIALS');
+  }
+  if (newPassword.length < MIN_PASSWORD_LENGTH || newPassword === currentPassword) {
+    return reject('WEAK_PASSWORD');
+  }
+
+  const newHash = await hashPassword(newPassword);
+  await db.transaction(async (tx) => {
+    await tx
+      .update(accounts)
+      .set({
+        passwordHash: newHash,
+        mustChangePassword: false,
+        failedAttempts: 0,
+        lockedUntil: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(accounts.id, accountId));
+    await tx
+      .update(sessions)
+      .set({ revokedAt: new Date() })
+      .where(
+        and(
+          eq(sessions.accountId, accountId),
+          ne(sessions.id, sessionId),
+          isNull(sessions.revokedAt),
+        ),
+      );
+  });
+  await audit(db, accountId, 'PASSWORD_CHANGE', 'SUCCESS');
 }

@@ -21,7 +21,13 @@ import {
   resendVerificationCode,
 } from '../accounts/verification.service';
 import { MAILER, type Mailer } from '../mail/mailer';
-import { LoginError, login, reauthenticate } from './auth.service';
+import {
+  ChangePasswordError,
+  LoginError,
+  changePassword,
+  login,
+  reauthenticate,
+} from './auth.service';
 import { SESSION_COOKIE, SessionGuard, type AuthedRequest } from './session.guard';
 import { ABSOLUTE_TIMEOUT_MS, csrfTokenFor, revokeSession } from './session.service';
 
@@ -34,6 +40,11 @@ const ActivateDto = z.object({
   email: z.string().trim().email().max(254),
   temporaryPassword: z.string().min(1).max(200),
   code: z.string().min(1).max(32),
+  newPassword: z.string().min(1).max(200),
+});
+
+const ChangePasswordDto = z.object({
+  currentPassword: z.string().min(1).max(200),
   newPassword: z.string().min(1).max(200),
 });
 
@@ -114,6 +125,32 @@ export class AuthController {
     } catch (e) {
       if (e instanceof LoginError) throw new UnauthorizedException('Credenciales inválidas');
       throw e;
+    }
+  }
+
+  @Post('change-password')
+  @HttpCode(204)
+  @UseGuards(SessionGuard)
+  async changePassword(@Body() body: unknown, @Req() req: AuthedRequest): Promise<void> {
+    const dto = ChangePasswordDto.safeParse(body);
+    if (!dto.success) throw new BadRequestException();
+    try {
+      await changePassword(
+        this.db,
+        req.auth.accountId,
+        req.auth.sessionId,
+        dto.data.currentPassword,
+        dto.data.newPassword,
+      );
+    } catch (e) {
+      if (!(e instanceof ChangePasswordError)) throw e;
+      if (e.reason === 'WEAK_PASSWORD') {
+        throw new BadRequestException({
+          code: 'WEAK_PASSWORD',
+          message: 'La clave nueva debe tener al menos 12 caracteres y ser distinta de la actual',
+        });
+      }
+      throw new UnauthorizedException('Credenciales inválidas');
     }
   }
 
