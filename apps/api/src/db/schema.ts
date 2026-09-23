@@ -260,3 +260,22 @@ export const catalogEntryHistory = pgTable(
   },
   (t) => [index('catalog_entry_history_entry_idx').on(t.entryId)],
 );
+
+export const areaManagerAssignments = pgTable(
+  'area_manager_assignments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    cEmp: text('c_emp').notNull(),
+    cArea: text('c_area').notNull(),
+    managerAccountId: uuid('manager_account_id')
+      .notNull()
+      .references(() => accounts.id),
+    validFrom: date('valid_from').notNull(),
+    validTo: date('valid_to'),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => accounts.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('area_manager_area_idx').on(t.cEmp, t.cArea)],
+);

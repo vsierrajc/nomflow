@@ -6,6 +6,7 @@ import { SessionGuard } from './auth/session.guard';
 import { DbModule } from './db/db.module';
 import { CompaniesController } from './imports/companies.controller';
 import { ImportsController } from './imports/imports.controller';
+import { OrgController } from './org/org.controller';
 import { MailModule } from './mail/mail.module';
 import { HealthController } from './health.controller';
 
@@ -17,6 +18,7 @@ import { HealthController } from './health.controller';
     AdminAccountsController,
     ImportsController,
     CompaniesController,
+    OrgController,
   ],
   providers: [SessionGuard, RolesGuard, RecentAuthGuard],
 })

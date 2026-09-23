@@ -1,0 +1,12 @@
+# Sesión: 2026-09-23 - jefes de área y estado del proyecto
+- Responsable / agente: Claude Code
+- Objetivo e incidencias: ESS-ORG-002, ESS-AUTH-004; actualizar STATUS.md tras integrar los PR #1 a #9
+- Rama y commit inicial: feat/ESS-ORG-002-jefes-de-area desde main (13645dd)
+- Cambios realizados: tabla area_manager_assignments (migración 0007); org/{roles.service,area-managers.service,org.controller}; STATUS.md reescrito; separación de la base de pruebas nomflow_test
+- Decisiones / ADR / cambios al SRS: conceder HR_ADMIN/SYSTEM_ADMIN exige SYSTEM_ADMIN (evita escalada); nadie se concede roles a sí mismo; el solape de vigencias se impide con bloqueo asesor por área dentro de la transacción; el jefe debe tener rol AREA_MANAGER de esa empresa/área que cubra el periodo y cuenta ACTIVA; resolveAreaManager devuelve null si no hay exactamente uno
+- Pruebas y evidencia: `DATABASE_URL=.../nomflow_test npm test` 91 OK (15 nuevas, incluye concurrencia y escalada de privilegios)
+- Migraciones, configuración y datos de ejemplo necesarios: empresa GA (GRALCO) y catálogos AREA/TIPO_CONTRATO cargados en la base local de desarrollo con los archivos reales; CCOSTOS y CARGOS quedan OBSERVADO
+- Bloqueos y riesgos: sin suplencias todavía (la SSD las pide); la cuenta del solicitante para 84069561 (área 10300 FINANCIERA, empresa GA) no existe hasta importar EMPLEADOS con EST = V y completar la activación por correo
+- Estado final: parcial
+- Rama, commit final y PR: ver PR
+- Próximo paso exacto y responsable: crear la cuenta de 84069561, activarla, conceder AREA_MANAGER (GA/10300) y asignarla; después suplencias

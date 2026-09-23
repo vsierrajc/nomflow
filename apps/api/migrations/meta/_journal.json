@@ -50,6 +50,13 @@
       "when": 1790198073353,
       "tag": "0006_catalogos_organizacionales",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790199153083,
+      "tag": "0007_jefes_de_area",
+      "breakpoints": true
     }
   ]
 }
