@@ -50,3 +50,6 @@ storage/
 next-env.d.ts
 tsconfig.tsbuildinfo
 .next/
+
+# Herramientas locales
+graphify-out/
