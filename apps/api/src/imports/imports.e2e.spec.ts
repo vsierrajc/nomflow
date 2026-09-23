@@ -248,15 +248,13 @@ describe.skipIf(!url)('importación de EMPLEADOS (HTTP + PostgreSQL)', () => {
     await db
       .insert(employeeSnapshots)
       .values({ nIde: '7777', nCont: '1', email: 'ausente@prueba.co', est: 'V' });
-    await db
-      .insert(accounts)
-      .values({
-        nIde: '1000000001',
-        email: 'ana@prueba.co',
-        passwordHash: await hashPassword(PASSWORD),
-        status: 'ACTIVA',
-        mustChangePassword: false,
-      });
+    await db.insert(accounts).values({
+      nIde: '1000000001',
+      email: 'ana@prueba.co',
+      passwordHash: await hashPassword(PASSWORD),
+      status: 'ACTIVA',
+      mustChangePassword: false,
+    });
     const emp = await login('ana@prueba.co');
     expect(
       (await request(app.getHttpServer()).get('/auth/me').set('Cookie', emp.cookie)).status,
@@ -330,15 +328,13 @@ describe.skipIf(!url)('importación de EMPLEADOS (HTTP + PostgreSQL)', () => {
     await db
       .insert(employeeSnapshots)
       .values({ nIde: 'E2', nCont: '1', email: 'e2@x.co', est: 'V' });
-    await db
-      .insert(accounts)
-      .values({
-        nIde: 'E2',
-        email: 'e2@x.co',
-        passwordHash: await hashPassword(PASSWORD),
-        status: 'ACTIVA',
-        mustChangePassword: false,
-      });
+    await db.insert(accounts).values({
+      nIde: 'E2',
+      email: 'e2@x.co',
+      passwordHash: await hashPassword(PASSWORD),
+      status: 'ACTIVA',
+      mustChangePassword: false,
+    });
     expect((await upload(buf, {}, await login('e2@x.co'))).status).toBe(403);
     expect((await upload(buf, {}, { cookie, csrf: 'x'.repeat(64) })).status).toBe(403);
     await db.execute(sql`UPDATE sessions SET created_at = now() - interval '11 minutes'`);
