@@ -8,7 +8,14 @@ import { hashPassword } from '../accounts/password.service';
 import { AppModule } from '../app.module';
 import { createDb } from '../db/client';
 import { runMigrations } from '../db/migrate';
-import { accounts, employeeSnapshots, importBatches, roleAssignments } from '../db/schema';
+import {
+  accounts,
+  catalogEntries,
+  companies,
+  employeeSnapshots,
+  importBatches,
+  roleAssignments,
+} from '../db/schema';
 import { EMPLOYEE_COLUMNS } from './employees.parser';
 
 const url = process.env.DATABASE_URL;
@@ -85,8 +92,18 @@ describe.skipIf(!url)('importación de EMPLEADOS (HTTP + PostgreSQL)', () => {
 
   beforeEach(async () => {
     await db.execute(
-      sql`TRUNCATE audit_logs, import_batch_rows, import_batches, verification_codes, sessions, role_assignments, accounts, employee_snapshots CASCADE`,
+      sql`TRUNCATE audit_logs, catalog_entry_history, catalog_entries, companies, import_batch_rows, import_batches, verification_codes, sessions, role_assignments, accounts, employee_snapshots CASCADE`,
     );
+    await db
+      .insert(companies)
+      .values({ cEmp: '01', nombre: 'Empresa Uno', sigla: 'EU', direccion: 'Calle 1' });
+    await db.insert(catalogEntries).values([
+      { type: 'AREA', cEmp: '01', code: 'A1', name: 'Area Uno' },
+      { type: 'CCOSTO', cEmp: '01', code: 'CC1', name: 'Costo Uno' },
+      { type: 'CARGO', cEmp: '01', code: 'CA1', name: 'Analista' },
+      { type: 'TIPO_CONTRATO', cEmp: '', code: '01', name: 'Indefinido' },
+      { type: 'TIPO_CONTRATO', cEmp: '', code: '02', name: 'Fijo' },
+    ]);
     const [a] = await db
       .insert(accounts)
       .values({

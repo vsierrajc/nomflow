@@ -1,0 +1,12 @@
+# Sesión: 2026-09-23 - catálogos organizacionales
+- Responsable / agente: Claude Code
+- Objetivo e incidencias: ESS-ORG-001 (parcial), ESS-IMPORT-001
+- Rama y commit inicial: feat/ESS-ORG-001-catalogos sobre feat/ESS-IMPORT-002-empleados (PR #8)
+- Cambios realizados: tablas companies, catalog_entries, catalog_entry_history (migración 0006); imports/{catalog.parser,catalogs.service,companies.controller}; el controlador de importaciones despacha aplicar según el tipo de lote; EMPLEADOS se valida contra empresa y catálogos (también al aplicar)
+- Decisiones / ADR / cambios al SRS: una tabla genérica catalog_entries (tipo, empresa, código) en lugar de una tabla por catálogo, para reutilizar la importación; TIPO_CONTRATO es global (empresa vacía) y rechaza códigos numéricos; código repetido con descripción distinta detiene el lote, con la misma descripción se conserva una fila; las ausencias del archivo se reportan y no desactivan; el nombre anterior queda en catalog_entry_history; JEFE_AREA se acepta y se ignora; la descripción de EMPLEADOS distinta del catálogo es advertencia, el código inexistente es error
+- Pruebas y evidencia: `DATABASE_URL=... npm test` 76 OK (16 nuevas). Con los archivos reales (no versionados, solo agregados en salida): AREAS 29 códigos válidos; CCOSTOS 25 filas/24 códigos con 1 conflictivo (lote detenido); CARGOS 167 filas/148 códigos con 17 conflictivos (lote detenido); todos los códigos de EMPLEADOS existen, pero 22 empleados usan centro de costo ambiguo y 80 cargo ambiguo; C_EMP = GA
+- Migraciones, configuración y datos de ejemplo necesarios: crear la empresa GA antes de importar catálogos por empresa
+- Bloqueos y riesgos: no se puede publicar CCOSTOS ni CARGOS hasta corregir el origen o definir clave oficial; falta tipo_contrato.xlsx; faltan datos de la empresa GA (nombre, sigla, dirección); sin CRUD de entradas individuales ni asignación de jefes de área (AreaManagerAssignment); las filas de staging de catálogos no contienen datos personales
+- Estado final: parcial
+- Rama, commit final y PR: ver PR
+- Próximo paso exacto y responsable: Gestión Humana corrige CCOSTOS/CARGOS/EST y entrega tipo_contrato.xlsx y datos de GA; desarrollo: AreaManagerAssignment y CRUD de entradas

@@ -211,3 +211,52 @@ export const importBatchRows = pgTable(
   },
   (t) => [primaryKey({ columns: [t.batchId, t.rowNumber] })],
 );
+
+export const catalogType = pgEnum('catalog_type', ['AREA', 'CCOSTO', 'CARGO', 'TIPO_CONTRATO']);
+
+export const companies = pgTable(
+  'companies',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    cEmp: text('c_emp').notNull(),
+    nombre: text('nombre').notNull(),
+    sigla: text('sigla').notNull(),
+    direccion: text('direccion').notNull(),
+    active: boolean('active').notNull().default(true),
+    version: integer('version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('companies_c_emp_uq').on(t.cEmp)],
+);
+
+export const catalogEntries = pgTable(
+  'catalog_entries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    type: catalogType('type').notNull(),
+    cEmp: text('c_emp').notNull().default(''),
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    active: boolean('active').notNull().default(true),
+    batchId: text('batch_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('catalog_entries_key_uq').on(t.type, t.cEmp, t.code)],
+);
+
+export const catalogEntryHistory = pgTable(
+  'catalog_entry_history',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    entryId: uuid('entry_id')
+      .notNull()
+      .references(() => catalogEntries.id),
+    oldName: text('old_name').notNull(),
+    newName: text('new_name').notNull(),
+    batchId: text('batch_id'),
+    changedAt: timestamp('changed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('catalog_entry_history_entry_idx').on(t.entryId)],
+);
