@@ -24,3 +24,4 @@ Estados: BACKLOG, READY, IN_PROGRESS, IN_REVIEW, BLOCKED, DONE.
 | ESS-PERM-001 | Permisos por tipo, sin consumir DISP (6.2) | 4 | — | — | — | — | BACKLOG |
 | ESS-OPS-001 | Endurecimiento, respaldo/restauración, despliegue, monitoreo (8, 11) | 5 | — | — | — | — | BACKLOG |
 | ESS-ORG-002 | Asignación de jefe de área con vigencia e historial (5, 9.1) | 2 | — | PR ESS-ORG-002 | org.e2e.spec.ts | — | IN_REVIEW |
+| ESS-AUTH-006 | Cambio de clave por el propio usuario (3.1) | 1 | — | PR ESS-AUTH-006 | change-password.e2e.spec.ts | — | IN_REVIEW |
