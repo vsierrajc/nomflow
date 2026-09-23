@@ -15,6 +15,13 @@
       "when": 1790193747927,
       "tag": "0001_employee_snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790193971727,
+      "tag": "0002_sesiones_login",
+      "breakpoints": true
     }
   ]
 }
