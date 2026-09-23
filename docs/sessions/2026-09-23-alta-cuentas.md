@@ -1,0 +1,12 @@
+# Sesión: 2026-09-23 - alta de cuentas
+- Responsable / agente: Claude Code
+- Objetivo e incidencias: ESS-AUTH-001
+- Rama y commit inicial: feat/ESS-AUTH-001-alta sobre feat/ESS-AUTH-001-cuentas
+- Cambios realizados: tabla employee_snapshots (un contrato V por N_IDE), accounts.service.createAccountByAdmin, migración 0001, pruebas de integración
+- Decisiones / ADR / cambios al SRS: sin endpoint HTTP hasta tener sesiones (evitar ruta administrativa sin autenticación)
+- Pruebas y evidencia: `DATABASE_URL=... npm test` 15 OK (PostgreSQL 16); typecheck y lint OK
+- Migraciones, configuración y datos de ejemplo necesarios: docker compose up -d postgres
+- Bloqueos y riesgos: la clave temporal se devuelve al llamador; la entrega por canal separado queda para el controlador; sin verificación SMTP aún
+- Estado final: parcial
+- Rama, commit final y PR: ver PR
+- Próximo paso exacto y responsable: login con sesión (cookies HttpOnly, CSRF), luego endpoint de alta y verificación SMTP

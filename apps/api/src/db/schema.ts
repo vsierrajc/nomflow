@@ -27,6 +27,27 @@ export const roleCode = pgEnum('role_code', [
   'SYSTEM_ADMIN',
 ]);
 
+export const employmentStatus = pgEnum('employment_status', ['V', 'C']);
+
+export const employeeSnapshots = pgTable(
+  'employee_snapshots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    importBatchId: text('import_batch_id'),
+    nIde: text('n_ide').notNull(),
+    nCont: text('n_cont').notNull(),
+    email: text('email').notNull(),
+    est: employmentStatus('est').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('employee_snapshots_contract_uq').on(t.nIde, t.nCont),
+    uniqueIndex('employee_snapshots_one_active_uq')
+      .on(t.nIde)
+      .where(sql`${t.est} = 'V'`),
+  ],
+);
+
 export const accounts = pgTable(
   'accounts',
   {
