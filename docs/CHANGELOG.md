@@ -26,3 +26,4 @@
 - ESS-TAX-001: certificados de retención por carga masiva desde carpeta (`TAX_CERT_INBOX_DIR`), versionados, con consulta y descarga del propio empleado y pantalla administrativa; migración 0015.
 - CI: CodeQL sin Code scanning (repositorio privado): `upload: never`, SARIF como artefacto y el job falla si hay hallazgos; ya no es informativo.
 - Repositorio público: Code scanning con CodeQL del workflow (la configuración predeterminada de GitHub queda desactivada para no chocar), escaneo de secretos con protección de push y alertas de Dependabot activados.
+- CI: el job de CodeQL ignora las alertas descartadas como falso positivo en Security (2 descartadas: hash del token de sesión y cookie de sesión).
