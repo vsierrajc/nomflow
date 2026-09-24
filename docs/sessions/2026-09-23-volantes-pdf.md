@@ -1,0 +1,12 @@
+# Sesión: 2026-09-23 - volantes de pago en PDF
+- Responsable / agente: Claude Code
+- Objetivo e incidencias: ESS-PAY-001 (importación NOMINA y volantes PDF)
+- Rama y commit inicial: feat/ESS-PAY-001-volantes desde main (9b7d71a)
+- Cambios realizados: tablas payroll_versions, payroll_lines, payroll_download_audit y companies.payroll_default_mode (migración 0008); payroll/{decimal,nomina.parser,payroll-import.service,voucher.service,voucher.pdf,me-payroll.controller}; endpoints POST /admin/imports/payroll, GET /admin/imports/payroll/versions, GET /me/payroll y /me/payroll/:per/:nLiq/:contrato/pdf; página web /volantes; pruebas
+- Decisiones / ADR / cambios al SRS: aritmética decimal exacta con BigInt (nunca Float); una versión PUBLICADA por (PER, N_LIQ) con índice único parcial y bloqueo asesor; mismo contenido canónico (independiente del orden) = 409 SAME_CONTENT; SLRIO distintos en un volante = lote OBSERVADO (no se elige uno); el empleado se identifica solo por la sesión (la URL no lleva N_IDE); descargas auditadas sin importes; modo por defecto por empresa (ENTERO_SUPERIOR); cantidad sin unidad; pdfkit con Helvetica (sin logo aún)
+- Pruebas y evidencia: `DATABASE_URL=.../nomflow_test npm test` 128 OK (27 de nómina y volantes, 4 de decimales); `npm run test:e2e` 21 OK (5 nuevas: lista, modo, descarga de PDF válido, ajeno 404, axe). Verificación visual: PDF renderizado a imagen; se corrigieron un solape de conceptos largos y las notas del pie; importes revisados a mano en ambos modos
+- Migraciones, configuración y datos de ejemplo necesarios: ninguno nuevo; sin muestra real de NOMINA (todo con datos sintéticos)
+- Bloqueos y riesgos: falta el archivo real o anonimizado de NOMINA (decimales, reversos negativos, SLRIO); logo de empresa (S3) sin implementar; sin catálogo de conceptos con unidad (CANT sin unidad); el acceso administrativo a volantes ajenos con motivo no existe; retiro de publicación pendiente; filas de staging con datos salariales sin política de retención; pdfjs-dist fijado en 5.5.207 (versiones posteriores con vulnerabilidad alta) solo para pruebas
+- Estado final: parcial
+- Rama, commit final y PR: ver PR
+- Próximo paso exacto y responsable: Gestión Humana entrega una muestra anonimizada de NOMINA; luego certificados tributarios y laborales (ESS-TAX-001, ESS-CERT-001/002)

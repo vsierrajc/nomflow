@@ -184,3 +184,43 @@ a {
 .muted {
   color: var(--muted);
 }
+
+.modes {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.modes legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  font-weight: 400;
+}
+
+.choice input {
+  width: auto;
+}
+
+.vouchers {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.vouchers li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}

@@ -76,7 +76,8 @@ export async function seedActiveAccount(
 export async function resetDatabase(): Promise<void> {
   await withDb((c) =>
     c.query(
-      `truncate audit_logs, verification_codes, sessions, role_assignments, area_manager_assignments,
+      `truncate audit_logs, payroll_download_audit, payroll_lines, payroll_versions, import_batch_rows,
+       import_batches, companies, verification_codes, sessions, role_assignments, area_manager_assignments,
        accounts, employee_snapshots cascade`,
     ),
   );
@@ -126,4 +127,61 @@ export async function adminCreateAccount(nIde: string): Promise<{ temporaryPassw
   });
   if (res.status !== 201) throw new Error(`alta falló: ${res.status}`);
   return (await res.json()) as { temporaryPassword: string };
+}
+
+let periodCounter = 0;
+export function nextPeriod(): string {
+  const n = periodCounter++ + Math.floor(Math.random() * 400);
+  return `${2100 + Math.floor(n / 12)}${String((n % 12) + 1).padStart(2, '0')}`;
+}
+
+export interface SeedPayLine {
+  cCon: string;
+  concepto: string;
+  dev?: string;
+  ded?: string;
+  cant?: string;
+}
+
+export async function seedPayroll(
+  u: SeedUser,
+  per: string,
+  lines: SeedPayLine[],
+  contrato = '1',
+): Promise<void> {
+  await withDb(async (c) => {
+    await c.query(
+      `insert into companies (c_emp, nombre, sigla, direccion) values ('GA', 'Grupo Alimentario del Atlantico S.A.', 'GRALCO', 'CL 1 38 121') on conflict do nothing`,
+    );
+    const admin = await c.query(`select id from accounts where email = $1`, [ADMIN.email]);
+    const batch = await c.query(
+      `insert into import_batches (type, status, file_hash, source_system, responsible, created_by, row_count)
+       values ('NOMINA', 'APLICADO', $1, 'e2e', 'e2e', $2, $3) returning id`,
+      [uid() + uid(), admin.rows[0].id, lines.length],
+    );
+    const version = await c.query(
+      `insert into payroll_versions (per, n_liq, version, status, content_hash, batch_id, row_count, total_dev, total_ded)
+       values ($1, 1, 1, 'PUBLICADA', $2, $3, $4, 0, 0) returning id`,
+      [per, uid() + uid(), batch.rows[0].id, lines.length],
+    );
+    let i = 0;
+    for (const l of lines) {
+      await c.query(
+        `insert into payroll_lines (version_id, row_index, n_ide, contrato, c_con, concepto, slrio, cant, ded, dev, nombre_origen)
+         values ($1, $2, $3, $4, $5, $6, 1500000.5, $7, $8, $9, $10)`,
+        [
+          version.rows[0].id,
+          i++,
+          u.nIde,
+          contrato,
+          l.cCon,
+          l.concepto,
+          l.cant ?? null,
+          l.ded ?? null,
+          l.dev ?? null,
+          u.name,
+        ],
+      );
+    }
+  });
 }
