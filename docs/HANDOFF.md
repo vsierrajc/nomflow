@@ -94,7 +94,8 @@ Interfaz de módulos futuros (solicitudes, aprobaciones, documentos): ver `docs/
 8. `pdfjs-dist` está fijado en `5.5.207` (solo pruebas) porque las versiones ≥ 5.6.83 y < 6.2.108 tienen una vulnerabilidad alta. `exceljs` arrastra un aviso moderado de `uuid`.
 9. `pkill -f` puede matar el propio shell si el patrón aparece en la orden; usar los archivos PID de `.run/` (`scripts/stack.sh`).
 10. Usar `@node-rs/argon2` (binarios precompilados); `argon2` necesita compilar y aquí falta `make`.
-11. Integrar PR sin revisión de otra persona lo bloquea el clasificador de permisos salvo instrucción explícita del usuario y regla de permisos.
+11. **`overrides` de npm**: con un lockfile existente npm no re-resuelve versiones ya satisfechas; hay que regenerar el lockfile (`rm -rf package-lock.json node_modules && npm install`) y usar la forma anidada (`"exceljs": {"uuid": "11.1.1"}`) o versiones exactas. Dependabot solo actualiza dependencias **directas**; las transitivas (uuid por exceljs, esbuild por drizzle-kit) se fijan con `overrides`. No exportar `LD_LIBRARY_PATH` de Chromium al correr las pruebas de API: rompe `@napi-rs/canvas`.
+12. Integrar PR sin revisión de otra persona lo bloquea el clasificador de permisos salvo instrucción explícita del usuario y regla de permisos.
 
 ## 9. Cierre de una tarea (definición de terminado)
 
