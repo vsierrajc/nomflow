@@ -59,7 +59,7 @@ Interfaz de módulos futuros (solicitudes, aprobaciones, documentos): ver `docs/
 - `PROG_VAC`: códigos de `EST`, fecha de corte y ejemplos con períodos parciales.
 - Festivos: credencial de la API, región por empresa y quién aprueba diferencias.
 - Certificados: firmantes y evidencia de firma.
-- Operación: SMTP de producción (dominio, TLS), almacenamiento, respaldos, monitoreo y suplencias.
+- Operación: el SMTP se configura en `/admin/correo`; el servidor interno (192.168.1.44:25) no tiene TLS, así que los correos viajan sin cifrar dentro de la red hasta habilitar STARTTLS. Pendiente: almacenamiento, respaldos, monitoreo y suplencias.
 - **Retención** de: filas de preparación de importaciones (contienen datos personales y salarios), auditoría de peticiones (crece rápido) y sesiones/códigos vencidos (nada los purga hoy).
 - Gobierno: activar protección de `main`, exigir revisión de otra persona (ningún PR de la cadena #1 a #20 la tuvo). CodeQL ya es un control real: sube a Code scanning (pestaña Security), guarda el SARIF y falla por hallazgos. Con el repositorio público quedaron activos el escaneo de secretos con protección de push y las alertas de Dependabot.
 
@@ -97,7 +97,8 @@ Interfaz de módulos futuros (solicitudes, aprobaciones, documentos): ver `docs/
 11. **`overrides` de npm**: con un lockfile existente npm no re-resuelve versiones ya satisfechas; hay que regenerar el lockfile (`rm -rf package-lock.json node_modules && npm install`) y usar la forma anidada (`"exceljs": {"uuid": "11.1.1"}`) o versiones exactas. Dependabot solo actualiza dependencias **directas**; las transitivas (uuid por exceljs, esbuild por drizzle-kit) se fijan con `overrides`. No exportar `LD_LIBRARY_PATH` de Chromium al correr las pruebas de API: rompe `@napi-rs/canvas`.
 12. **Pruebas de navegador y cierre de sesión**: `Cerrar sesión` es asíncrono (pide `/auth/logout` y luego redirige a `/login`). Una prueba que abra `/login` sin esperar `toHaveURL(/\/login$/)` compite con esa redirección y falla de forma intermitente (fue la causa de `acceso.spec` «cambio de clave»).
 13. **Pruebas que se repiten sobre la misma base**: la base `nomflow_test` persiste entre ejecuciones locales. Una prueba que elija un año o dependa de una tabla de fila única (`holiday_api_settings`) debe elegir un dato libre o partir de cero; verificar con `--repeat-each`.
-14. Integrar PR sin revisión de otra persona lo bloquea el clasificador de permisos salvo instrucción explícita del usuario y regla de permisos.
+14. **Migraciones aún no integradas**: si regeneras una migración que ya se aplicó en `nomflow_test`, la base de pruebas queda con la versión vieja (`CREATE TABLE` falla por «ya existe»). Solucionar quitando la tabla y su fila de `drizzle.__drizzle_migrations` en la base de pruebas (solo esa base).
+15. Integrar PR sin revisión de otra persona lo bloquea el clasificador de permisos salvo instrucción explícita del usuario y regla de permisos.
 
 ## 9. Cierre de una tarea (definición de terminado)
 

@@ -19,7 +19,7 @@ import {
   roleAssignments,
 } from '../db/schema';
 import { resetAutoLoadState } from './holiday-api.service';
-import { open, seal } from './secret-box';
+import { open, seal } from '../security/secret-box';
 
 const url = process.env.DATABASE_URL;
 const PASSWORD = 'Clave-Definitiva-1';

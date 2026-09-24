@@ -765,3 +765,24 @@ export const permitActions = pgTable(
   },
   (t) => [index('permit_actions_request_idx').on(t.requestId, t.at)],
 );
+
+/** Configuración del correo saliente (una sola fila). Si no existe, se usan las variables SMTP_*. */
+export const mailSettings = pgTable('mail_settings', {
+  id: integer('id').primaryKey().default(1),
+  host: text('host').notNull(),
+  port: integer('port').notNull(),
+  /** SMTPS: TLS desde el inicio de la conexión (normalmente puerto 465). */
+  secure: boolean('secure').notNull().default(false),
+  /** Exigir STARTTLS: si el servidor no lo ofrece, no se envía. */
+  requireTls: boolean('require_tls').notNull().default(true),
+  username: text('username'),
+  passwordEnc: text('password_enc'),
+  /** Dirección de correo de origen (From). */
+  fromEmail: text('from_email').notNull(),
+  /** Nombre que acompaña a la dirección; opcional. */
+  fromName: text('from_name'),
+  updatedBy: uuid('updated_by').references(() => accounts.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  lastTestAt: timestamp('last_test_at', { withTimezone: true }),
+  lastTestStatus: text('last_test_status'),
+});
