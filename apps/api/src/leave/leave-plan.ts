@@ -9,6 +9,7 @@ import {
   yearsNeeded,
   type LeaveDates,
 } from './business-days';
+import { ensureHolidayYears } from './holiday-api.service';
 import { publishedHolidays } from './holidays.service';
 
 export type PlanErrorCode =
@@ -113,4 +114,20 @@ export async function planLeave(
     if (e instanceof LeaveCalcError) throw new PlanError(e.code);
     throw e;
   }
+}
+
+/**
+ * Carga, si hace falta y está configurado el servicio, los calendarios de los años que cubre el
+ * cálculo. Va antes de abrir cualquier transacción: hace una llamada a un servicio externo.
+ */
+export async function prepareCalendars(
+  db: Db,
+  requester: string,
+  start: string,
+  allocations: Allocation[],
+): Promise<void> {
+  if (!isValidIsoDate(start)) return;
+  const total = allocations.reduce((sum, a) => sum + (Number.isInteger(a.days) ? a.days : 0), 0);
+  if (total < 1 || total > 90) return;
+  await ensureHolidayYears(db, requester, yearsNeeded(start, total));
 }

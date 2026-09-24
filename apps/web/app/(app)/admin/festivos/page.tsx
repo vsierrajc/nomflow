@@ -252,9 +252,11 @@ export default function HolidaysPage() {
       <section className="import-panel" aria-label="Servicio de festivos (API)">
         <h2>Servicio de festivos (API)</h2>
         <p className="muted">
-          NOMFLOW consulta el servicio desde el servidor, año por año, y deja el resultado como
-          borrador para su revisión; nunca cambia un calendario ya publicado. Si el servicio falla,
-          se sigue usando el último calendario publicado.
+          La tabla local de festivos es la que manda. Si al calcular unas vacaciones un año no tiene
+          calendario publicado, NOMFLOW lo consulta solo en el servicio y lo carga en la tabla; con
+          un año que ya tiene información no vuelve a consultar. Aquí puede además consultar un año
+          a mano: queda como borrador para revisarlo y publicarlo, y nunca cambia uno ya publicado.
+          Si el servicio falla, se sigue usando el último calendario publicado.
         </p>
         {apiError ? <Notice kind="error">{apiError}</Notice> : null}
         {apiOk ? <Notice kind="ok">{apiOk}</Notice> : null}

@@ -15,8 +15,10 @@ import {
   employeeSnapshots,
   holidayApiSettings,
   holidayCalendars,
+  progVac,
   roleAssignments,
 } from '../db/schema';
+import { resetAutoLoadState } from './holiday-api.service';
 import { open, seal } from './secret-box';
 
 const url = process.env.DATABASE_URL;
@@ -116,12 +118,13 @@ describe.skipIf(!url)('API de festivos: configuración y sincronización (HTTP +
   beforeEach(async () => {
     mode = 'ok';
     seen = [];
+    resetAutoLoadState();
     days = [
       { date: '2031-01-01', name_es: 'Año Nuevo' },
       { date: '2031-05-01', name_es: 'Día del Trabajo' },
     ];
     await db.execute(
-      sql`TRUNCATE holiday_api_settings, holidays, holiday_calendars, audit_logs, sessions, role_assignments, accounts, employee_snapshots CASCADE`,
+      sql`TRUNCATE prog_vac, holiday_api_settings, holidays, holiday_calendars, audit_logs, sessions, role_assignments, accounts, employee_snapshots CASCADE`,
     );
     hr = await person('ADM', 'adm@x.co', 'HR_ADMIN');
     emp = await person('100', 'e@x.co');
@@ -220,5 +223,110 @@ describe.skipIf(!url)('API de festivos: configuración y sincronización (HTTP +
     await call(emp, 'post', '/admin/holiday-api/sync', { year: 2031 }).expect(403);
     await request(srv()).get('/admin/holiday-api').expect(401);
     expect(await db.select().from(holidayApiSettings)).toHaveLength(0);
+  });
+
+  describe('un año sin información se carga solo; con información no se vuelve a consultar', () => {
+    let periodId = '';
+    const preview = (start: string, days = 3) =>
+      call(emp, 'post', '/me/vacations/preview', {
+        start,
+        allocations: [{ progVacId: periodId, days }],
+      });
+    const published = async (year: number) =>
+      (await db.select().from(holidayCalendars)).filter(
+        (c) => c.year === year && c.status === 'PUBLICADO',
+      );
+
+    beforeEach(async () => {
+      const [p] = await db
+        .insert(progVac)
+        .values({
+          nIde: '100',
+          nCont: '1',
+          perIni: '2025-01-01',
+          perFin: '2025-12-31',
+          dias: 15,
+          disp: 15,
+        })
+        .returning({ id: progVac.id });
+      periodId = p?.id ?? '';
+    });
+
+    it('consulta la API solo la primera vez y deja el año en la tabla local', async () => {
+      await configure().expect(200);
+      days = [{ date: '2037-03-04', name_es: 'Festivo de prueba' }];
+      const first = await preview('2037-03-02').expect(200);
+      expect(first.body.countedDays).toEqual(['2037-03-02', '2037-03-03', '2037-03-05']); // saltó el festivo
+      expect(first.body.holidaysInRange).toEqual(['2037-03-04']);
+      expect(seen).toHaveLength(1);
+      expect(seen[0]).toEqual({ auth: `Bearer ${KEY}`, url: '/api/v1/festivos?year=2037' });
+      const cal = await published(2037);
+      expect(cal).toHaveLength(1);
+      expect(cal[0]).toMatchObject({ source: 'API', status: 'PUBLICADO' });
+      expect(cal[0]?.reason).toContain('Carga automática');
+      // ya hay información: ni el cálculo ni una segunda persona vuelven a consultar
+      await preview('2037-03-09').expect(200);
+      await preview('2037-06-01', 1).expect(200);
+      expect(seen).toHaveLength(1);
+      expect(
+        (await db.select().from(auditLogs))
+          .filter((l) => l.action === 'HOLIDAY_API_AUTOLOAD')
+          .map((l) => l.result),
+      ).toEqual(['OK']);
+    });
+
+    it('un año que ya tiene calendario publicado nunca se consulta, aunque el servicio traiga otra cosa', async () => {
+      await configure().expect(200);
+      days = [{ date: '2038-01-01', name_es: 'Año Nuevo' }];
+      const first = await call(hr, 'post', '/admin/holiday-api/sync', { year: 2038 }).expect(200); // consulta de un administrador
+      await call(hr, 'post', `/admin/holidays/${first.body.id}/publish`).expect(200);
+      seen = [];
+      days = [{ date: '2038-03-03', name_es: 'Otro festivo' }];
+      await preview('2038-03-01').expect(200);
+      expect(seen).toEqual([]); // el calendario local manda
+      expect((await published(2038))[0]?.version).toBe(1);
+    });
+
+    it('sin servicio configurado no consulta nada y avisa que falta el calendario', async () => {
+      const res = await preview('2039-03-07').expect(422);
+      expect(res.body).toMatchObject({ code: 'HOLIDAY_CALENDAR_MISSING', years: [2039] });
+      expect(seen).toEqual([]);
+      await configure({ apiKey: '' }).expect(200); // URL sin clave: tampoco
+      await call(hr, 'put', '/admin/holiday-api', { url: base, clearApiKey: true }).expect(200);
+      await preview('2039-03-07').expect(422);
+      expect(seen).toEqual([]);
+    });
+
+    it('si el servicio falla no se insiste en cada petición y el cálculo sigue pidiendo el calendario', async () => {
+      await configure().expect(200);
+      mode = '500';
+      const res = await preview('2040-03-05').expect(422);
+      expect(res.body).toMatchObject({ code: 'HOLIDAY_CALENDAR_MISSING', years: [2040] });
+      expect(seen).toHaveLength(1);
+      await preview('2040-03-05').expect(422);
+      await preview('2040-03-12').expect(422);
+      expect(seen).toHaveLength(1); // enfriamiento tras el fallo
+      expect(await published(2040)).toHaveLength(0);
+      expect((await settings()).body.lastSyncStatus).toBe('UNAVAILABLE');
+      // al pasar el enfriamiento y responder el servicio, se carga
+      resetAutoLoadState();
+      mode = 'ok';
+      days = [{ date: '2040-03-06', name_es: 'Festivo' }];
+      await preview('2040-03-05').expect(200);
+      expect(await published(2040)).toHaveLength(1);
+    });
+
+    it('varias peticiones a la vez consultan el año una sola vez', async () => {
+      await configure().expect(200);
+      days = [{ date: '2041-03-06', name_es: 'Festivo' }];
+      const res = await Promise.all([
+        preview('2041-03-04'),
+        preview('2041-03-04'),
+        preview('2041-03-11'),
+      ]);
+      expect(res.map((r) => r.status)).toEqual([200, 200, 200]);
+      expect(seen).toHaveLength(1);
+      expect(await published(2041)).toHaveLength(1);
+    });
   });
 });

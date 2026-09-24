@@ -14,7 +14,7 @@ import {
 } from '../db/schema';
 import { activeCompaniesForRole, hasActiveRole } from '../auth/roles';
 import { resolveAreaManager } from '../org/area-managers.service';
-import { PlanError, hashPlan, planLeave, type Allocation } from './leave-plan';
+import { PlanError, hashPlan, planLeave, prepareCalendars, type Allocation } from './leave-plan';
 import { internalState } from './prog-vac.service';
 
 export type VacationErrorCode =
@@ -186,6 +186,7 @@ export async function submitRequest(
 ) {
   const c = await contractOf(db, accountId);
   if (!c?.cEmp || !c.cArea) throw new VacationError('NO_ACTIVE_CONTRACT');
+  await prepareCalendars(db, accountId, input.start, input.allocations);
   const plan = await planLeave(db, c, input.start, input.allocations);
   const today = new Date().toISOString().slice(0, 10);
   const manager = await resolveAreaManager(db, c.cEmp, c.cArea, today);
@@ -467,6 +468,8 @@ export async function managerPropose(
   input: { start: string; allocations: Allocation[]; reason?: string | undefined },
 ) {
   const reason = needReason(input.reason);
+  // Fuera de la transacción: puede consultar el servicio externo si falta el calendario de un año.
+  await prepareCalendars(db, actor, input.start, input.allocations);
   try {
     await db.transaction(async (tx) => {
       await lockRequest(tx, id);
