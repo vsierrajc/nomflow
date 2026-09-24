@@ -171,7 +171,7 @@ Diseño: tokens semánticos, modo claro y oscuro según el sistema, contraste WC
 
 ## API
 
-Todas las rutas (salvo `/health`, `/auth/login`, `/auth/activate` y `/auth/verify-email/resend`) exigen sesión; las de escritura exigen el encabezado `X-CSRF-Token`; las marcadas con ★ exigen además una reautenticación en los últimos 10 minutos.
+Todas las rutas (salvo `/health`, `/auth/login`, `/auth/activate` y `/auth/verify-email/resend`) exigen sesión, y las de escritura exigen el encabezado `X-CSRF-Token`. En los grupos marcados con ★, las operaciones sensibles (altas, cambios, bajas, cargas, aplicaciones y descarga de volantes ajenos) exigen además haber confirmado la clave en los últimos 10 minutos; la web pide la clave en un diálogo y reintenta.
 
 | Grupo                      | Rutas principales                                                                                                                                                               |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
