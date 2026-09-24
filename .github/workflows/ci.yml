@@ -44,7 +44,24 @@ jobs:
       - uses: actions/checkout@v4
       - uses: github/codeql-action/init@v3
         with: { languages: javascript-typescript }
+      # El repositorio es privado y no tiene GitHub Advanced Security: se analiza sin subir a
+      # Code scanning y el propio job falla si el SARIF trae hallazgos.
       - uses: github/codeql-action/analyze@v3
+        with:
+          upload: never
+          output: codeql-results
+      - name: Fallar si hay hallazgos
+        run: |
+          total=$(cat codeql-results/*.sarif | jq '[.runs[].results[]] | length')
+          echo "Hallazgos de CodeQL: $total"
+          cat codeql-results/*.sarif | jq -r '.runs[].results[] | "\(.ruleId) \(.locations[0].physicalLocation.artifactLocation.uri):\(.locations[0].physicalLocation.region.startLine)"'
+          test "$total" -eq 0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: codeql-sarif
+          path: codeql-results
+          retention-days: 30
   graph:
     runs-on: ubuntu-latest
     continue-on-error: true
