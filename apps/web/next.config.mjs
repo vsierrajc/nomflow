@@ -20,6 +20,7 @@ const securityHeaders = [
 ];
 
 export default {
+  distDir: process.env.NEXT_DIST_DIR ?? '.next',
   poweredByHeader: false,
   async rewrites() {
     return [{ source: '/api/:path*', destination: `${apiUrl}/:path*` }];

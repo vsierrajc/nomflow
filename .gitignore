@@ -56,3 +56,8 @@ graphify-out/
 
 # Procesos del stack local
 .run/
+
+# Pruebas e2e
+.next-e2e/
+test-results/
+playwright-report/
