@@ -10,6 +10,7 @@ import { runMigrations } from '../db/migrate';
 import {
   accounts,
   areaManagerAssignments,
+  companies,
   employeeSnapshots,
   holidayCalendars,
   holidays,
@@ -60,7 +61,7 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
   async function person(
     nIde: string,
     email: string,
-    roles: { role: Role; area?: boolean }[] = [],
+    roles: { role: Role; area?: boolean; company?: string }[] = [],
     cArea = '10300',
   ): Promise<Sess> {
     await db
@@ -82,6 +83,7 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
         role: r.role,
         validFrom: '2020-01-01',
         ...(r.area ? { companyCode: 'GA', areaCode: '10300' } : {}),
+        ...(r.company ? { companyCode: r.company } : {}),
       });
     return login(email, a?.id ?? '');
   }
@@ -114,12 +116,17 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
 
   beforeEach(async () => {
     await db.execute(
-      sql`TRUNCATE vacaciones, vacation_actions, vacation_revision_allocations, vacation_revisions, vacation_requests, prog_vac_adjustments, prog_vac, holidays, holiday_calendars, area_manager_assignments, audit_logs, sessions, role_assignments, accounts, employee_snapshots CASCADE`,
+      sql`TRUNCATE companies, vacaciones, vacation_actions, vacation_revision_allocations, vacation_revisions, vacation_requests, prog_vac_adjustments, prog_vac, holidays, holiday_calendars, area_manager_assignments, audit_logs, sessions, role_assignments, accounts, employee_snapshots CASCADE`,
     );
     adm = await person('ADM', 'adm@x.co', [{ role: 'HR_ADMIN' }], '99999');
     emp = await person('100', 'e@x.co');
     mgr = await person('200', 'm@x.co', [{ role: 'AREA_MANAGER', area: true }]);
-    fin = await person('300', 'f@x.co', [{ role: 'VACATION_FINAL_APPROVER' }], '99999');
+    fin = await person(
+      '300',
+      'f@x.co',
+      [{ role: 'VACATION_FINAL_APPROVER', company: 'GA' }],
+      '99999',
+    );
     await db.insert(areaManagerAssignments).values({
       cEmp: 'GA',
       cArea: '10300',
@@ -199,6 +206,105 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
     await send(fin, 'post', `/approvals/vacations/final/${id}/approve`).expect(409); // ya aprobada
     const det = await send(emp, 'get', `/me/vacations/${id}`).expect(200);
     expect(det.body.revisions[0].allocations).toHaveLength(2);
+  });
+
+  it('solo se puede pedir de los períodos de PROG_VAC con días disponibles del propio contrato', async () => {
+    const periods = async () =>
+      (await send(emp, 'get', '/me/vacations/periods').expect(200)).body as { id: string }[];
+    expect((await periods()).map((p) => p.id).sort()).toEqual([p1, p2].sort());
+
+    // liquidado (DISP = 0): no se ofrece ni se acepta
+    const [liq] = await db
+      .insert(progVac)
+      .values({
+        nIde: '100',
+        nCont: '1',
+        perIni: '2023-01-01',
+        perFin: '2023-12-31',
+        dias: 15,
+        disp: 0,
+        estado: 'LIQUIDADA',
+      })
+      .returning({ id: progVac.id });
+    // dado de baja
+    const [off] = await db
+      .insert(progVac)
+      .values({
+        nIde: '100',
+        nCont: '1',
+        perIni: '2022-01-01',
+        perFin: '2022-12-31',
+        dias: 15,
+        disp: 5,
+        active: false,
+      })
+      .returning({ id: progVac.id });
+    // de otro contrato de la misma persona y de otra persona
+    const [oc] = await db
+      .insert(progVac)
+      .values({
+        nIde: '100',
+        nCont: '2',
+        perIni: '2021-01-01',
+        perFin: '2021-12-31',
+        dias: 15,
+        disp: 5,
+      })
+      .returning({ id: progVac.id });
+    await person('700', 'x7@x.co');
+    const [ot] = await db
+      .insert(progVac)
+      .values({
+        nIde: '700',
+        nCont: '1',
+        perIni: '2025-01-01',
+        perFin: '2025-12-31',
+        dias: 15,
+        disp: 15,
+      })
+      .returning({ id: progVac.id });
+    expect((await periods()).map((p) => p.id).sort()).toEqual([p1, p2].sort());
+
+    const body = (id: string) => ({
+      start: '2026-03-02',
+      allocations: [{ progVacId: id, days: 1 }],
+    });
+    for (const path of ['/me/vacations/preview', '/me/vacations']) {
+      const codes: [string, number, string?][] = [
+        [liq?.id ?? '', 400, 'PERIOD_NOT_AVAILABLE'],
+        [off?.id ?? '', 404],
+        [oc?.id ?? '', 404],
+        [ot?.id ?? '', 404],
+        ['00000000-0000-4000-8000-000000000000', 404],
+      ];
+      for (const [id, status, code] of codes) {
+        const res = await send(emp, 'post', path, body(id)).expect(status);
+        if (code) expect(res.body.code, `${path} ${id}`).toBe(code);
+      }
+    }
+    // mezclar un período válido con uno no disponible tampoco pasa
+    await send(emp, 'post', '/me/vacations', {
+      start: '2026-03-02',
+      allocations: [
+        { progVacId: p1, days: 1 },
+        { progVacId: liq?.id ?? '', days: 1 },
+      ],
+    }).expect(400);
+    expect(await db.select().from(vacationRequests)).toHaveLength(0);
+
+    // el jefe tampoco puede proponer períodos no disponibles
+    const ok = await submit('2026-03-02', [{ progVacId: p1, days: 2 }]).expect(201);
+    await send(mgr, 'post', `/approvals/vacations/manager/${ok.body.id}/propose`, {
+      start: '2026-03-02',
+      allocations: [{ progVacId: liq?.id ?? '', days: 1 }],
+      reason: 'Se prueba con un período liquidado',
+    }).expect(400);
+    await send(mgr, 'post', `/approvals/vacations/manager/${ok.body.id}/propose`, {
+      start: '2026-03-02',
+      allocations: [{ progVacId: ot?.id ?? '', days: 1 }],
+      reason: 'Se prueba con un período ajeno',
+    }).expect(404);
+    expect(await status(ok.body.id)).toBe('PENDIENTE_JEFE');
   });
 
   it('validaciones al enviar: remanente, jefe, cruce de fechas y calendario', async () => {
@@ -299,6 +405,52 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
       .returning({ id: progVac.id });
     const own = await submit('2026-05-04', [{ progVacId: pm?.id ?? '', days: 2 }], mgr).expect(201);
     await send(mgr, 'post', `/approvals/vacations/manager/${own.body.id}/approve`).expect(403);
+  });
+
+  it('el aprobador final es por empresa: solo ve y firma las solicitudes de sus empresas', async () => {
+    const a = await submit('2026-03-02', [{ progVacId: p1, days: 2 }]).expect(201);
+    const id = a.body.id as string;
+    await send(mgr, 'post', `/approvals/vacations/manager/${id}/approve`).expect(200);
+
+    // aprobador de otra empresa (GB): con el rol, pero ajeno a esta solicitud
+    const otherCo = await person(
+      '810',
+      'gb@x.co',
+      [{ role: 'VACATION_FINAL_APPROVER', company: 'GB' }],
+      '99999',
+    );
+    expect((await send(otherCo, 'get', '/approvals/vacations/final').expect(200)).body).toEqual([]);
+    await send(otherCo, 'get', `/me/vacations/${id}`).expect(404);
+    await send(otherCo, 'post', `/approvals/vacations/final/${id}/approve`).expect(404);
+    await send(otherCo, 'post', `/approvals/vacations/final/${id}/reject`, {
+      reason: 'No le corresponde a esta empresa',
+    }).expect(404);
+
+    // rol sin empresa (asignación antigua): no da acceso a nada
+    const noCo = await person('820', 'nc@x.co', [{ role: 'VACATION_FINAL_APPROVER' }], '99999');
+    expect((await send(noCo, 'get', '/approvals/vacations/final').expect(200)).body).toEqual([]);
+    await send(noCo, 'post', `/approvals/vacations/final/${id}/approve`).expect(403);
+    expect(await status(id)).toBe('PENDIENTE_FINAL');
+
+    // el de la empresa GA sí la ve y la firma
+    const list = await send(fin, 'get', '/approvals/vacations/final').expect(200);
+    expect(list.body.map((r: { id: string }) => r.id)).toEqual([id]);
+    await send(fin, 'post', `/approvals/vacations/final/${id}/approve`).expect(200);
+    expect(await status(id)).toBe('APROBADA');
+  });
+
+  it('asignar el rol de aprobador final exige una empresa registrada', async () => {
+    await db
+      .insert(companies)
+      .values({ cEmp: 'GA', nombre: 'Empresa GA', sigla: 'GA', direccion: 'CL 1 2 3' });
+    const target = await person('830', 't@x.co', [], '99999');
+    void target;
+    const [t] = await db.select().from(accounts).where(eq(accounts.nIde, '830'));
+    const grant = (body: object) =>
+      send(adm, 'post', `/admin/accounts/${t?.id}/roles`, { validFrom: '2026-01-01', ...body });
+    await grant({ role: 'VACATION_FINAL_APPROVER' }).expect(422); // sin empresa
+    await grant({ role: 'VACATION_FINAL_APPROVER', cEmp: 'ZZ' }).expect(404); // empresa inexistente
+    await grant({ role: 'VACATION_FINAL_APPROVER', cEmp: 'GA' }).expect(201);
   });
 
   it('dos aprobaciones concurrentes no consumen más que DISP', async () => {

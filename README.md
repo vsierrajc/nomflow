@@ -151,13 +151,14 @@ Los archivos Excel con datos reales **nunca** se versionan (`*.xlsx` está en `.
 
 ## Roles y permisos
 
-| Rol                                               | Puede                                                                                             |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `EMPLOYEE`                                        | Consultar y descargar sus propios volantes; cambiar su clave.                                     |
-| `AREA_MANAGER`                                    | Rol asignado con alcance de empresa y área (los flujos de aprobación aún no existen).             |
-| `VACATION_FINAL_APPROVER`, `CERTIFICATE_APPROVER` | Roles registrados; sus flujos aún no existen.                                                     |
-| `HR_ADMIN`                                        | Todo el área administrativa.                                                                      |
-| `SYSTEM_ADMIN`                                    | Lo mismo que `HR_ADMIN` y, además, conceder, terminar o bloquear roles y cuentas administrativas. |
+| Rol                       | Puede                                                                                                                                                                                                                 |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EMPLOYEE`                | Consultar y descargar sus volantes y certificados de retención; solicitar vacaciones; cambiar su clave.                                                                                                               |
+| `AREA_MANAGER`            | Usuario común, con alcance de empresa y área: recibe las solicitudes de vacaciones de las personas de su área, y las aprueba, rechaza o les propone cambios.                                                          |
+| `VACATION_FINAL_APPROVER` | Usuario común (no administrador) con este rol adicional, **por empresa**: ve y da la aprobación final a las solicitudes de vacaciones de su empresa, que descuenta los días. Ningún administrador firma sin este rol. |
+| `CERTIFICATE_APPROVER`    | Rol registrado; su flujo aún no existe.                                                                                                                                                                               |
+| `HR_ADMIN`                | Todo el área administrativa.                                                                                                                                                                                          |
+| `SYSTEM_ADMIN`            | Lo mismo que `HR_ADMIN` y, además, conceder, terminar o bloquear roles y cuentas administrativas.                                                                                                                     |
 
 Reglas transversales: nadie modifica sus propios roles ni bloquea su propia cuenta; un `HR_ADMIN` no puede escalar privilegios; todas las rutas `/admin/*` exigen `HR_ADMIN` o `SYSTEM_ADMIN`, y una prueba recorre por reflexión cada ruta para comprobarlo.
 

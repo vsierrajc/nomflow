@@ -1,4 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import {
   newUser,
   query,
@@ -164,6 +166,74 @@ test.describe('períodos de vacaciones (PROG_VAC) y festivos', () => {
       { version: 1, status: 'REEMPLAZADO' },
       { version: 2, status: 'PUBLICADO' },
     ]);
+  });
+
+  test('API de festivos: configuración sin exponer la clave, consulta y error del servicio', async ({
+    page,
+  }) => {
+    const KEY = `clave-e2e-${Date.now()}`;
+    const year = 2060 + Math.floor(Math.random() * 8);
+    let status = 200;
+    const seen: (string | undefined)[] = [];
+    const server = createServer((req, res) => {
+      seen.push(req.headers.authorization);
+      res.writeHead(status, { 'content-type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          data: [
+            { date: `${year}-01-01`, name_es: 'Año Nuevo' },
+            { date: `${year}-05-01`, name_es: 'Día del Trabajo' },
+          ],
+        }),
+      );
+    });
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api/v1/festivos`;
+    try {
+      await login(page, await seedAdminUser('HR_ADMIN'));
+      await page.goto('/admin/festivos');
+      const section = page.getByRole('region', { name: 'Servicio de festivos (API)' });
+      await expect(section.getByText('Sin configurar.')).toBeVisible();
+      await expect(section.getByRole('button', { name: 'Consultar el año' })).toBeDisabled();
+
+      await section.getByLabel('URL del servicio (sin el año)').fill('ftp://x.co/festivos');
+      await section.getByLabel('Clave del servicio (API KEY)').fill(KEY);
+      await section.getByRole('button', { name: 'Guardar configuración' }).click();
+      await expect(
+        section.locator('p[role="alert"]', { hasText: 'La URL no es válida' }),
+      ).toBeVisible();
+
+      await section.getByLabel('URL del servicio (sin el año)').fill(url);
+      await section.getByLabel('Clave del servicio (API KEY)').fill(KEY);
+      await section.getByRole('button', { name: 'Guardar configuración' }).click();
+      await expect(section.getByText('Configuración guardada.')).toBeVisible();
+      await expect(section.getByText(/URL configurada; clave guardada\./)).toBeVisible();
+      // La clave no vuelve al navegador: ni en el campo ni en el texto de la página.
+      await expect(section.getByLabel('Clave del servicio (API KEY)')).toHaveValue('');
+      expect(await page.content()).not.toContain(KEY);
+
+      await section.getByLabel('Año a consultar').fill(String(year));
+      await section.getByRole('button', { name: 'Consultar el año' }).click();
+      await expect(
+        section.getByText(`Borrador versión 1 del año ${year}: 2 festivos.`),
+      ).toBeVisible();
+      expect(seen).toEqual([`Bearer ${KEY}`]);
+      await expect(
+        page.getByRole('row', { name: new RegExp(`${year}.*Borrador.*API`) }),
+      ).toBeVisible();
+      expect(
+        await query(`select status, source from holiday_calendars where year = $1`, [year]),
+      ).toEqual([{ status: 'BORRADOR', source: 'API' }]);
+
+      status = 401;
+      await section.getByRole('button', { name: 'Consultar el año' }).click();
+      await expect(
+        section.locator('p[role="alert"]', { hasText: 'El servicio rechazó la clave' }),
+      ).toBeVisible();
+      await expect(section.getByText('La clave fue rechazada por el servicio')).toBeVisible();
+    } finally {
+      await new Promise<void>((r) => server.close(() => r()));
+    }
   });
 
   test('un empleado no accede a las pantallas de gestión', async ({ page }) => {

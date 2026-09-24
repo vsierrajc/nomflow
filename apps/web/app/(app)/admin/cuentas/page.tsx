@@ -201,7 +201,8 @@ function RolesDialog({ account, onClose }: { account: Account; onClose: () => vo
   const roleErrors: Record<string, string> = {
     FORBIDDEN: 'Solo un administrador del sistema puede gestionar roles administrativos.',
     SELF_GRANT: 'Nadie puede modificar sus propios roles.',
-    SCOPE_REQUIRED: 'El jefe de área necesita empresa y área.',
+    SCOPE_REQUIRED: 'Este rol necesita empresa (y el jefe de área también su área).',
+    COMPANY_NOT_FOUND: 'Esa empresa no está registrada.',
     AREA_NOT_FOUND: 'Esa área no existe en el catálogo de la empresa.',
     INVALID_RANGE: 'Las fechas no son válidas.',
     MANAGER_NOT_ELIGIBLE:
@@ -229,6 +230,7 @@ function RolesDialog({ account, onClose }: { account: Account; onClose: () => vo
       validFrom: v('validFrom') || today(),
       validTo: v('validTo') || null,
     };
+    if (role === 'VACATION_FINAL_APPROVER') body.cEmp = v('cEmp');
     if (role === 'AREA_MANAGER') {
       body.cEmp = v('cEmp');
       body.areaCode = v('areaCode');
@@ -387,7 +389,7 @@ function RolesDialog({ account, onClose }: { account: Account; onClose: () => vo
               onChange={setRole}
               options={roleOptions}
             />
-            {role === 'AREA_MANAGER' ? (
+            {role === 'AREA_MANAGER' || role === 'VACATION_FINAL_APPROVER' ? (
               <Field label="Empresa (código)" name="cEmp" required maxLength={30} />
             ) : null}
             {role === 'AREA_MANAGER' ? (
