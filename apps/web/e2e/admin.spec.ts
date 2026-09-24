@@ -44,7 +44,7 @@ test.describe('acceso al área administrativa', () => {
     const u = newUser('emp');
     await seedActiveAccount(u, [{ role: 'AREA_MANAGER', cEmp: 'GA', areaCode: '10300' }]);
     await login(page, u);
-    await expect(page.getByRole('link', { name: 'Administración' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /administración/i })).toHaveCount(0);
     for (const path of ['/admin', '/admin/empleados', '/admin/auditoria', '/admin/cuentas']) {
       await page.goto(path);
       await expect(page.getByRole('heading', { name: 'Acceso restringido' })).toBeVisible();
@@ -71,7 +71,10 @@ test.describe('acceso al área administrativa', () => {
   for (const role of ['HR_ADMIN', 'SYSTEM_ADMIN'] as const) {
     test(`el administrador (${role}) ve el menú completo y el resumen`, async ({ page }) => {
       await asAdmin(page, role);
-      await page.getByRole('link', { name: 'Administración' }).click();
+      await page
+        .getByRole('navigation', { name: 'Principal' })
+        .getByRole('link', { name: 'Administración' })
+        .click();
       await expect(page).toHaveURL(/\/admin$/);
       await expect(page.getByRole('heading', { name: 'Resumen administrativo' })).toBeVisible();
       const nav = page.getByRole('navigation', { name: 'Administración' });
@@ -202,21 +205,27 @@ test.describe('empresas y logo', () => {
       mimeType: 'image/png',
       buffer: Buffer.from('esto no es una imagen'),
     });
-    await expect(dialog.getByText('no es una imagen PNG o JPEG válida')).toBeVisible();
+    await expect(
+      dialog.getByRole('alert').filter({ hasText: 'no es una imagen PNG o JPEG válida' }),
+    ).toBeVisible();
     await send({ name: 'pequeno.png', mimeType: 'image/png', buffer: pngBuffer(32, 32) });
-    await expect(dialog.getByText('entre 64 y 2000 píxeles')).toBeVisible();
+    await expect(
+      dialog.getByRole('alert').filter({ hasText: 'entre 64 y 2000 píxeles' }),
+    ).toBeVisible();
     await send({
       name: 'grande.png',
       mimeType: 'image/png',
       buffer: Buffer.concat([pngBuffer(100, 100), Buffer.alloc(600 * 1024)]),
     });
-    await expect(dialog.getByText('supera los 512 KB')).toBeVisible();
+    await expect(dialog.getByRole('alert').filter({ hasText: 'supera los 512 KB' })).toBeVisible();
     await send({
       name: 'vector.svg',
       mimeType: 'image/svg+xml',
       buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"/>'),
     });
-    await expect(dialog.getByText('no es una imagen PNG o JPEG válida')).toBeVisible();
+    await expect(
+      dialog.getByRole('alert').filter({ hasText: 'no es una imagen PNG o JPEG válida' }),
+    ).toBeVisible();
     const rows = await query<{ n: number }>(
       `select count(*)::int as n from company_logos l join companies c on c.id = l.company_id where c.c_emp = $1`,
       [cEmp],
@@ -256,7 +265,7 @@ test.describe('catálogos: áreas, centros de costo, cargos y tipos de contrato'
     await expect(page.getByRole('dialog')).toContainText(
       '«FINANCIERA» pasó a «FINANCIERA Y CONTABLE»',
     );
-    await page.getByRole('button', { name: 'Cerrar' }).click();
+    await page.getByRole('button', { name: 'Cerrar', exact: true }).click();
 
     await page.getByRole('button', { name: 'Editar 10300' }).click();
     await page.getByLabel('Activo').uncheck();

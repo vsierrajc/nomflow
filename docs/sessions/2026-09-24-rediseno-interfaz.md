@@ -1,0 +1,12 @@
+# Sesión: 2026-09-24 - rediseño de la interfaz web
+- Responsable / agente: Claude Code
+- Objetivo e incidencias: ESS-UX-001 (guía docs/design/DisenhoUIX.md)
+- Rama y commit inicial: feat/ESS-UX-001-rediseno-interfaz sobre feat/ESS-ADM-002-web-administracion (PR #18)
+- Cambios realizados: apps/web/app/globals.css (tokens y componentes); components/{ui,shells,home-view,admin-summary}; lib/{use-profile.tsx,roles.ts}; rutas agrupadas en app/(public) y app/(app); layouts de servidor con metadatos por ruta; alias @/ en tsconfig; login, activar, cuenta/clave, inicio y volantes rediseñados; pruebas e2e/interfaz.spec.ts (24) y ajuste de selectores en las existentes; docs/design (guía, rediseño y 11 capturas)
+- Decisiones / ADR / cambios al SRS: ninguna que afecte reglas de negocio; el diagnóstico de la guía era anterior (volantes y administración ya existían), así que se rediseñaron como funciones reales y los módulos pendientes (solicitudes, aprobaciones, documentos) no aparecen como acciones; los títulos usan la API de metadatos de Next porque un efecto de cliente perdía la carrera con la hidratación; sin dependencias nuevas
+- Pruebas y evidencia: `npm run test:e2e` 81 OK (tres pasadas consecutivas), API y calidad en verde; contraste AA calculado y verificado con axe en claro y oscuro; 320 px y texto al 200 % sin desbordes; capturas revisadas a mano, que destaparon el botón «Menú» azul sobre azul y un requisito de clave marcado antes de tiempo
+- Migraciones, configuración y datos de ejemplo necesarios: ninguna
+- Bloqueos y riesgos: sin lectores de pantalla reales ni otros navegadores; sin conmutador manual de tema; tablas administrativas siguen siendo regiones desplazables; PR sin revisión de otra persona
+- Estado final: hecho (pendiente de integración)
+- Rama, commit final y PR: ver PR
+- Próximo paso exacto y responsable: integrar la cadena de PR (#16 a este) y, cuando existan los flujos de solicitudes y aprobaciones, diseñar sus pantallas según docs/design/rediseno-ui.md sección 8

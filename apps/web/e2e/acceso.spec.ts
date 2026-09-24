@@ -40,7 +40,8 @@ test.describe('acceso y sesión', () => {
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole('heading', { name: `Hola, ${u.name}` })).toBeVisible();
     await expect(page.getByText(u.email)).toBeVisible();
-    await expect(page.getByText('Jefe de área (área 10300, empresa GA)')).toBeVisible();
+    await expect(page.getByText('Jefe de área', { exact: true })).toBeVisible();
+    await expect(page.getByText('Área 10300 - Empresa GA')).toBeVisible();
 
     await page.getByRole('button', { name: 'Cerrar sesión' }).click();
     await expect(page).toHaveURL(/\/login$/);
@@ -88,23 +89,23 @@ test.describe('cambio de clave', () => {
     await page.getByLabel('Clave nueva', { exact: true }).fill('corta');
     await page.getByLabel('Confirmar clave nueva').fill('corta');
     await submit.click();
-    await expect(alertOf(page)).toContainText('al menos 12 caracteres');
+    await expect(page.getByText(/debe tener al menos 12 caracteres/)).toBeVisible();
 
     await page.getByLabel('Clave nueva', { exact: true }).fill(u.password);
     await page.getByLabel('Confirmar clave nueva').fill(u.password);
     await submit.click();
-    await expect(alertOf(page)).toContainText('distinta de la actual');
+    await expect(page.getByText('La clave nueva debe ser distinta de la actual.')).toBeVisible();
 
     await page.getByLabel('Clave nueva', { exact: true }).fill('Otra-Clave-Larga-1');
     await page.getByLabel('Confirmar clave nueva').fill('No-Coincide-Larga-1');
     await submit.click();
-    await expect(alertOf(page)).toContainText('no coincide');
+    await expect(page.getByText('La confirmación no coincide con la clave nueva.')).toBeVisible();
 
     await page.getByLabel('Clave actual').fill('clave-actual-mala');
     await page.getByLabel('Clave nueva', { exact: true }).fill('Otra-Clave-Larga-1');
     await page.getByLabel('Confirmar clave nueva').fill('Otra-Clave-Larga-1');
     await submit.click();
-    await expect(alertOf(page)).toContainText('clave actual es incorrecta');
+    await expect(page.getByText('La clave actual es incorrecta.')).toBeVisible();
 
     await page.getByLabel('Clave actual').fill(u.password);
     await submit.click();
@@ -181,11 +182,11 @@ test.describe('activación de cuenta con el código del correo', () => {
     await page.getByLabel('Clave nueva', { exact: true }).fill('corta');
     await page.getByLabel('Confirmar clave nueva').fill('corta');
     await page.getByRole('button', { name: 'Activar cuenta' }).click();
-    await expect(alertOf(page)).toContainText('al menos 12 caracteres');
+    await expect(page.getByText(/debe tener al menos 12 caracteres/)).toBeVisible();
     await page.getByLabel('Clave nueva', { exact: true }).fill('Clave-Larga-Segura-1');
     await page.getByLabel('Confirmar clave nueva').fill('Clave-Larga-Segura-2');
     await page.getByRole('button', { name: 'Activar cuenta' }).click();
-    await expect(alertOf(page)).toContainText('no coincide');
+    await expect(page.getByText('La confirmación no coincide con la clave nueva.')).toBeVisible();
   });
 
   test('reenviar código: pide el correo y luego envía uno nuevo', async ({ page }) => {
@@ -252,16 +253,20 @@ test.describe('seguridad, accesibilidad y adaptación', () => {
     const page = await ctx.newPage();
     await page.goto('http://localhost:3100/login');
     const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-    expect(bg).toBe('rgb(17, 22, 28)');
+    expect(bg).toBe('rgb(14, 20, 26)');
     await ctx.close();
   });
 
   test('todos los campos se pueden operar solo con teclado', async ({ page }) => {
     await page.goto('/login');
     await page.keyboard.press('Tab');
+    await expect(page.getByRole('link', { name: 'Saltar al contenido' })).toBeFocused();
+    await page.keyboard.press('Tab');
     await expect(page.getByLabel('Correo electrónico')).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByLabel('Clave', { exact: true })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Mostrar clave' })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('button', { name: 'Ingresar' })).toBeFocused();
   });

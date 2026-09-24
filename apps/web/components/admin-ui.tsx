@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { Alert } from '@/components/ui';
 
 export function PageHeader({ title, children }: { title: string; children?: ReactNode }) {
   return (
@@ -11,12 +12,14 @@ export function PageHeader({ title, children }: { title: string; children?: Reac
   );
 }
 
-export function Notice({ kind, children }: { kind: 'error' | 'ok'; children: ReactNode }) {
-  return (
-    <p className={`alert alert-${kind}`} role={kind === 'error' ? 'alert' : 'status'}>
-      {children}
-    </p>
-  );
+export function Notice({
+  kind,
+  children,
+}: {
+  kind: 'error' | 'ok' | 'info' | 'warn';
+  children: ReactNode;
+}) {
+  return <Alert kind={kind}>{children}</Alert>;
 }
 
 export function Pager({

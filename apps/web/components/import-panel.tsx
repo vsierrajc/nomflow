@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { NETWORK_ERROR } from '../lib/api';
-import { useAdmin } from '../lib/admin';
-import { Field } from './ui';
-import { Notice } from './admin-ui';
+import { NETWORK_ERROR } from '@/lib/api';
+import { useAdmin } from '@/lib/admin';
+import { Field } from '@/components/ui';
+import { Notice } from '@/components/admin-ui';
 
 export interface ExtraField {
   name: string;

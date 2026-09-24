@@ -96,7 +96,7 @@ test.describe('empleados', () => {
     await expect(page.getByRole('dialog')).toContainText('Salario actual');
     await expect(page.getByRole('dialog')).toContainText('1500000.500000');
     await expect(page.getByRole('dialog')).toContainText('Corrección manual');
-    await page.getByRole('button', { name: 'Cerrar' }).click();
+    await page.getByRole('button', { name: 'Cerrar', exact: true }).click();
 
     await row.getByRole('button', { name: /^Corregir / }).click();
     await page.getByRole('dialog').getByLabel('Área (C_AREA)').fill('10400');
@@ -115,7 +115,7 @@ test.describe('empleados', () => {
       'Traslado de área informado por la jefatura',
     );
     await expect(page.getByRole('dialog')).toContainText('Área: 10300 → 10400');
-    await page.getByRole('button', { name: 'Cerrar' }).click();
+    await page.getByRole('button', { name: 'Cerrar', exact: true }).click();
 
     await page
       .getByRole('row', { name: new RegExp(u.nIde) })

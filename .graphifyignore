@@ -10,3 +10,6 @@ storage/
 package-lock.json
 apps/api/migrations/meta/
 graphify-out/
+.next-e2e/
+test-results/
+playwright-report/
