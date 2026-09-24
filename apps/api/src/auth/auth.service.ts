@@ -4,7 +4,9 @@ import { accounts, auditLogs, employeeSnapshots, roleAssignments, sessions } fro
 import { hashPassword, verifyPassword } from '../accounts/password.service';
 import { MIN_PASSWORD_LENGTH } from '../accounts/verification.service';
 import { ADMIN_ROLES, hasActiveRole } from './roles';
+import type { Mailer } from '../mail/mailer';
 import { createSession, markReauthenticated, type SessionMeta } from './session.service';
+import { issueChallenge, verifyChallenge, TwoFactorError } from './two-factor.service';
 
 export const MAX_FAILED_ATTEMPTS = 5;
 export const LOCK_MINUTES = 15;
@@ -14,7 +16,8 @@ export type LoginFailure =
   | 'ACCOUNT_LOCKED'
   | 'ACCOUNT_NOT_ACTIVE'
   | 'PASSWORD_CHANGE_REQUIRED'
-  | 'EMPLOYMENT_NOT_ACTIVE';
+  | 'EMPLOYMENT_NOT_ACTIVE'
+  | 'TWO_FACTOR_UNAVAILABLE';
 
 export class LoginError extends Error {
   constructor(readonly reason: LoginFailure) {
@@ -35,12 +38,18 @@ async function fail(db: Db, accountId: string | null, reason: LoginFailure): Pro
   throw new LoginError(reason);
 }
 
+export type LoginResult =
+  | { kind: 'SESSION'; token: string; sessionId: string; accountId: string }
+  /** La clave fue correcta y falta el código enviado al correo (doble paso activado). */
+  | { kind: 'TWO_FACTOR'; challengeId: string };
+
 export async function login(
   db: Db,
   emailInput: string,
   password: string,
   meta: SessionMeta,
-): Promise<{ token: string; sessionId: string; accountId: string }> {
+  mailer: Mailer,
+): Promise<LoginResult> {
   const email = emailInput.trim().toLowerCase();
   const [account] = await db
     .select()
@@ -86,9 +95,54 @@ export async function login(
     .update(accounts)
     .set({ failedAttempts: 0, lockedUntil: null })
     .where(eq(accounts.id, account.id));
-  const session = await createSession(db, account.id, meta);
-  await audit(db, account.id, 'LOGIN', 'SUCCESS');
-  return { ...session, accountId: account.id };
+
+  if (account.twoFactorEnabled) {
+    // Nunca se abre sesión sin el código: si no se puede enviar, el ingreso falla.
+    try {
+      const { challengeId } = await issueChallenge(db, mailer, account.id, 'LOGIN');
+      await audit(db, account.id, 'LOGIN', 'TWO_FACTOR_REQUIRED');
+      return { kind: 'TWO_FACTOR', challengeId };
+    } catch (e) {
+      if (e instanceof TwoFactorError) return fail(db, account.id, 'TWO_FACTOR_UNAVAILABLE');
+      throw e;
+    }
+  }
+  return openSession(db, account.id, meta);
+}
+
+async function openSession(db: Db, accountId: string, meta: SessionMeta): Promise<LoginResult> {
+  const session = await createSession(db, accountId, meta);
+  await audit(db, accountId, 'LOGIN', 'SUCCESS');
+  return { kind: 'SESSION', ...session, accountId };
+}
+
+/** Segundo paso del ingreso: con el código correcto se abre la sesión. */
+export async function completeTwoFactorLogin(
+  db: Db,
+  challengeId: string,
+  code: string,
+  meta: SessionMeta,
+): Promise<LoginResult> {
+  let accountId: string;
+  try {
+    accountId = await verifyChallenge(db, challengeId, 'LOGIN', code);
+  } catch (e) {
+    if (e instanceof TwoFactorError) return fail(db, null, 'INVALID_CREDENTIALS');
+    throw e;
+  }
+  const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId));
+  // Lo que pudo cambiar entre los dos pasos (bloqueo, baja) se vuelve a comprobar.
+  if (!account || account.status !== 'ACTIVA') return fail(db, accountId, 'ACCOUNT_NOT_ACTIVE');
+  const isAdmin = await hasActiveRole(db, accountId, ADMIN_ROLES);
+  if (!isAdmin) {
+    const [active] = await db
+      .select({ id: employeeSnapshots.id })
+      .from(employeeSnapshots)
+      .where(and(eq(employeeSnapshots.nIde, account.nIde), eq(employeeSnapshots.est, 'V')))
+      .limit(1);
+    if (!active) return fail(db, accountId, 'EMPLOYMENT_NOT_ACTIVE');
+  }
+  return openSession(db, accountId, meta);
 }
 
 export async function reauthenticate(
@@ -185,6 +239,7 @@ export interface Profile {
   accountId: string;
   email: string;
   name: string | null;
+  twoFactorEnabled: boolean;
   roles: {
     role: string;
     cEmp: string | null;
@@ -219,5 +274,11 @@ export async function getProfile(db: Db, accountId: string): Promise<Profile> {
         or(isNull(roleAssignments.validTo), gte(roleAssignments.validTo, today)),
       ),
     );
-  return { accountId, email: account.email, name: employee?.nombre ?? null, roles };
+  return {
+    accountId,
+    email: account.email,
+    name: employee?.nombre ?? null,
+    twoFactorEnabled: account.twoFactorEnabled,
+    roles,
+  };
 }

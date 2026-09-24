@@ -94,6 +94,9 @@ export const accounts = pgTable(
     failedAttempts: integer('failed_attempts').notNull().default(0),
     lockedUntil: timestamp('locked_until', { withTimezone: true }),
     emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
+    /** Verificación en dos pasos opcional: cada ingreso exige además un código enviado al correo. */
+    twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),
+    twoFactorEnabledAt: timestamp('two_factor_enabled_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -786,3 +789,23 @@ export const mailSettings = pgTable('mail_settings', {
   lastTestAt: timestamp('last_test_at', { withTimezone: true }),
   lastTestStatus: text('last_test_status'),
 });
+
+/** Retos del doble paso: un código de un solo uso enviado al correo (al ingresar o al activarlo). */
+export const twoFactorChallenges = pgTable(
+  'two_factor_challenges',
+  {
+    /** Identificador aleatorio que recibe el navegador entre la clave y el código. */
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id),
+    /** LOGIN: segundo paso del ingreso. ENABLE: confirmar que se controla el correo al activarlo. */
+    purpose: text('purpose').notNull(),
+    codeHash: text('code_hash').notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+  },
+  (t) => [index('two_factor_challenges_account_idx').on(t.accountId, t.purpose, t.createdAt)],
+);

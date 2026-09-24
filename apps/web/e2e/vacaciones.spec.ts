@@ -201,16 +201,17 @@ test.describe('períodos de vacaciones (PROG_VAC) y festivos', () => {
     await page
       .getByRole('button', { name: new RegExp(`Publicar calendario ${year}, versión 2`) })
       .click();
-    await expect(page.getByText('Calendario publicado.')).toBeVisible();
-    expect(
-      await query(
-        `select version, status from holiday_calendars where year = $1 order by version`,
-        [year],
-      ),
-    ).toEqual([
-      { version: 1, status: 'REEMPLAZADO' },
-      { version: 2, status: 'PUBLICADO' },
-    ]);
+    // El aviso de la primera publicación sigue en pantalla: se espera el estado real en la base.
+    await expect
+      .poll(async () =>
+        query(`select version, status from holiday_calendars where year = $1 order by version`, [
+          year,
+        ]),
+      )
+      .toEqual([
+        { version: 1, status: 'REEMPLAZADO' },
+        { version: 2, status: 'PUBLICADO' },
+      ]);
   });
 
   test('API de festivos: configuración sin exponer la clave, consulta y error del servicio', async ({

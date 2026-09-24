@@ -1,6 +1,9 @@
 import {
   Body,
+  ConflictException,
   Controller,
+  HttpException,
+  HttpStatus,
   Get,
   Header,
   HttpCode,
@@ -26,12 +29,21 @@ import {
   ChangePasswordError,
   LoginError,
   changePassword,
+  completeTwoFactorLogin,
   getProfile,
   login,
   reauthenticate,
   type Profile,
 } from './auth.service';
+import { RecentAuthGuard } from './guards';
 import { SESSION_COOKIE, SessionGuard, type AuthedRequest } from './session.guard';
+import {
+  TwoFactorError,
+  confirmEnable,
+  disableOwn,
+  getState,
+  startEnable,
+} from './two-factor.service';
 import { ABSOLUTE_TIMEOUT_MS, csrfTokenFor, revokeSession } from './session.service';
 
 const LoginDto = z.object({
@@ -49,6 +61,11 @@ const ActivateDto = z.object({
 const ChangePasswordDto = z.object({
   currentPassword: z.string().min(1).max(200),
   newPassword: z.string().min(1).max(200),
+});
+
+const VerifyLoginDto = z.object({
+  challengeId: z.string().uuid(),
+  code: z.string().trim().min(4).max(12),
 });
 
 const ReauthDto = z.object({ password: z.string().min(1).max(200) });
@@ -89,26 +106,63 @@ export class AuthController {
     @Body() body: unknown,
     @Req() req: AuthedRequest,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<{ csrfToken: string }> {
+  ): Promise<{ csrfToken: string } | { twoFactorRequired: true; challengeId: string }> {
     const dto = LoginDto.safeParse(body);
     if (!dto.success) throw new BadRequestException();
     try {
-      const s = await login(this.db, dto.data.email, dto.data.password, {
-        ip: req.ip,
-        userAgent: req.headers['user-agent'],
-      });
-      res.cookie(SESSION_COOKIE, s.token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        path: '/',
-        maxAge: ABSOLUTE_TIMEOUT_MS,
-      });
-      return { csrfToken: csrfTokenFor(s.sessionId) };
+      const r = await login(
+        this.db,
+        dto.data.email,
+        dto.data.password,
+        { ip: req.ip, userAgent: req.headers['user-agent'] },
+        this.mailer,
+      );
+      if (r.kind === 'TWO_FACTOR') return { twoFactorRequired: true, challengeId: r.challengeId };
+      return this.startSession(res, r);
     } catch (e) {
       if (e instanceof LoginError) throw new UnauthorizedException('Credenciales inválidas');
       throw e;
     }
+  }
+
+  /** Segundo paso del ingreso: el código enviado al correo abre la sesión. */
+  @Post('login/verify')
+  @HttpCode(200)
+  async verifyLogin(
+    @Body() body: unknown,
+    @Req() req: AuthedRequest,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ csrfToken: string }> {
+    const dto = VerifyLoginDto.safeParse(body);
+    if (!dto.success) throw new BadRequestException();
+    try {
+      const r = await completeTwoFactorLogin(this.db, dto.data.challengeId, dto.data.code, {
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+      if (r.kind !== 'SESSION') throw new UnauthorizedException('Código inválido');
+      return this.startSession(res, r);
+    } catch (e) {
+      if (e instanceof LoginError) throw new UnauthorizedException('Código inválido');
+      throw e;
+    }
+  }
+
+  private startSession(
+    res: Response,
+    s: { token: string; sessionId: string },
+  ): { csrfToken: string } {
+    // Falso positivo revisado: es la cookie de sesión (token aleatorio de 256 bits, cuyo hash es lo que se
+    // guarda en la base). Enviarla al navegador es el diseño; va HttpOnly, SameSite=Strict y Secure en producción.
+    // codeql[js/clear-text-storage-of-sensitive-data]
+    res.cookie(SESSION_COOKIE, s.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+      maxAge: ABSOLUTE_TIMEOUT_MS,
+    });
+    return { csrfToken: csrfTokenFor(s.sessionId) };
   }
 
   @Get('me')
@@ -168,5 +222,83 @@ export class AuthController {
   ): Promise<void> {
     await revokeSession(this.db, req.auth.sessionId);
     res.clearCookie(SESSION_COOKIE, { path: '/' });
+  }
+}
+
+const ConfirmTwoFactorDto = z.object({
+  challengeId: z.string().uuid(),
+  code: z.string().trim().min(4).max(12),
+});
+const DisableTwoFactorDto = z.object({ password: z.string().min(1).max(200) });
+
+function mapTwoFactor(e: unknown): never {
+  if (!(e instanceof TwoFactorError)) throw e;
+  switch (e.code) {
+    case 'RATE_LIMITED':
+      throw new HttpException({ code: e.code }, HttpStatus.TOO_MANY_REQUESTS);
+    case 'MAIL_FAILED':
+      throw new HttpException({ code: e.code }, HttpStatus.BAD_GATEWAY);
+    case 'ALREADY_ENABLED':
+    case 'NOT_ENABLED':
+      throw new ConflictException({ code: e.code });
+    case 'INVALID_CREDENTIALS':
+      throw new UnauthorizedException('Credenciales inválidas');
+    default:
+      throw new BadRequestException({ code: 'INVALID_CODE' });
+  }
+}
+
+/** Verificación en dos pasos de la propia cuenta: opcional, se activa con un código enviado al correo. */
+@Controller('me/two-factor')
+@UseGuards(SessionGuard)
+export class MeTwoFactorController {
+  constructor(
+    @Inject(DB) private readonly db: Db,
+    @Inject(MAILER) private readonly mailer: Mailer,
+  ) {}
+
+  @Get()
+  @Header('Cache-Control', 'no-store')
+  state(@Req() req: AuthedRequest) {
+    return getState(this.db, req.auth.accountId);
+  }
+
+  @Post('start')
+  @HttpCode(200)
+  @UseGuards(RecentAuthGuard)
+  async start(@Req() req: AuthedRequest) {
+    try {
+      return await startEnable(this.db, this.mailer, req.auth.accountId);
+    } catch (e) {
+      return mapTwoFactor(e);
+    }
+  }
+
+  @Post('confirm')
+  @HttpCode(200)
+  @UseGuards(RecentAuthGuard)
+  async confirm(@Body() body: unknown, @Req() req: AuthedRequest) {
+    const dto = ConfirmTwoFactorDto.safeParse(body);
+    if (!dto.success) throw new BadRequestException({ code: 'INVALID_CODE' });
+    try {
+      await confirmEnable(this.db, req.auth.accountId, dto.data.challengeId, dto.data.code);
+      return await getState(this.db, req.auth.accountId);
+    } catch (e) {
+      return mapTwoFactor(e);
+    }
+  }
+
+  @Post('disable')
+  @HttpCode(200)
+  @UseGuards(RecentAuthGuard)
+  async disable(@Body() body: unknown, @Req() req: AuthedRequest) {
+    const dto = DisableTwoFactorDto.safeParse(body);
+    if (!dto.success) throw new BadRequestException();
+    try {
+      await disableOwn(this.db, req.auth.accountId, dto.data.password);
+      return await getState(this.db, req.auth.accountId);
+    } catch (e) {
+      return mapTwoFactor(e);
+    }
   }
 }
