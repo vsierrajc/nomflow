@@ -9,7 +9,7 @@
 
 | módulo | estado | PR | siguiente acción |
 | --- | --- | --- | --- |
-| Monorepo, CI y ADR-001/002 (ESS-OPS-001) | DONE | #1, #2 | Activar Code scanning (CodeQL falla sin él) |
+| Monorepo, CI y ADR-001/002 (ESS-OPS-001) | DONE | #1, #2 | CodeQL corre sin Code scanning (repositorio privado sin Advanced Security): SARIF como artefacto y el job falla si hay hallazgos |
 | Cuentas, login y sesiones (ESS-AUTH-001/003) | DONE | #3, #4, #5 | Segundo factor por correo, límite por IP |
 | Verificación SMTP y activación (ESS-AUTH-002) | DONE | #6 | Habilitar STARTTLS en el Postfix 192.168.1.44 |
 | Alta por API, roles y reautenticación (ESS-AUTH-004/005/006) | DONE | #7, #11 | Revisión de otra persona |
