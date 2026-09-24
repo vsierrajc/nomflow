@@ -82,6 +82,11 @@ function navFor(profile: Profile): NavItem[] {
   const items: NavItem[] = [
     { href: '/', label: 'Inicio', match: (p) => p === '/' },
     { href: '/volantes', label: 'Mis volantes de pago', match: (p) => p.startsWith('/volantes') },
+    {
+      href: '/retenciones',
+      label: 'Certificados de retención',
+      match: (p) => p.startsWith('/retenciones'),
+    },
     { href: '/cuenta/clave', label: 'Mi cuenta', match: (p) => p.startsWith('/cuenta') },
   ];
   if (isAdmin(profile))

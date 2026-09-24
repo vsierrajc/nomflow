@@ -43,7 +43,7 @@ Cada ID está en `docs/traceability.md`. Patrón que ya funciona y conviene **re
 
 | Prioridad | ID | Alcance (SSD) | Primer paso concreto |
 | --- | --- | --- | --- |
-| 1 | ESS-TAX-001 | Certificados tributarios: cargar PDF por `N_IDE` + año, una versión vigente, descarga del propio empleado (6.3) | ADR de almacenamiento (tabla `bytea` como los logos vs S3/MinIO ya levantado). Luego tabla, carga admin y `/me/tax-certificates` |
+| 1 | ESS-TAX-001 | **Hecho** (carga por carpeta, versiones, descarga del empleado). Queda: prueba de navegador, retención y mover el PDF a S3 | — |
 | 2 | ESS-EXIT-001 | Aviso previo a la baja y ZIP con todos los documentos (3.1, 6.3) | Parámetro `PRE_BAJA_AVISO_DIAS`, cola de trabajos (Redis ya está en el stack, sin uso), manifiesto y caducidad. La baja ya revoca sesiones |
 | 3 | ESS-CERT-001/002 | Plantillas de certificado con variables en lista blanca, aprobación y firma interna, código de validación público (6.1) | Pedir `CertificadoLaboral.pdf` (la SSD lo cita y **no está** en el repo) y los firmantes autorizados. Existen `CERTIFICATE_APPROVER`, reautenticación y el generador PDF |
 | 4 | ESS-LEAVE-001/002/003, ESS-HOL-001 | `PROG_VAC`, solicitudes multi-período, días hábiles con festivos, aprobación del jefe y final, PDF con firmas (6.2) | Empezar por `HolidayCalendar` (API de festivos con clave, respaldo local) y `PROG_VAC` (importación + CRUD). `resolveAreaManager` ya existe |

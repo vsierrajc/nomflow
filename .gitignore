@@ -63,3 +63,8 @@ test-results/
 playwright-report/
 
 *:Zone*Identifier
+
+# Carpeta de procesamiento de certificados de retención (datos reales)
+/data/
+*.pdf
+!**/fixtures/**/*.pdf

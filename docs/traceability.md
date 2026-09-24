@@ -15,7 +15,7 @@ Estados: BACKLOG, READY, IN_PROGRESS, IN_REVIEW, BLOCKED, DONE.
 | ESS-PAY-001 | Volantes PDF, SLRIO histórico, modos SIN_AJUSTE/ENTERO_SUPERIOR (9.2, 9.4) | 3 | — | PR ESS-PAY-001 | payroll.e2e.spec.ts, decimal.spec.ts, e2e/volantes.spec.ts | — | IN_REVIEW (sin muestra real de NOMINA) |
 | ESS-CERT-001 | Plantillas de certificado versionadas (6.1.1) | 3 | — | — | — | — | BACKLOG |
 | ESS-CERT-002 | Certificado laboral: aprobación, firma, código de validación (6.1, 6.1.2) | 3 | — | — | — | — | BACKLOG |
-| ESS-TAX-001 | Certificados tributarios PDF por N_IDE+año (6.3) | 3 | — | — | — | — | BACKLOG |
+| ESS-TAX-001 | Certificados tributarios PDF por N_IDE+año (6.3) | 3 | `apps/api/src/tax` | `tax.e2e.spec` | — | — | HECHO |
 | ESS-EXIT-001 | Aviso previo a baja, ZIP, revocación con EST=C (3.1, 6.3) | 3 | — | — | — | — | BACKLOG |
 | ESS-LEAVE-001 | PROG_VAC: carga y CRUD, DISP, LIQUIDADA (6.2) | 4 | — | — | — | — | BACKLOG |
 | ESS-LEAVE-002 | Solicitud multi-período, cálculo de fechas y retorno (6.2) | 4 | — | — | — | — | BACKLOG |

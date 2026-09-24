@@ -426,3 +426,26 @@ export const employeeChanges = pgTable(
   },
   (t) => [index('employee_changes_employee_idx').on(t.employeeId, t.at)],
 );
+
+export const taxCertificates = pgTable(
+  'tax_certificates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    nIde: text('n_ide').notNull(),
+    year: integer('year').notNull(),
+    version: integer('version').notNull(),
+    data: bytea('data').notNull(),
+    sha256: text('sha256').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    fileName: text('file_name').notNull(),
+    active: boolean('active').notNull().default(true),
+    uploadedBy: uuid('uploaded_by').references(() => accounts.id),
+    uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('tax_certificates_version_uq').on(t.nIde, t.year, t.version),
+    uniqueIndex('tax_certificates_one_active_uq')
+      .on(t.nIde, t.year)
+      .where(sql`${t.active} = true`),
+  ],
+);

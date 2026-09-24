@@ -15,6 +15,7 @@ const NAV = [
   { href: '/admin/cuentas', label: 'Cuentas y roles' },
   { href: '/admin/importaciones', label: 'Importaciones' },
   { href: '/admin/nomina', label: 'Nómina publicada' },
+  { href: '/admin/retenciones', label: 'Certificados de retención' },
   { href: '/admin/auditoria', label: 'Auditoría' },
 ];
 
