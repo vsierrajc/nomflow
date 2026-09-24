@@ -36,6 +36,7 @@ import {
 import {
   ProgVacError,
   activeContract,
+  activeEmployees,
   adjustPeriod,
   createPeriod,
   deactivatePeriod,
@@ -225,6 +226,13 @@ export class AdminProgVacController {
   @Header('Cache-Control', 'no-store')
   list(@Query('nIde') nIde: string | undefined) {
     return listPeriods(this.db, nIde?.trim() || undefined);
+  }
+
+  /** Lista de valores para el alta manual: empleados activos con su contrato vigente. */
+  @Get('employees')
+  @Header('Cache-Control', 'no-store')
+  employees(@Query('q') q: string | undefined) {
+    return activeEmployees(this.db, q?.trim().slice(0, 100) || undefined);
   }
 
   @Get(':id/adjustments')

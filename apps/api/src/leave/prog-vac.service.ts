@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, or, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { accounts, auditLogs, employeeSnapshots, progVac, progVacAdjustments } from '../db/schema';
 import { isValidIsoDate } from './business-days';
@@ -51,10 +51,17 @@ export async function createPeriod(db: Db, actor: string, input: ProgVacInput) {
     await audit(db, actor, 'PROG_VAC_CREATE', null, 'INVALID_DATA');
     throw new ProgVacError('INVALID_DATA');
   }
+  // Registro manual: solo empleados activos (EST = V) y con el contrato vigente de esa persona.
   const [emp] = await db
     .select({ id: employeeSnapshots.id })
     .from(employeeSnapshots)
-    .where(and(eq(employeeSnapshots.nIde, input.nIde), eq(employeeSnapshots.nCont, input.nCont)));
+    .where(
+      and(
+        eq(employeeSnapshots.nIde, input.nIde),
+        eq(employeeSnapshots.nCont, input.nCont),
+        eq(employeeSnapshots.est, 'V'),
+      ),
+    );
   if (!emp) {
     await audit(db, actor, 'PROG_VAC_CREATE', null, 'UNKNOWN_EMPLOYEE');
     throw new ProgVacError('UNKNOWN_EMPLOYEE');
@@ -200,4 +207,26 @@ export async function myOpenPeriods(db: Db, accountId: string) {
       ),
     )
     .orderBy(asc(progVac.perIni));
+}
+
+/** Empleados activos para elegir al registrar un período a mano; N_CONT es el contrato vigente. */
+export async function activeEmployees(db: Db, q?: string) {
+  const like = q ? `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%` : null;
+  return db
+    .select({
+      nIde: employeeSnapshots.nIde,
+      nCont: employeeSnapshots.nCont,
+      nombre: employeeSnapshots.nombre,
+    })
+    .from(employeeSnapshots)
+    .where(
+      and(
+        eq(employeeSnapshots.est, 'V'),
+        like
+          ? or(ilike(employeeSnapshots.nIde, like), ilike(employeeSnapshots.nombre, like))
+          : undefined,
+      ),
+    )
+    .orderBy(asc(employeeSnapshots.nombre), asc(employeeSnapshots.nIde))
+    .limit(200);
 }

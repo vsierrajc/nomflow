@@ -113,11 +113,29 @@ test.describe('períodos de vacaciones (PROG_VAC) y festivos', () => {
       ),
     ).toEqual([{ estado: 'LIQUIDADA', version: 2, disp: 0 }]);
 
-    // 5) alta manual, duplicado y baja
+    // 5) alta manual: lista de empleados activos, contrato completado, duplicado y baja
+    const gone = newUser('vcanc');
+    await query(
+      `insert into employee_snapshots (n_ide, n_cont, email, est, nombre, c_emp) values ($1, '9', $2, 'C', $3, 'GA')`,
+      [gone.nIde, gone.email, gone.name],
+    );
+    const list = page.getByRole('region', { name: 'Nuevo período' });
+    await list.getByLabel('Buscar empleado (nombre o identificación)').fill(gone.nIde);
+    await expect(
+      list.getByRole('option', { name: 'Ningún empleado activo coincide' }),
+    ).toBeAttached();
+    await expect(list.getByRole('option', { name: new RegExp(gone.nIde) })).toHaveCount(0);
+    await expect(list.getByLabel('Contrato (N_CONT)')).toHaveValue('');
+    await expect(list.getByLabel('Contrato (N_CONT)')).toHaveAttribute('readonly', '');
+    await list.getByRole('button', { name: 'Crear período' }).click();
+    await expect(
+      page.locator('p[role="alert"]', { hasText: 'Elija el empleado de la lista' }),
+    ).toBeVisible();
     const create = page.getByRole('region', { name: 'Nuevo período' });
     const fill = async () => {
-      await create.getByLabel('Identificación (N_IDE)').fill(emp.nIde);
-      await create.getByLabel('Contrato (N_CONT)').fill('1');
+      await create.getByLabel('Buscar empleado (nombre o identificación)').fill(emp.nIde);
+      await create.getByLabel('Empleado (N_IDE)').selectOption({ value: emp.nIde });
+      await expect(create.getByLabel('Contrato (N_CONT)')).toHaveValue('1');
       await create.getByLabel('Inicio del período').fill('2026-01-01');
       await create.getByLabel('Fin del período').fill('2026-12-31');
       await create.getByLabel('Días hábiles programados (máx. 15)').fill('15');
