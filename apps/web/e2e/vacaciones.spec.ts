@@ -152,7 +152,25 @@ test.describe('períodos de vacaciones (PROG_VAC) y festivos', () => {
       .getByRole('button', { name: new RegExp(`Publicar calendario ${year}, versión 1`) })
       .click();
     await expect(page.getByText('Calendario publicado.')).toBeVisible();
+    await page
+      .getByRole('button', {
+        name: new RegExp(`Ver los festivos del calendario ${year}, versión 1`),
+      })
+      .click();
+    const shown = page.getByRole('region', { name: 'Festivos del calendario' });
+    await expect(shown.getByRole('row', { name: /01\/01\/\d{4}.*Año Nuevo/ })).toBeVisible();
+    await shown.getByRole('button', { name: 'Cerrar' }).click();
     await fill(`${year}-01-01;Año Nuevo\n${year}-05-01;Día del Trabajo`);
+    await page
+      .getByRole('button', {
+        name: new RegExp(`Ver los festivos del calendario ${year}, versión 2`),
+      })
+      .click();
+    await expect(shown.getByText(/Nuevo: .*01\/05\/\d{4} - Día del Trabajo/)).toBeVisible();
+    await expect(
+      shown.getByText('Diferencias con el calendario publicado (versión 1):'),
+    ).toBeVisible();
+    await shown.getByRole('button', { name: 'Cerrar' }).click();
     await page
       .getByRole('button', { name: new RegExp(`Publicar calendario ${year}, versión 2`) })
       .click();

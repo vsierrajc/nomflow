@@ -36,6 +36,25 @@ interface SyncResult {
   removed: string[];
 }
 
+interface Day {
+  date: string;
+  name: string;
+}
+
+interface Viewing {
+  calendar: Calendar;
+  days: Day[];
+  /** Calendario publicado del mismo año, para comparar un borrador. */
+  published: { version: number; days: Day[] } | null;
+}
+
+const WEEKDAY = new Intl.DateTimeFormat('es-CO', { weekday: 'long', timeZone: 'UTC' });
+const dayText = (iso: string) => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  const w = WEEKDAY.format(d);
+  return `${w.charAt(0).toUpperCase()}${w.slice(1)} ${iso.slice(8)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+};
+
 const SYNC_STATUS: Record<string, string> = {
   OK: 'Correcta',
   API_KEY_INVALID: 'La clave fue rechazada por el servicio',
@@ -89,6 +108,7 @@ export default function HolidaysPage() {
   const [apiOk, setApiOk] = useState<string | null>(null);
   const [sync, setSync] = useState<SyncResult | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [viewing, setViewing] = useState<Viewing | null>(null);
 
   const load = useCallback(async () => {
     const res = await call<Calendar[]>('/admin/holidays');
@@ -189,6 +209,22 @@ export default function HolidaysPage() {
       );
     else if (res.status === 403) setError('Se canceló la confirmación de identidad.');
     else setError(NETWORK_ERROR);
+  }
+
+  async function view(c: Calendar) {
+    setError(null);
+    const res = await call<Day[]>(`/admin/holidays/${c.id}/days`);
+    if (res.status !== 200 || !res.data) return setError(NETWORK_ERROR);
+    const pub =
+      c.status === 'BORRADOR' && items
+        ? items.find((x) => x.year === c.year && x.status === 'PUBLICADO')
+        : undefined;
+    let published: Viewing['published'] = null;
+    if (pub) {
+      const p = await call<Day[]>(`/admin/holidays/${pub.id}/days`);
+      if (p.status === 200 && p.data) published = { version: pub.version, days: p.data };
+    }
+    setViewing({ calendar: c, days: res.data, published });
   }
 
   async function publish(id: string) {
@@ -331,6 +367,14 @@ export default function HolidaysPage() {
                   <td className="num">{c.days}</td>
                   <td>{c.publishedAt ? formatDate(c.publishedAt) : '—'}</td>
                   <td>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => void view(c)}
+                      aria-label={`Ver los festivos del calendario ${c.year}, versión ${c.version}`}
+                    >
+                      Ver festivos
+                    </button>{' '}
                     {c.status === 'BORRADOR' ? (
                       <button
                         type="button"
@@ -354,6 +398,89 @@ export default function HolidaysPage() {
           </table>
         </div>
       )}
+
+      {viewing ? (
+        <section className="import-panel" aria-label="Festivos del calendario">
+          <h2>
+            Festivos de {viewing.calendar.year}, versión {viewing.calendar.version} (
+            {STATUS[viewing.calendar.status]}, origen {viewing.calendar.source})
+          </h2>
+          {viewing.published ? (
+            <DraftDiff draft={viewing.days} published={viewing.published} />
+          ) : viewing.calendar.status === 'BORRADOR' ? (
+            <p className="muted">
+              Ese año todavía no tiene un calendario publicado con el que comparar.
+            </p>
+          ) : null}
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="Lista de festivos">
+            <table>
+              <caption className="muted">{viewing.days.length} festivos</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Fecha</th>
+                  <th scope="col">Festivo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {viewing.days.map((d) => (
+                  <tr key={d.date}>
+                    <td>{dayText(d.date)}</td>
+                    <td>{d.name}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <button type="button" className="secondary" onClick={() => setViewing(null)}>
+            Cerrar
+          </button>
+        </section>
+      ) : null}
     </>
+  );
+}
+
+/** Diferencias de un borrador frente al calendario publicado del mismo año. */
+function DraftDiff({
+  draft,
+  published,
+}: {
+  draft: Day[];
+  published: { version: number; days: Day[] };
+}) {
+  const have = new Set(published.days.map((d) => d.date));
+  const incoming = new Set(draft.map((d) => d.date));
+  const added = draft.filter((d) => !have.has(d.date));
+  const removed = published.days.filter((d) => !incoming.has(d.date));
+  const renamed = draft.filter((d) =>
+    published.days.some((p) => p.date === d.date && p.name !== d.name),
+  );
+  if (added.length === 0 && removed.length === 0 && renamed.length === 0)
+    return (
+      <p className="muted">
+        Coincide con el calendario publicado (versión {published.version}): mismas fechas y nombres.
+      </p>
+    );
+  return (
+    <div aria-label="Diferencias con el calendario publicado">
+      <p>Diferencias con el calendario publicado (versión {published.version}):</p>
+      <ul>
+        {added.map((d) => (
+          <li key={`a${d.date}`}>
+            Nuevo: {dayText(d.date)} - {d.name}
+          </li>
+        ))}
+        {removed.map((d) => (
+          <li key={`r${d.date}`}>
+            Ya no viene: {dayText(d.date)} - {d.name}
+          </li>
+        ))}
+        {renamed.map((d) => (
+          <li key={`n${d.date}`}>
+            Cambia el nombre: {dayText(d.date)} - {d.name}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
