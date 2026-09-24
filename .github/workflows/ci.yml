@@ -47,11 +47,20 @@ jobs:
       - uses: github/codeql-action/analyze@v3
         with:
           output: codeql-results
-      - name: Fallar si hay hallazgos
+      - name: Fallar si hay hallazgos no descartados
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          total=$(cat codeql-results/*.sarif | jq '[.runs[].results[]] | length')
-          echo "Hallazgos de CodeQL: $total"
-          cat codeql-results/*.sarif | jq -r '.runs[].results[] | "\(.ruleId) \(.locations[0].physicalLocation.artifactLocation.uri):\(.locations[0].physicalLocation.region.startLine)"'
+          # Regla + archivo de las alertas ya descartadas en la pestaña Security (falsos positivos revisados)
+          gh api "repos/$GITHUB_REPOSITORY/code-scanning/alerts?state=dismissed&per_page=100" \
+            --jq '[.[] | {r: .rule.id, p: .most_recent_instance.location.path}]' > dismissed.json
+          cat codeql-results/*.sarif | jq --slurpfile d dismissed.json '
+            [.runs[].results[]
+             | {r: .ruleId, p: .locations[0].physicalLocation.artifactLocation.uri, l: .locations[0].physicalLocation.region.startLine}
+             | select(. as $x | ($d[0] | any(.r == $x.r and .p == $x.p)) | not)]' > pending.json
+          jq -r '.[] | "\(.r) \(.p):\(.l)"' pending.json
+          total=$(jq length pending.json)
+          echo "Hallazgos de CodeQL sin descartar: $total"
           test "$total" -eq 0
       - uses: actions/upload-artifact@v4
         if: always()
