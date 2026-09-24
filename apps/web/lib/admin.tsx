@@ -128,7 +128,7 @@ export function AdminProvider({ profile, children }: { profile: Profile; childre
           <div className="modal" role="dialog" aria-modal="true" aria-labelledby="reauth-title">
             <h2 id="reauth-title">Confirme su identidad</h2>
             <p className="muted">
-              Por seguridad, esta acción administrativa requiere que vuelva a escribir su clave.
+              Por seguridad, esta acción requiere que vuelva a escribir su clave.
             </p>
             {error ? (
               <p className="alert alert-error" role="alert">

@@ -59,7 +59,11 @@ const LANDING_SERVICES = [
     text: 'Visualice y descargue su certificado de retención de cada año.',
   },
   {
-    title: 'Vacaciones y permisos',
+    title: 'Vacaciones',
+    text: 'Solicite sus vacaciones y siga su aprobación en línea.',
+  },
+  {
+    title: 'Permisos',
     text: 'Solicitudes y aprobaciones en línea.',
     soon: true,
   },
@@ -149,6 +153,7 @@ function navFor(profile: Profile): NavItem[] {
   const items: NavItem[] = [
     { href: '/', label: 'Inicio', match: (p) => p === '/' },
     { href: '/volantes', label: 'Mis volantes de pago', match: (p) => p.startsWith('/volantes') },
+    { href: '/vacaciones', label: 'Mis vacaciones', match: (p) => p.startsWith('/vacaciones') },
     {
       href: '/retenciones',
       label: 'Certificados de retención',
@@ -156,6 +161,12 @@ function navFor(profile: Profile): NavItem[] {
     },
     { href: '/cuenta/clave', label: 'Mi cuenta', match: (p) => p.startsWith('/cuenta') },
   ];
+  if (profile.roles.some((r) => ['AREA_MANAGER', 'VACATION_FINAL_APPROVER'].includes(r.role)))
+    items.push({
+      href: '/aprobaciones',
+      label: 'Aprobaciones',
+      match: (p) => p.startsWith('/aprobaciones'),
+    });
   if (isAdmin(profile))
     items.push({ href: '/admin', label: 'Administración', match: (p) => p.startsWith('/admin') });
   return items;

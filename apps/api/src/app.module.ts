@@ -19,6 +19,8 @@ import { AdminTaxController, MeTaxController } from './tax/tax.controller';
 import {
   AdminHolidaysController,
   AdminProgVacController,
+  FinalVacationsController,
+  ManagerVacationsController,
   MeVacationsController,
 } from './leave/leave.controller';
 import { HealthController } from './health.controller';
@@ -42,6 +44,8 @@ import { HealthController } from './health.controller';
     AdminHolidaysController,
     AdminProgVacController,
     MeVacationsController,
+    ManagerVacationsController,
+    FinalVacationsController,
   ],
   providers: [SessionGuard, RolesGuard, RecentAuthGuard, RequestAuditService],
 })

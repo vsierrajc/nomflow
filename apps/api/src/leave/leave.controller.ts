@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   ConflictException,
+  ForbiddenException,
   Controller,
   Delete,
   Get,
@@ -24,14 +25,12 @@ import { ADMIN_ROLES } from '../auth/roles';
 import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
 import type { Db } from '../db/client';
 import { DB } from '../db/db.module';
-import { LeaveCalcError, computeLeave, yearsNeeded } from './business-days';
 import {
   HolidayError,
   calendarDays,
   createDraft,
   listCalendars,
   publish,
-  publishedHolidays,
 } from './holidays.service';
 import {
   ProgVacError,
@@ -43,8 +42,23 @@ import {
   listPeriods,
   myOpenPeriods,
 } from './prog-vac.service';
-import { progVac } from '../db/schema';
-import { and, eq, inArray } from 'drizzle-orm';
+import { PlanError, type Allocation } from './leave-plan';
+import { planLeave } from './leave-plan';
+import {
+  VacationError,
+  acceptRevision,
+  cancelRequest,
+  detail,
+  finalApprove,
+  finalReject,
+  listAssignedToManager,
+  listForFinal,
+  listMine,
+  managerApprove,
+  managerPropose,
+  managerReject,
+  submitRequest,
+} from './vacation.service';
 
 const iso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const DraftDto = z.object({
@@ -199,13 +213,40 @@ export class AdminProgVacController {
   }
 }
 
-const PreviewDto = z.object({
-  start: iso,
-  allocations: z
-    .array(z.object({ progVacId: z.string().uuid(), days: z.number().int().min(1) }))
-    .min(1)
-    .max(10),
-});
+const AllocationsDto = z
+  .array(z.object({ progVacId: z.string().uuid(), days: z.number().int().min(1) }))
+  .min(1)
+  .max(10);
+const PreviewDto = z.object({ start: iso, allocations: AllocationsDto });
+const ProposeDto = PreviewDto.extend({ reason: z.string().trim().min(10).max(500) });
+const ReasonDto = z.object({ reason: z.string().trim().min(10).max(500) });
+
+/** Traduce los errores del flujo a respuestas HTTP sin exponer detalles internos. */
+function mapLeave(e: unknown): never {
+  if (e instanceof PlanError) {
+    if (e.code === 'CALENDAR_MISSING')
+      throw new UnprocessableEntityException({ code: 'HOLIDAY_CALENDAR_MISSING', years: e.years });
+    if (e.code === 'NOT_FOUND') throw new NotFoundException();
+    throw new BadRequestException({ code: e.code });
+  }
+  if (e instanceof VacationError) {
+    switch (e.code) {
+      case 'NOT_FOUND':
+        throw new NotFoundException();
+      case 'FORBIDDEN':
+      case 'SELF_APPROVAL':
+        throw new ForbiddenException({ code: e.code });
+      case 'NO_MANAGER':
+      case 'NO_ACTIVE_CONTRACT':
+        throw new UnprocessableEntityException({ code: e.code });
+      case 'REASON_REQUIRED':
+        throw new BadRequestException({ code: e.code });
+      default:
+        throw new ConflictException({ code: e.code });
+    }
+  }
+  throw e;
+}
 
 @Controller('me/vacations')
 @UseGuards(SessionGuard)
@@ -226,37 +267,170 @@ export class MeVacationsController {
     if (!dto.success) throw new BadRequestException();
     const contract = await activeContract(this.db, req.auth.accountId);
     if (!contract) throw new NotFoundException();
-    const ids = dto.data.allocations.map((a) => a.progVacId);
-    if (new Set(ids).size !== ids.length) throw new BadRequestException({ code: 'DUPLICATE' });
-    const rows = await this.db
-      .select()
-      .from(progVac)
-      .where(
-        and(
-          inArray(progVac.id, ids),
-          eq(progVac.nIde, contract.nIde),
-          eq(progVac.nCont, contract.nCont),
-          eq(progVac.active, true),
-        ),
-      );
-    if (rows.length !== ids.length) throw new NotFoundException();
-    for (const a of dto.data.allocations) {
-      const r = rows.find((x) => x.id === a.progVacId);
-      if (!r || a.days > r.disp) throw new BadRequestException({ code: 'EXCEEDS_DISP' });
-    }
-    const total = dto.data.allocations.reduce((s, a) => s + a.days, 0);
-    const years = yearsNeeded(dto.data.start, total);
-    const cal = await publishedHolidays(this.db, years);
-    if (cal.missingYears.length > 0)
-      throw new UnprocessableEntityException({
-        code: 'HOLIDAY_CALENDAR_MISSING',
-        years: cal.missingYears,
-      });
     try {
-      return { ...computeLeave(dto.data.start, total, cal.set), calendarIds: cal.calendarIds };
+      return await planLeave(this.db, contract, dto.data.start, dto.data.allocations);
     } catch (e) {
-      if (e instanceof LeaveCalcError) throw new BadRequestException({ code: e.code });
-      throw e;
+      return mapLeave(e);
+    }
+  }
+
+  @Post()
+  @HttpCode(201)
+  @UseGuards(RecentAuthGuard)
+  async submit(@Body() body: unknown, @Req() req: AuthedRequest) {
+    const dto = PreviewDto.safeParse(body);
+    if (!dto.success) throw new BadRequestException();
+    try {
+      return await submitRequest(this.db, req.auth.accountId, dto.data);
+    } catch (e) {
+      return mapLeave(e);
+    }
+  }
+
+  @Get()
+  @Header('Cache-Control', 'no-store')
+  list(@Req() req: AuthedRequest) {
+    return listMine(this.db, req.auth.accountId);
+  }
+
+  @Get(':id')
+  @Header('Cache-Control', 'no-store')
+  async one(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
+    try {
+      return await detail(this.db, req.auth.accountId, id);
+    } catch (e) {
+      return mapLeave(e);
+    }
+  }
+
+  @Post(':id/accept')
+  @HttpCode(200)
+  @UseGuards(RecentAuthGuard)
+  async accept(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
+    try {
+      await acceptRevision(this.db, req.auth.accountId, id);
+      return { ok: true };
+    } catch (e) {
+      return mapLeave(e);
+    }
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(200)
+  async cancel(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
+    try {
+      await cancelRequest(this.db, req.auth.accountId, id);
+      return { ok: true };
+    } catch (e) {
+      return mapLeave(e);
+    }
+  }
+}
+
+/** Bandeja del jefe de área: solo solicitudes que le fueron asignadas y solo con el rol vigente. */
+@Controller('approvals/vacations/manager')
+@UseGuards(SessionGuard, RolesGuard)
+@Roles('AREA_MANAGER')
+export class ManagerVacationsController {
+  constructor(@Inject(DB) private readonly db: Db) {}
+
+  @Get()
+  @Header('Cache-Control', 'no-store')
+  list(@Req() req: AuthedRequest) {
+    return listAssignedToManager(this.db, req.auth.accountId);
+  }
+
+  @Post(':id/approve')
+  @HttpCode(200)
+  @UseGuards(RecentAuthGuard)
+  async approve(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
+    try {
+      await managerApprove(this.db, req.auth.accountId, id);
+      return { ok: true };
+    } catch (e) {
+      return mapLeave(e);
+    }
+  }
+
+  @Post(':id/reject')
+  @HttpCode(200)
+  @UseGuards(RecentAuthGuard)
+  async reject(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+    @Req() req: AuthedRequest,
+  ) {
+    const dto = ReasonDto.safeParse(body);
+    if (!dto.success) throw new BadRequestException({ code: 'REASON_REQUIRED' });
+    try {
+      await managerReject(this.db, req.auth.accountId, id, dto.data.reason);
+      return { ok: true };
+    } catch (e) {
+      return mapLeave(e);
+    }
+  }
+
+  @Post(':id/propose')
+  @HttpCode(200)
+  @UseGuards(RecentAuthGuard)
+  async propose(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+    @Req() req: AuthedRequest,
+  ) {
+    const dto = ProposeDto.safeParse(body);
+    if (!dto.success) throw new BadRequestException();
+    const allocations: Allocation[] = dto.data.allocations;
+    try {
+      await managerPropose(this.db, req.auth.accountId, id, { ...dto.data, allocations });
+      return { ok: true };
+    } catch (e) {
+      return mapLeave(e);
+    }
+  }
+}
+
+/** Bandeja de la aprobación final: exige el rol VACATION_FINAL_APPROVER vigente. */
+@Controller('approvals/vacations/final')
+@UseGuards(SessionGuard, RolesGuard)
+@Roles('VACATION_FINAL_APPROVER')
+export class FinalVacationsController {
+  constructor(@Inject(DB) private readonly db: Db) {}
+
+  @Get()
+  @Header('Cache-Control', 'no-store')
+  list(@Req() req: AuthedRequest) {
+    void req;
+    return listForFinal(this.db);
+  }
+
+  @Post(':id/approve')
+  @HttpCode(200)
+  @UseGuards(RecentAuthGuard)
+  async approve(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
+    try {
+      await finalApprove(this.db, req.auth.accountId, id);
+      return { ok: true };
+    } catch (e) {
+      return mapLeave(e);
+    }
+  }
+
+  @Post(':id/reject')
+  @HttpCode(200)
+  @UseGuards(RecentAuthGuard)
+  async reject(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+    @Req() req: AuthedRequest,
+  ) {
+    const dto = ReasonDto.safeParse(body);
+    if (!dto.success) throw new BadRequestException({ code: 'REASON_REQUIRED' });
+    try {
+      await finalReject(this.db, req.auth.accountId, id, dto.data.reason);
+      return { ok: true };
+    } catch (e) {
+      return mapLeave(e);
     }
   }
 }
