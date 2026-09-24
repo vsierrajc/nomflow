@@ -54,6 +54,7 @@ const STAT_LABELS: Record<string, string> = {
   nLiq: 'Liquidación',
   cEmp: 'Empresa',
   units: 'Unidades',
+  fechaCorte: 'Fecha de corte',
 };
 
 const HIDDEN_STATS = new Set(['contentHash', 'replaces']);

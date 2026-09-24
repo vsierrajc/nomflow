@@ -20,6 +20,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
+import { applyProgVacBatch, uploadProgVac } from '../leave/prog-vac.import';
 import { applyConceptsBatch, uploadConcepts } from '../payroll/concepts.service';
 import { CATALOGS, isCatalogKind } from './catalog.parser';
 import {
@@ -57,6 +58,13 @@ const UploadDto = z.object({
   sheet: z.string().trim().min(1).max(100).optional(),
   sourceSystem: z.string().trim().min(1).max(100),
   responsible: z.string().trim().min(1).max(150),
+});
+
+const ProgVacUploadDto = UploadDto.omit({ cEmp: true }).extend({
+  fechaCorte: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
 });
 
 function mapError(e: unknown): never {
@@ -125,6 +133,31 @@ export class ImportsController {
         sheet: dto.data.sheet,
         sourceSystem: dto.data.sourceSystem,
         responsible: dto.data.responsible,
+        maxRows: MAX_ROWS,
+      });
+    } catch (e) {
+      return mapError(e);
+    }
+  }
+
+  @Post('prog-vac')
+  @HttpCode(201)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_BYTES, files: 1 } }))
+  async uploadProgVac(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() body: unknown,
+    @Req() req: AuthedRequest,
+  ): Promise<BatchSummary> {
+    const dto = ProgVacUploadDto.safeParse(body);
+    if (!file || !dto.success) throw new BadRequestException();
+    try {
+      return await uploadProgVac(this.db, req.auth.accountId, {
+        buffer: file.buffer,
+        fileName: file.originalname,
+        sheet: dto.data.sheet,
+        sourceSystem: dto.data.sourceSystem,
+        responsible: dto.data.responsible,
+        fechaCorte: dto.data.fechaCorte,
         maxRows: MAX_ROWS,
       });
     } catch (e) {
@@ -237,6 +270,8 @@ export class ImportsController {
     try {
       const batch = await getBatch(this.db, id);
       if (batch.type === 'NOMINA') return await applyPayrollBatch(this.db, req.auth.accountId, id);
+      if (batch.type === 'PROG_VAC')
+        return await applyProgVacBatch(this.db, req.auth.accountId, id);
       if (batch.type === 'CONCEPTO')
         return await applyConceptsBatch(this.db, req.auth.accountId, id);
       return isCatalogKind(batch.type)
