@@ -29,6 +29,7 @@ const TYPES: Record<string, string> = {
   EMPLEADOS: 'Empleados',
   NOMINA: 'Nómina',
   CONCEPTO: 'Conceptos',
+  PROG_VAC: 'Períodos de vacaciones',
   AREA: 'Áreas',
   CCOSTO: 'Centros de costo',
   CARGO: 'Cargos',

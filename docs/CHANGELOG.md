@@ -28,3 +28,4 @@
 - Repositorio público: Code scanning con CodeQL del workflow (la configuración predeterminada de GitHub queda desactivada para no chocar), escaneo de secretos con protección de push y alertas de Dependabot activados.
 - CI: el job de CodeQL ignora las alertas descartadas como falso positivo en Security (2 descartadas: hash del token de sesión y cookie de sesión).
 - Dependencias: `overrides` fijan `uuid` 11.1.1 (por exceljs) y `esbuild` 0.28.2, con lo que `npm audit` queda en 0 y se cierran las 2 alertas de Dependabot; lockfile regenerado.
+- ESS-LEAVE-001, parte de ESS-LEAVE-002 y ESS-HOL-001: `PROG_VAC` (CRUD y carga Excel con vista previa), festivos (borradores versionados y publicación), cálculo de días hábiles con retorno y cruce de año, vista previa para el empleado; migración 0016.

@@ -674,6 +674,9 @@ test.describe('accesibilidad del área administrativa', () => {
       '/admin/cuentas',
       '/admin/importaciones',
       '/admin/nomina',
+      '/admin/vacaciones',
+      '/admin/festivos',
+      '/admin/retenciones',
       '/admin/auditoria',
     ]) {
       await page.goto(path);

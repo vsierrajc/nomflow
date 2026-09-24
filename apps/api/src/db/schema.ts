@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  check,
   customType,
   index,
   pgEnum,
@@ -448,4 +449,94 @@ export const taxCertificates = pgTable(
       .on(t.nIde, t.year)
       .where(sql`${t.active} = true`),
   ],
+);
+
+export const holidayCalendars = pgTable(
+  'holiday_calendars',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    region: text('region').notNull().default('CO'),
+    year: integer('year').notNull(),
+    version: integer('version').notNull(),
+    status: text('status').notNull().default('BORRADOR'),
+    source: text('source').notNull(),
+    reason: text('reason'),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => accounts.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    publishedBy: uuid('published_by').references(() => accounts.id),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex('holiday_calendars_version_uq').on(t.region, t.year, t.version),
+    uniqueIndex('holiday_calendars_one_published_uq')
+      .on(t.region, t.year)
+      .where(sql`${t.status} = 'PUBLICADO'`),
+  ],
+);
+
+export const holidays = pgTable(
+  'holidays',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    calendarId: uuid('calendar_id')
+      .notNull()
+      .references(() => holidayCalendars.id),
+    date: date('date').notNull(),
+    name: text('name').notNull(),
+  },
+  (t) => [uniqueIndex('holidays_calendar_date_uq').on(t.calendarId, t.date)],
+);
+
+export const progVac = pgTable(
+  'prog_vac',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    nIde: text('n_ide').notNull(),
+    nCont: text('n_cont').notNull(),
+    perIni: date('per_ini').notNull(),
+    perFin: date('per_fin').notNull(),
+    dias: integer('dias').notNull(),
+    disp: integer('disp').notNull(),
+    /** EST del origen, sin interpretar hasta contar con su catálogo. */
+    estOrigen: text('est_origen'),
+    /** Estado interno: ACTIVA o LIQUIDADA (DISP = 0). */
+    estado: text('estado').notNull().default('ACTIVA'),
+    fechaCorte: date('fecha_corte'),
+    version: integer('version').notNull().default(1),
+    source: text('source').notNull().default('MANUAL'),
+    active: boolean('active').notNull().default(true),
+    createdBy: uuid('created_by').references(() => accounts.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('prog_vac_period_uq')
+      .on(t.nIde, t.nCont, t.perIni, t.perFin)
+      .where(sql`${t.active} = true`),
+    index('prog_vac_person_idx').on(t.nIde, t.nCont),
+    check('prog_vac_range_ck', sql`${t.disp} >= 0 and ${t.disp} <= ${t.dias} and ${t.dias} <= 15`),
+  ],
+);
+
+export const progVacAdjustments = pgTable(
+  'prog_vac_adjustments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    progVacId: uuid('prog_vac_id')
+      .notNull()
+      .references(() => progVac.id),
+    actorAccountId: uuid('actor_account_id')
+      .notNull()
+      .references(() => accounts.id),
+    version: integer('version').notNull(),
+    oldDias: integer('old_dias').notNull(),
+    newDias: integer('new_dias').notNull(),
+    oldDisp: integer('old_disp').notNull(),
+    newDisp: integer('new_disp').notNull(),
+    reason: text('reason').notNull(),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('prog_vac_adjustments_idx').on(t.progVacId, t.at)],
 );

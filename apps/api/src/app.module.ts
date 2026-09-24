@@ -16,6 +16,11 @@ import { ConceptsController } from './payroll/concepts.controller';
 import { MePayrollController } from './payroll/me-payroll.controller';
 import { MailModule } from './mail/mail.module';
 import { AdminTaxController, MeTaxController } from './tax/tax.controller';
+import {
+  AdminHolidaysController,
+  AdminProgVacController,
+  MeVacationsController,
+} from './leave/leave.controller';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -34,6 +39,9 @@ import { HealthController } from './health.controller';
     AdminSupportController,
     MeTaxController,
     AdminTaxController,
+    AdminHolidaysController,
+    AdminProgVacController,
+    MeVacationsController,
   ],
   providers: [SessionGuard, RolesGuard, RecentAuthGuard, RequestAuditService],
 })
