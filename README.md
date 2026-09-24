@@ -100,12 +100,12 @@ scripts/stack.sh            levanta y detiene el stack local
 
 ```bash
 npm ci
-npm run stack:up        # PostgreSQL, Redis, MinIO y Mailpit en Docker; compila, migra y arranca API y web
+./iniciar_app.sh        # PostgreSQL, Redis, MinIO y Mailpit en Docker; compila, migra y arranca API y web
+./detener_app.sh        # detiene la API y la web y elimina los contenedores (docker compose down); los datos se conservan
 npm run stack:status    # URLs y estado
-npm run stack:down      # detiene todo (los datos se conservan)
 ```
 
-`stack:up` crea un `.env` local (ignorado por Git) con un `SESSION_SECRET` aleatorio. Servicios:
+`./iniciar_app.sh` (equivale a `npm run stack:up`) crea un `.env` local (ignorado por Git) con un `SESSION_SECRET` aleatorio. Servicios:
 
 | Servicio           | Dirección                                                | Notas                                                       |
 | ------------------ | -------------------------------------------------------- | ----------------------------------------------------------- |
@@ -126,7 +126,7 @@ BOOTSTRAP_ADMIN_EMAIL=admin@nomflow.local BOOTSTRAP_ADMIN_PASSWORD="$CLAVE_INICI
 
 Después, entre en http://localhost:3000/login con ese correo, cree la empresa y cargue los archivos desde **Administración** (ver [Cómo se cargan los datos](#cómo-se-cargan-los-datos)).
 
-Más detalles (SMTP real, puertos, Chromium en WSL) en [`docs/local-stack.md`](docs/local-stack.md).
+`./detener_app.sh --borrar-datos` además elimina los volúmenes (la base de desarrollo, MinIO): pide escribir `BORRAR` y no hace nada si se cancela. Más detalles (SMTP real, puertos, Chromium en WSL) en [`docs/local-stack.md`](docs/local-stack.md).
 
 ## Configuración
 
