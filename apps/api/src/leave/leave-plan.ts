@@ -14,6 +14,7 @@ import { publishedHolidays } from './holidays.service';
 export type PlanErrorCode =
   | 'NOT_FOUND'
   | 'DUPLICATE'
+  | 'PERIOD_NOT_AVAILABLE'
   | 'EXCEEDS_DISP'
   | 'CALENDAR_MISSING'
   | 'START_NOT_BUSINESS_DAY'
@@ -87,6 +88,8 @@ export async function planLeave(
   for (const a of allocations) {
     const r = rows.find((x) => x.id === a.progVacId);
     if (!r || !Number.isInteger(a.days) || a.days < 1) throw new PlanError('INVALID_DAYS');
+    // Solo se puede pedir de los períodos de PROG_VAC con días disponibles (no liquidados).
+    if (r.disp <= 0 || r.estado === 'LIQUIDADA') throw new PlanError('PERIOD_NOT_AVAILABLE');
     if (a.days > r.disp) throw new PlanError('EXCEEDS_DISP');
   }
   const total = allocations.reduce((sum, a) => sum + a.days, 0);

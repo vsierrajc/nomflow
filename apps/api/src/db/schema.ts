@@ -660,3 +660,15 @@ export const vacaciones = pgTable(
     index('vacaciones_person_idx').on(t.nIde, t.nCont, t.fecIniDis),
   ],
 );
+
+/** Configuración del servicio externo de festivos (una sola fila). La clave se guarda cifrada. */
+export const holidayApiSettings = pgTable('holiday_api_settings', {
+  id: integer('id').primaryKey().default(1),
+  url: text('url').notNull(),
+  apiKeyEnc: text('api_key_enc'),
+  updatedBy: uuid('updated_by').references(() => accounts.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  lastSyncAt: timestamp('last_sync_at', { withTimezone: true }),
+  lastSyncYear: integer('last_sync_year'),
+  lastSyncStatus: text('last_sync_status'),
+});

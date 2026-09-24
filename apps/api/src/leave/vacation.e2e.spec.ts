@@ -201,6 +201,105 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
     expect(det.body.revisions[0].allocations).toHaveLength(2);
   });
 
+  it('solo se puede pedir de los períodos de PROG_VAC con días disponibles del propio contrato', async () => {
+    const periods = async () =>
+      (await send(emp, 'get', '/me/vacations/periods').expect(200)).body as { id: string }[];
+    expect((await periods()).map((p) => p.id).sort()).toEqual([p1, p2].sort());
+
+    // liquidado (DISP = 0): no se ofrece ni se acepta
+    const [liq] = await db
+      .insert(progVac)
+      .values({
+        nIde: '100',
+        nCont: '1',
+        perIni: '2023-01-01',
+        perFin: '2023-12-31',
+        dias: 15,
+        disp: 0,
+        estado: 'LIQUIDADA',
+      })
+      .returning({ id: progVac.id });
+    // dado de baja
+    const [off] = await db
+      .insert(progVac)
+      .values({
+        nIde: '100',
+        nCont: '1',
+        perIni: '2022-01-01',
+        perFin: '2022-12-31',
+        dias: 15,
+        disp: 5,
+        active: false,
+      })
+      .returning({ id: progVac.id });
+    // de otro contrato de la misma persona y de otra persona
+    const [oc] = await db
+      .insert(progVac)
+      .values({
+        nIde: '100',
+        nCont: '2',
+        perIni: '2021-01-01',
+        perFin: '2021-12-31',
+        dias: 15,
+        disp: 5,
+      })
+      .returning({ id: progVac.id });
+    await person('700', 'x7@x.co');
+    const [ot] = await db
+      .insert(progVac)
+      .values({
+        nIde: '700',
+        nCont: '1',
+        perIni: '2025-01-01',
+        perFin: '2025-12-31',
+        dias: 15,
+        disp: 15,
+      })
+      .returning({ id: progVac.id });
+    expect((await periods()).map((p) => p.id).sort()).toEqual([p1, p2].sort());
+
+    const body = (id: string) => ({
+      start: '2026-03-02',
+      allocations: [{ progVacId: id, days: 1 }],
+    });
+    for (const path of ['/me/vacations/preview', '/me/vacations']) {
+      const codes: [string, number, string?][] = [
+        [liq?.id ?? '', 400, 'PERIOD_NOT_AVAILABLE'],
+        [off?.id ?? '', 404],
+        [oc?.id ?? '', 404],
+        [ot?.id ?? '', 404],
+        ['00000000-0000-4000-8000-000000000000', 404],
+      ];
+      for (const [id, status, code] of codes) {
+        const res = await send(emp, 'post', path, body(id)).expect(status);
+        if (code) expect(res.body.code, `${path} ${id}`).toBe(code);
+      }
+    }
+    // mezclar un período válido con uno no disponible tampoco pasa
+    await send(emp, 'post', '/me/vacations', {
+      start: '2026-03-02',
+      allocations: [
+        { progVacId: p1, days: 1 },
+        { progVacId: liq?.id ?? '', days: 1 },
+      ],
+    }).expect(400);
+    expect(await db.select().from(vacationRequests)).toHaveLength(0);
+
+    // el jefe tampoco puede proponer períodos no disponibles
+    const ok = await submit('2026-03-02', [{ progVacId: p1, days: 2 }]).expect(201);
+    await send(mgr, 'post', `/approvals/vacations/manager/${ok.body.id}/propose`, {
+      start: '2026-03-02',
+      allocations: [{ progVacId: liq?.id ?? '', days: 1 }],
+      reason: 'Se prueba con un período liquidado',
+    }).expect(400);
+    await send(mgr, 'post', `/approvals/vacations/manager/${ok.body.id}/propose`, {
+      start: '2026-03-02',
+      allocations: [{ progVacId: ot?.id ?? '', days: 1 }],
+      reason: 'Se prueba con un período ajeno',
+    }).expect(404);
+    expect(await status(ok.body.id)).toBe('PENDIENTE_JEFE');
+  });
+
   it('validaciones al enviar: remanente, jefe, cruce de fechas y calendario', async () => {
     await submit('2026-03-02', [{ progVacId: p2, days: 6 }]).expect(400); // > DISP
     await submit('2026-03-07', [{ progVacId: p1, days: 1 }]).expect(400); // sábado

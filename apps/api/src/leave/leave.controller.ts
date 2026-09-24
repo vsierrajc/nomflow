@@ -1,4 +1,5 @@
 import {
+  BadGatewayException,
   BadRequestException,
   Body,
   ConflictException,
@@ -42,6 +43,7 @@ import {
   listPeriods,
   myOpenPeriods,
 } from './prog-vac.service';
+import { HolidayApiError, getSettings, saveSettings, syncYear } from './holiday-api.service';
 import { PlanError, type Allocation } from './leave-plan';
 import { planLeave } from './leave-plan';
 import {
@@ -150,6 +152,66 @@ export class AdminHolidaysController {
       }
       throw e;
     }
+  }
+}
+
+const SettingsDto = z.object({
+  url: z.string().trim().min(1).max(300),
+  apiKey: z.string().max(500).optional(),
+  clearApiKey: z.boolean().optional(),
+});
+
+/** Configuración del servicio externo de festivos: la clave se guarda cifrada y nunca se devuelve. */
+@Controller('admin/holiday-api')
+@UseGuards(SessionGuard, RolesGuard)
+@Roles(...ADMIN_ROLES)
+export class AdminHolidayApiController {
+  constructor(@Inject(DB) private readonly db: Db) {}
+
+  @Get()
+  @Header('Cache-Control', 'no-store')
+  settings() {
+    return getSettings(this.db);
+  }
+
+  @Put()
+  @UseGuards(RecentAuthGuard)
+  async save(@Body() body: unknown, @Req() req: AuthedRequest) {
+    const dto = SettingsDto.safeParse(body);
+    if (!dto.success) throw new BadRequestException();
+    try {
+      await saveSettings(this.db, req.auth.accountId, dto.data);
+      return await getSettings(this.db);
+    } catch (e) {
+      return mapApi(e);
+    }
+  }
+
+  @Post('sync')
+  @HttpCode(200)
+  @UseGuards(RecentAuthGuard)
+  async sync(@Body() body: unknown, @Req() req: AuthedRequest) {
+    const dto = z.object({ year: z.number().int() }).safeParse(body);
+    if (!dto.success) throw new BadRequestException();
+    try {
+      return await syncYear(this.db, req.auth.accountId, dto.data.year);
+    } catch (e) {
+      return mapApi(e);
+    }
+  }
+}
+
+function mapApi(e: unknown): never {
+  if (!(e instanceof HolidayApiError)) throw e;
+  switch (e.code) {
+    case 'INVALID_URL':
+    case 'INVALID_YEAR':
+    case 'NOT_CONFIGURED':
+    case 'NO_API_KEY':
+      throw new BadRequestException({ code: e.code });
+    default:
+      // El servicio externo falló: se conserva la última versión local publicada.
+      throw new BadGatewayException({ code: e.code });
   }
 }
 

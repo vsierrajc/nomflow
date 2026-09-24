@@ -8,3 +8,10 @@
 - Bloqueos y riesgos: el PDF con firmas y las suplencias siguen pendientes; el aprobador final ve todas las solicitudes, sin filtro por empresa
 - Estado final: parcial
 - Próximo paso: permisos con el mismo flujo (tipos, solicitud, jefe) y PDF con firmas
+
+## Anexo: API de festivos (ESS-HOL-001)
+- `holiday_api_settings` (migración 0018) guarda la URL y la clave cifrada (AES-256-GCM con `SETTINGS_ENCRYPTION_KEY` o, si falta, derivada de `SESSION_SECRET`); `/admin/holiday-api` (GET, PUT) y `/admin/holiday-api/sync`, solo administradores con reautenticación
+- Seguridad: la clave nunca se devuelve ni se audita; la URL exige https, sin credenciales ni parámetros y, en producción, sin direcciones privadas o locales (`HOLIDAY_API_ALLOW_PRIVATE=true` lo permite); no se siguen redirecciones; tiempo límite `HOLIDAY_API_TIMEOUT_MS` (10 s)
+- La consulta crea un borrador (origen API) y devuelve las fechas nuevas y las que ya no vienen frente al publicado; nunca publica solos
+- Pruebas: 6 de API con un servicio simulado y 1 de navegador; un error de mi prueba de navegador (año fuera de rango) y uno de selector
+- Pendiente: reintento programado con alerta al administrador (SSD 6.2.1) y límite de uso propio (20/min, 1000/día)

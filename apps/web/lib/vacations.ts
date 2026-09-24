@@ -77,6 +77,8 @@ export function vacationError(status: number, data: unknown): string {
       return `Aún no está publicado el calendario de festivos de ${(d.years ?? []).join(' y ')}. Gestión Humana debe publicarlo para poder calcular las fechas.`;
     case 'START_NOT_BUSINESS_DAY':
       return 'La fecha inicial debe ser un día hábil (lunes a viernes que no sea festivo).';
+    case 'PERIOD_NOT_AVAILABLE':
+      return 'Uno de los períodos ya no tiene días disponibles. Solo puede pedir de los períodos que aparecen en la lista.';
     case 'EXCEEDS_DISP':
       return 'Eligió más días de los disponibles en un período.';
     case 'INVALID_DAYS':

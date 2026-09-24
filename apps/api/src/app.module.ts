@@ -17,6 +17,7 @@ import { MePayrollController } from './payroll/me-payroll.controller';
 import { MailModule } from './mail/mail.module';
 import { AdminTaxController, MeTaxController } from './tax/tax.controller';
 import {
+  AdminHolidayApiController,
   AdminHolidaysController,
   AdminProgVacController,
   FinalVacationsController,
@@ -42,6 +43,7 @@ import { HealthController } from './health.controller';
     MeTaxController,
     AdminTaxController,
     AdminHolidaysController,
+    AdminHolidayApiController,
     AdminProgVacController,
     MeVacationsController,
     ManagerVacationsController,
