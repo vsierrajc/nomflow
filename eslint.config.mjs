@@ -6,6 +6,7 @@ export default tseslint.config(
     ignores: [
       '**/dist/**',
       '**/.next/**',
+      '**/.next-e2e/**',
       '**/node_modules/**',
       'docs/**',
       '**/next-env.d.ts',

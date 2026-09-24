@@ -25,4 +25,4 @@ Estados: BACKLOG, READY, IN_PROGRESS, IN_REVIEW, BLOCKED, DONE.
 | ESS-OPS-001 | Endurecimiento, respaldo/restauración, despliegue, monitoreo (8, 11) | 5 | — | — | — | — | BACKLOG |
 | ESS-ORG-002 | Asignación de jefe de área con vigencia e historial (5, 9.1) | 2 | — | PR ESS-ORG-002 | org.e2e.spec.ts | — | IN_REVIEW |
 | ESS-AUTH-006 | Cambio de clave por el propio usuario (3.1) | 1 | — | PR ESS-AUTH-006 | change-password.e2e.spec.ts | — | IN_REVIEW |
-| ESS-WEB-001 | Pantallas de acceso: ingreso, activación, cambio de clave, inicio | 1 | — | PR ESS-WEB-001 | profile.e2e.spec.ts (API); UI verificada manualmente vía proxy | — | IN_REVIEW |
+| ESS-WEB-001 | Pantallas de acceso: ingreso, activación, cambio de clave, inicio | 1 | — | PR ESS-WEB-001 | profile.e2e.spec.ts (API); apps/web/e2e/acceso.spec.ts (Playwright) | — | IN_REVIEW |

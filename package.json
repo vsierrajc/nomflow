@@ -19,7 +19,8 @@
     "graph": "graphify update .",
     "stack:up": "bash scripts/stack.sh up",
     "stack:down": "bash scripts/stack.sh down",
-    "stack:status": "bash scripts/stack.sh status"
+    "stack:status": "bash scripts/stack.sh status",
+    "test:e2e": "npm run test:e2e -w @nomflow/web"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

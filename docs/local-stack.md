@@ -21,3 +21,13 @@ npm run stack:down     # detiene API, web y los contenedores (los datos se conse
 - Primer administrador: `BOOTSTRAP_ADMIN_EMAIL=... BOOTSTRAP_ADMIN_PASSWORD=... npm run admin:bootstrap -w @nomflow/api`.
 - Las pruebas vacían las tablas: correrlas siempre con `DATABASE_URL=postgresql://nomflow:nomflow@localhost:5432/nomflow_test`.
 - Redis, MinIO y la web todavía no los usa ninguna funcionalidad: se levantan para tener el stack completo de la SSD (sección 2).
+
+## Pruebas de interfaz (Playwright)
+```bash
+npm run test:e2e
+```
+Levantan solas una API en el puerto 4100 sobre `nomflow_test` y una web en el 3100 (compilada aparte en `.next-e2e`), por lo que **no tocan** los datos de desarrollo ni los puertos 3000/4000. Requieren PostgreSQL y Mailpit activos (`npm run stack:up`); el código de activación se lee de Mailpit.
+
+- Primera vez: `cd apps/web && npx playwright install chromium`.
+- En WSL sin `sudo`, si Chromium no arranca por bibliotecas faltantes (`libnspr4`, `libnss3`, `libasound2`), descargar los `.deb` con `apt-get download`, extraerlos con `dpkg -x` en `~/.cache/nomflow-libs/root` y exportar `LD_LIBRARY_PATH=$HOME/.cache/nomflow-libs/root/usr/lib/x86_64-linux-gnu`.
+- El job `e2e` del CI es informativo (`continue-on-error`) y sube las trazas si falla.
