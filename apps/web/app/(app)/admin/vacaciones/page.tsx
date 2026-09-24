@@ -34,7 +34,6 @@ export default function VacationPeriodsPage() {
   const [filter, setFilter] = useState('');
   const [editing, setEditing] = useState<Period | null>(null);
   const [employees, setEmployees] = useState<EmployeeOption[] | null>(null);
-  const [search, setSearch] = useState('');
   const [selected, setSelected] = useState('');
 
   const load = useCallback(
@@ -52,18 +51,13 @@ export default function VacationPeriodsPage() {
     void load();
   }, [load]);
 
-  // Lista de valores: empleados activos, filtrada por lo que se escriba en la búsqueda.
+  // Lista de valores: todos los empleados activos.
   useEffect(() => {
-    const t = setTimeout(() => {
-      void (async () => {
-        const res = await call<EmployeeOption[]>(
-          `/admin/prog-vac/employees${search.trim() ? `?q=${encodeURIComponent(search.trim())}` : ''}`,
-        );
-        if (res.status === 200 && res.data) setEmployees(res.data);
-      })();
-    }, 250);
-    return () => clearTimeout(t);
-  }, [call, search]);
+    void (async () => {
+      const res = await call<EmployeeOption[]>('/admin/prog-vac/employees');
+      if (res.status === 200 && res.data) setEmployees(res.data);
+    })();
+  }, [call]);
 
   const chosen = employees?.find((e) => e.nIde === selected) ?? null;
 
@@ -173,17 +167,8 @@ export default function VacationPeriodsPage() {
         <h2>Nuevo período</h2>
         <form onSubmit={create} noValidate>
           <div className="grid-2">
-            <Field
-              label="Buscar empleado (nombre o identificación)"
-              name="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              autoComplete="off"
-              maxLength={100}
-              hint="Solo se listan empleados activos."
-            />
             <div className="field">
-              <label htmlFor="prog-vac-empleado">Empleado (N_IDE)</label>
+              <label htmlFor="prog-vac-empleado">Identificación</label>
               <select
                 id="prog-vac-empleado"
                 value={selected}

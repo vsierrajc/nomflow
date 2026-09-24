@@ -120,11 +120,10 @@ test.describe('períodos de vacaciones (PROG_VAC) y festivos', () => {
       [gone.nIde, gone.email, gone.name],
     );
     const list = page.getByRole('region', { name: 'Nuevo período' });
-    await list.getByLabel('Buscar empleado (nombre o identificación)').fill(gone.nIde);
-    await expect(
-      list.getByRole('option', { name: 'Ningún empleado activo coincide' }),
-    ).toBeAttached();
+    // solo empleados activos: el cancelado no está en la lista y el activo sí
+    await expect(list.getByRole('option', { name: new RegExp(`^${emp.nIde} -`) })).toBeAttached();
     await expect(list.getByRole('option', { name: new RegExp(gone.nIde) })).toHaveCount(0);
+    await expect(list.getByLabel('Buscar empleado')).toHaveCount(0);
     await expect(list.getByLabel('Contrato (N_CONT)')).toHaveValue('');
     await expect(list.getByLabel('Contrato (N_CONT)')).toHaveAttribute('readonly', '');
     await list.getByRole('button', { name: 'Crear período' }).click();
@@ -133,8 +132,7 @@ test.describe('períodos de vacaciones (PROG_VAC) y festivos', () => {
     ).toBeVisible();
     const create = page.getByRole('region', { name: 'Nuevo período' });
     const fill = async () => {
-      await create.getByLabel('Buscar empleado (nombre o identificación)').fill(emp.nIde);
-      await create.getByLabel('Empleado (N_IDE)').selectOption({ value: emp.nIde });
+      await create.getByLabel('Identificación', { exact: true }).selectOption({ value: emp.nIde });
       await expect(create.getByLabel('Contrato (N_CONT)')).toHaveValue('1');
       await create.getByLabel('Inicio del período').fill('2026-01-01');
       await create.getByLabel('Fin del período').fill('2026-12-31');

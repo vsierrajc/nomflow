@@ -228,5 +228,5 @@ export async function activeEmployees(db: Db, q?: string) {
       ),
     )
     .orderBy(asc(employeeSnapshots.nombre), asc(employeeSnapshots.nIde))
-    .limit(200);
+    .limit(1000);
 }
