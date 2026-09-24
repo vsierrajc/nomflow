@@ -26,4 +26,5 @@ Estados: BACKLOG, READY, IN_PROGRESS, IN_REVIEW, BLOCKED, DONE.
 | ESS-ORG-002 | Asignación de jefe de área con vigencia e historial (5, 9.1) | 2 | — | PR ESS-ORG-002 | org.e2e.spec.ts | — | IN_REVIEW |
 | ESS-AUTH-006 | Cambio de clave por el propio usuario (3.1) | 1 | — | PR ESS-AUTH-006 | change-password.e2e.spec.ts | — | IN_REVIEW |
 | ESS-WEB-001 | Pantallas de acceso: ingreso, activación, cambio de clave, inicio | 1 | — | PR ESS-WEB-001 | profile.e2e.spec.ts (API); apps/web/e2e/acceso.spec.ts (Playwright) | — | IN_REVIEW |
-| ESS-ADM-001 | Módulo administrativo: catálogos, conceptos, logo, empleados, cuentas, auditoría de peticiones (5, 9.6, 3.2) | 2 | — | PR ESS-ADM-001 | concepts/logos/catalog-crud/employees/admin-support/admin-access/audit .e2e.spec.ts | — | IN_REVIEW (API; interfaz web en PR siguiente) |
+| ESS-ADM-001 | Módulo administrativo: catálogos, conceptos, logo, empleados, cuentas, auditoría de peticiones (5, 9.6, 3.2) | 2 | — | PR ESS-ADM-001 | concepts/logos/catalog-crud/employees/admin-support/admin-access/audit .e2e.spec.ts | — | IN_REVIEW (API) |
+| ESS-ADM-002 | Interfaz web del módulo administrativo, solo administradores (9.6, 3.1) | 2 | — | PR ESS-ADM-002 | e2e/admin.spec.ts, e2e/admin-gestion.spec.ts | — | IN_REVIEW |

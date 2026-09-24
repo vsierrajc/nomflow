@@ -425,3 +425,100 @@ describe.skipIf(!url)('empresas y catálogos organizacionales (HTTP + PostgreSQL
     });
   });
 });
+
+describe.skipIf(!url)('modo de presentación del volante por empresa (HTTP + PostgreSQL)', () => {
+  const ctx = createDb(url ?? '');
+  const db = ctx.db;
+  let app: INestApplication;
+  let cookie = '';
+  let csrf = '';
+
+  beforeAll(async () => {
+    await runMigrations(url ?? '');
+    const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    app = mod.createNestApplication();
+    await app.init();
+  });
+  afterAll(async () => {
+    await app.close();
+    await ctx.pool.end();
+  });
+
+  it('se puede elegir al crear, cambiar al editar y rechaza valores inválidos', async () => {
+    await db.execute(
+      sql`TRUNCATE audit_logs, sessions, role_assignments, accounts, companies CASCADE`,
+    );
+    const [a] = await db
+      .insert(accounts)
+      .values({
+        nIde: 'ADM',
+        email: 'hr@x.co',
+        passwordHash: await hashPassword(PASSWORD),
+        status: 'ACTIVA',
+        mustChangePassword: false,
+      })
+      .returning({ id: accounts.id });
+    await db
+      .insert(roleAssignments)
+      .values({ accountId: a?.id ?? '', role: 'HR_ADMIN', validFrom: '2020-01-01' });
+    const res = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: 'hr@x.co', password: PASSWORD });
+    cookie = String(res.headers['set-cookie']?.[0]).split(';')[0] ?? '';
+    csrf = res.body.csrfToken as string;
+    const send = (method: 'post' | 'put', path: string, body: object) => {
+      const agent = request(app.getHttpServer());
+      const call = method === 'post' ? agent.post(path) : agent.put(path);
+      return call.set('Cookie', cookie).set('X-CSRF-Token', csrf).send(body);
+    };
+
+    const created = await send('post', '/admin/companies', {
+      cEmp: 'GA',
+      nombre: 'E',
+      sigla: 'E',
+      direccion: 'D',
+    });
+    expect(created.body.payrollDefaultMode).toBe('ENTERO_SUPERIOR');
+    const updated = await send('put', `/admin/companies/${created.body.id}`, {
+      nombre: 'E',
+      sigla: 'E',
+      direccion: 'D',
+      active: true,
+      payrollDefaultMode: 'SIN_AJUSTE',
+      version: 1,
+    });
+    expect(updated.status).toBe(200);
+    expect(updated.body.payrollDefaultMode).toBe('SIN_AJUSTE');
+    const kept = await send('put', `/admin/companies/${created.body.id}`, {
+      nombre: 'E2',
+      sigla: 'E',
+      direccion: 'D',
+      active: true,
+      version: 2,
+    });
+    expect(kept.body.payrollDefaultMode).toBe('SIN_AJUSTE');
+    expect(
+      (
+        await send('put', `/admin/companies/${created.body.id}`, {
+          nombre: 'E',
+          sigla: 'E',
+          direccion: 'D',
+          active: true,
+          payrollDefaultMode: 'REDONDEO',
+          version: 3,
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await send('post', '/admin/companies', {
+          cEmp: 'GB',
+          nombre: 'E',
+          sigla: 'E',
+          direccion: 'D',
+          payrollDefaultMode: 'SIN_AJUSTE',
+        })
+      ).body.payrollDefaultMode,
+    ).toBe('SIN_AJUSTE');
+  });
+});

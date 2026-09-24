@@ -55,6 +55,7 @@ const CreateDto = z.object({
 const UpdateDto = z.object({
   ...Fields,
   active: z.boolean(),
+  payrollDefaultMode: Mode.optional(),
   version: z.number().int().positive(),
 });
 

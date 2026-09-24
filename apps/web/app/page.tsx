@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Alert, Card } from '../components/ui';
 import { NETWORK_ERROR, api } from '../lib/api';
+import { isAdmin } from '../lib/admin';
 import { useProfile, type Role } from '../lib/use-profile';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -67,6 +68,11 @@ export default function HomePage() {
         <Link className="button" href="/volantes">
           Mis volantes de pago
         </Link>
+        {isAdmin(profile) ? (
+          <Link className="button" href="/admin">
+            Administración
+          </Link>
+        ) : null}
         <Link className="button secondary" href="/cuenta/clave">
           Cambiar mi clave
         </Link>

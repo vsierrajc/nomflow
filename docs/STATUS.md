@@ -1,7 +1,7 @@
 # Estado del proyecto NOMFLOW
 
 - Versión: 0.0.0 (pre-lanzamiento; sin despliegue en producción)
-- Última bitácora: [2026-09-23-administracion-api](sessions/2026-09-23-administracion-api.md)
+- Última bitácora: [2026-09-23-administracion-web](sessions/2026-09-23-administracion-web.md)
 - `main` contiene los PR #1 a #9 integrados; el PR de jefes de área (ESS-ORG-002) está en revisión.
 - Revisión por otra persona: ninguno de los PR integrados fue revisado por alguien distinto del autor y `main` no tiene protección de rama (la SSD, sección 11, la exige).
 
@@ -15,7 +15,8 @@
 | Empresas y catálogos (ESS-ORG-001) | PARCIAL | PR #9 | CRUD de entradas individuales; corregir CCOSTOS y CARGOS en el origen |
 | Roles con alcance y jefes de área (ESS-ORG-002) | IN_REVIEW | PR ESS-ORG-002 | Integrar; asignar jefes reales cuando existan sus cuentas |
 | Volantes de pago PDF (ESS-PAY-001) | IN_REVIEW (código); sin datos reales | PR ESS-PAY-001 | Recibir muestras anonimizadas de NOMINA (decimales y reversos); logo de empresa |
-| Módulo administrativo, API (ESS-ADM-001) | IN_REVIEW | PR ESS-ADM-001 | Interfaz web administrativa (ESS-ADM-002) |
+| Módulo administrativo, API (ESS-ADM-001) | IN_REVIEW | PR #17 | Integrar tras #16 |
+| Módulo administrativo, interfaz web (ESS-ADM-002) | IN_REVIEW | PR ESS-ADM-002 | Integrar tras #17; cargar los archivos reales por la interfaz |
 | Certificados, ZIP, vacaciones, festivos, permisos | BACKLOG | — | Fases 3 y 4 |
 
 ## Bloqueos

@@ -406,6 +406,50 @@ describe.skipIf(!url)('CRUD de empleados (HTTP + PostgreSQL)', () => {
       ).toEqual(['CREATE', 'REACTIVATE']);
     });
 
+    it('la baja no depende de que el catálogo o la ficha estén completos', async () => {
+      const c = await post('/admin/employees', newEmp());
+      await db
+        .update(catalogEntries)
+        .set({ active: false })
+        .where(sql`type = 'AREA'`);
+      await db.update(companies).set({ active: false });
+      await db.update(employeeSnapshots).set({ tipoContrato: null, fIni: null });
+      const off = await post(`/admin/employees/${c.body.id}/status`, {
+        est: 'C',
+        version: 1,
+        reason: 'Retiro del empleado',
+      });
+      expect(off.status).toBe(200);
+      expect(off.body).toMatchObject({ est: 'C', version: 2, source: 'MANUAL' });
+      const hist = (await get(`/admin/employees/${c.body.id}/history`)).body;
+      expect(hist[1]).toMatchObject({
+        action: 'DEACTIVATE',
+        changes: { est: { from: 'V', to: 'C' } },
+      });
+      const again = await post(`/admin/employees/${c.body.id}/status`, {
+        est: 'C',
+        version: 2,
+        reason: 'Otra vez la baja',
+      });
+      expect(again.status).toBe(200);
+      expect((await get(`/admin/employees/${c.body.id}/history`)).body).toHaveLength(2);
+    });
+
+    it('la reactivación sí valida el catálogo y la empresa', async () => {
+      const c = await post('/admin/employees', newEmp({ est: 'C' }));
+      await db
+        .update(catalogEntries)
+        .set({ active: false })
+        .where(sql`type = 'AREA'`);
+      const res = await post(`/admin/employees/${c.body.id}/status`, {
+        est: 'V',
+        version: 1,
+        reason: 'Reingreso del empleado',
+      });
+      expect(res.status).toBe(422);
+      expect(res.body.issues.join()).toContain('C_AREA');
+    });
+
     it('exige motivo, versión vigente y estado válido', async () => {
       const c = await post('/admin/employees', newEmp());
       expect(

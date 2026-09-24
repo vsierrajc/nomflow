@@ -1,11 +1,14 @@
-import type { InputHTMLAttributes, ReactNode } from 'react';
+'use client';
+
+import { useId, type InputHTMLAttributes, type ReactNode } from 'react';
 
 export function Field({
   label,
   hint,
   ...input
 }: { label: string; hint?: string } & InputHTMLAttributes<HTMLInputElement>) {
-  const id = input.id ?? input.name;
+  const auto = useId();
+  const id = input.id ?? `${input.name}-${auto}`;
   return (
     <div className="field">
       <label htmlFor={id}>{label}</label>

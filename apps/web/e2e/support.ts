@@ -1,5 +1,7 @@
 import { hash, type Algorithm } from '@node-rs/argon2';
 import { randomBytes } from 'node:crypto';
+import { deflateSync } from 'node:zlib';
+import ExcelJS from 'exceljs';
 import { Client } from 'pg';
 
 export const TEST_DB =
@@ -76,8 +78,8 @@ export async function seedActiveAccount(
 export async function resetDatabase(): Promise<void> {
   await withDb((c) =>
     c.query(
-      `truncate audit_logs, payroll_download_audit, payroll_lines, payroll_versions, import_batch_rows,
-       import_batches, companies, verification_codes, sessions, role_assignments, area_manager_assignments,
+      `truncate audit_logs, payroll_download_audit, payroll_lines, payroll_versions, payroll_concepts, import_batch_rows,
+       import_batches, company_logos, catalog_entry_history, catalog_entries, companies, verification_codes, sessions, role_assignments, area_manager_assignments,
        accounts, employee_snapshots cascade`,
     ),
   );
@@ -129,10 +131,14 @@ export async function adminCreateAccount(nIde: string): Promise<{ temporaryPassw
   return (await res.json()) as { temporaryPassword: string };
 }
 
-let periodCounter = 0;
-export function nextPeriod(): string {
-  const n = periodCounter++ + Math.floor(Math.random() * 400);
-  return `${2100 + Math.floor(n / 12)}${String((n % 12) + 1).padStart(2, '0')}`;
+export async function nextPeriod(): Promise<string> {
+  const rows = await query<{ max: string | null }>(
+    `select max(per) as max from payroll_versions where per >= '210001'`,
+  );
+  const last = rows[0]?.max ?? '209912';
+  const year = Number(last.slice(0, 4));
+  const month = Number(last.slice(4));
+  return month === 12 ? `${year + 1}01` : `${year}${String(month + 1).padStart(2, '0')}`;
 }
 
 export interface SeedPayLine {
@@ -185,3 +191,111 @@ export async function seedPayroll(
     }
   });
 }
+
+export async function query<T = Record<string, unknown>>(
+  text: string,
+  params: unknown[] = [],
+): Promise<T[]> {
+  return withDb(async (c) => (await c.query(text, params)).rows as T[]);
+}
+
+export async function seedAdminUser(
+  role: 'HR_ADMIN' | 'SYSTEM_ADMIN',
+  prefix = 'adm',
+): Promise<SeedUser> {
+  const u = newUser(prefix);
+  const passwordHash = await hashPassword(u.password);
+  await withDb(async (c) => {
+    const res = await c.query(
+      `insert into accounts (n_ide, email, password_hash, status, must_change_password)
+       values ($1, $2, $3, 'ACTIVA', false) returning id`,
+      [u.nIde, u.email, passwordHash],
+    );
+    await c.query(
+      `insert into role_assignments (account_id, role, valid_from) values ($1, $2::role_code, '2020-01-01')`,
+      [res.rows[0].id, role],
+    );
+  });
+  return u;
+}
+
+export async function seedCompany(cEmp: string, nombre = 'Empresa de prueba'): Promise<void> {
+  await withDb((c) =>
+    c.query(
+      `insert into companies (c_emp, nombre, sigla, direccion) values ($1, $2, 'EP', 'Calle 1') on conflict do nothing`,
+      [cEmp, nombre],
+    ),
+  );
+}
+
+export async function seedCatalog(
+  type: 'AREA' | 'CCOSTO' | 'CARGO' | 'TIPO_CONTRATO',
+  cEmp: string,
+  code: string,
+  name: string,
+): Promise<void> {
+  await withDb((c) =>
+    c.query(
+      `insert into catalog_entries (type, c_emp, code, name) values ($1::catalog_type, $2, $3, $4) on conflict do nothing`,
+      [type, type === 'TIPO_CONTRATO' ? '' : cEmp, code, name],
+    ),
+  );
+}
+
+function crc32(buf: Buffer): number {
+  let c = ~0;
+  for (const b of buf) {
+    c ^= b;
+    for (let k = 0; k < 8; k++) c = c & 1 ? (c >>> 1) ^ 0xedb88320 : c >>> 1;
+  }
+  return ~c >>> 0;
+}
+
+function pngChunk(type: string, data: Buffer): Buffer {
+  const head = Buffer.alloc(8);
+  head.writeUInt32BE(data.length, 0);
+  head.write(type, 4, 'ascii');
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(Buffer.concat([head.subarray(4), data])), 0);
+  return Buffer.concat([head, data, crc]);
+}
+
+export function pngBuffer(
+  width: number,
+  height: number,
+  rgb: [number, number, number] = [200, 30, 30],
+): Buffer {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 2;
+  const row = Buffer.concat([
+    Buffer.from([0]),
+    Buffer.from(Array.from({ length: width }, () => rgb).flat()),
+  ]);
+  const raw = Buffer.concat(Array.from({ length: height }, () => row));
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk('IHDR', ihdr),
+    pngChunk('IDAT', deflateSync(raw)),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+export async function xlsxBuffer(
+  columns: string[],
+  rows: (string | number | Date | null)[][],
+): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Sheet1');
+  ws.addRow(columns);
+  for (const r of rows) ws.addRow(r);
+  return Buffer.from(await wb.xlsx.writeBuffer());
+}
+
+export const xlsxFile = (name: string, buffer: Buffer) => ({
+  name,
+  mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  buffer,
+});
