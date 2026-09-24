@@ -223,17 +223,18 @@ Una rama por incidencia (`feat/ESS-…`, `fix/…`, `docs/…`), PR con verifica
 
 ## Documentación
 
-| Documento                                                              | Contenido                                             |
-| ---------------------------------------------------------------------- | ----------------------------------------------------- |
-| [`docs/requirements/NOMFLOW_SSD.md`](docs/requirements/NOMFLOW_SSD.md) | Especificación funcional y técnica (fuente de verdad) |
-| [`docs/STATUS.md`](docs/STATUS.md)                                     | Estado actual, bloqueos y siguientes pasos            |
-| [`docs/CHANGELOG.md`](docs/CHANGELOG.md)                               | Cambios funcionales                                   |
-| [`docs/traceability.md`](docs/traceability.md)                         | Requisitos ↔ incidencias ↔ pruebas                    |
-| [`docs/decisions`](docs/decisions)                                     | Decisiones de arquitectura (stack, ORM)               |
-| [`docs/sessions`](docs/sessions)                                       | Bitácora de cada sesión de desarrollo                 |
-| [`docs/design`](docs/design)                                           | Guía de diseño, rediseño de la interfaz y capturas    |
-| [`docs/local-stack.md`](docs/local-stack.md)                           | Entorno local y pruebas de navegador                  |
-| [`docs/graphify.md`](docs/graphify.md)                                 | Mapa del código y análisis de impacto                 |
+| Documento                                                              | Contenido                                                                                               |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| [`docs/requirements/NOMFLOW_SSD.md`](docs/requirements/NOMFLOW_SSD.md) | Especificación funcional y técnica (fuente de verdad)                                                   |
+| [`docs/HANDOFF.md`](docs/HANDOFF.md)                                   | Traspaso para la próxima sesión: pendientes, orden recomendado, decisiones abiertas y trampas conocidas |
+| [`docs/STATUS.md`](docs/STATUS.md)                                     | Estado actual, bloqueos y siguientes pasos                                                              |
+| [`docs/CHANGELOG.md`](docs/CHANGELOG.md)                               | Cambios funcionales                                                                                     |
+| [`docs/traceability.md`](docs/traceability.md)                         | Requisitos ↔ incidencias ↔ pruebas                                                                      |
+| [`docs/decisions`](docs/decisions)                                     | Decisiones de arquitectura (stack, ORM)                                                                 |
+| [`docs/sessions`](docs/sessions)                                       | Bitácora de cada sesión de desarrollo                                                                   |
+| [`docs/design`](docs/design)                                           | Guía de diseño, rediseño de la interfaz y capturas                                                      |
+| [`docs/local-stack.md`](docs/local-stack.md)                           | Entorno local y pruebas de navegador                                                                    |
+| [`docs/graphify.md`](docs/graphify.md)                                 | Mapa del código y análisis de impacto                                                                   |
 
 ## Limitaciones y trabajo pendiente
 

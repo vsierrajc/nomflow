@@ -4,7 +4,7 @@ Especificación canónica: `docs/requirements/NOMFLOW_SSD.md`. Estado: `docs/STA
 
 ## Antes de cambiar código
 
-- Leer `docs/STATUS.md` y la última bitácora de `docs/sessions/`.
+- Leer `docs/HANDOFF.md` (traspaso: pendientes, próximos pasos y trampas conocidas), `docs/STATUS.md` y la última bitácora de `docs/sessions/`.
 - Ver el impacto con Graphify: `npm run graph` y `graphify affected "<función>"` (ver `docs/graphify.md`).
 - Trabajar en una rama por incidencia; nada directo a `main`.
 

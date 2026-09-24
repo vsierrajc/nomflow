@@ -1,0 +1,12 @@
+# Sesión: 2026-09-24 - traspaso y Graphify
+- Responsable / agente: Claude Code
+- Objetivo e incidencias: cerrar el traspaso a la próxima sesión y completar Graphify (ESS-OPS-001, parte de seguimiento)
+- Rama y commit inicial: docs/handoff-y-graphify desde main (b01295f)
+- Cambios realizados: docs/HANDOFF.md (nuevo); docs/graphify.md reescrito; .github/workflows/ci.yml instala `graphifyy[sql]==0.9.67`; CLAUDE.md, README y STATUS enlazan el traspaso
+- Decisiones / ADR / cambios al SRS: ninguna; la extracción semántica con LLM sigue prohibida sin aprobación (envía contenido a un tercero)
+- Pruebas y evidencia: `graphify` 0.9.67 con extra sql: el grafo pasó de 1346 a 1415 nodos y de 2962 a 3354 aristas, con 58 nodos SQL; `graphify affected "apps_api_src_db_schema_accounts"` da 43 dependientes y `graphify affected "hasActiveRole"` 37; aplicación desplegada en local y verificada (API, web, Mailpit, MinIO y camino web-API)
+- Migraciones, configuración y datos de ejemplo necesarios: ninguna
+- Bloqueos y riesgos: la actualización no fijada de Graphify subió de 0.9.48 a 0.9.67 al instalar el extra; ahora la versión está fijada; los datos reales siguen bloqueados (ver HANDOFF §3)
+- Estado final: hecho
+- Rama, commit final y PR: ver PR
+- Próximo paso exacto y responsable: ESS-TAX-001 (ADR de almacenamiento de documentos) y reconciliar `docs/traceability.md`, según HANDOFF §4
