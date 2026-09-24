@@ -14,6 +14,7 @@ import { ImportsController } from './imports/imports.controller';
 import { OrgController } from './org/org.controller';
 import { ConceptsController } from './payroll/concepts.controller';
 import { MePayrollController } from './payroll/me-payroll.controller';
+import { AdminMailController } from './mail/mail.controller';
 import { MailModule } from './mail/mail.module';
 import { AdminTaxController, MeTaxController } from './tax/tax.controller';
 import {
@@ -56,6 +57,7 @@ import { HealthController } from './health.controller';
     AdminPermitTypesController,
     MePermitsController,
     ManagerPermitsController,
+    AdminMailController,
   ],
   providers: [SessionGuard, RolesGuard, RecentAuthGuard, RequestAuditService],
 })

@@ -26,3 +26,9 @@
 - Decisión del usuario: una vez la API carga la tabla local de un año, el sistema no vuelve a consultarla salvo que falte información de ese año. Implementado en `ensureHolidayYears` (`holiday-api.service.ts`), invocado por `prepareCalendars` antes de calcular
 - Diferencia con la SSD 6.2.1 (la API propone y el administrador publica): para un año **sin ningún calendario** se publica sola, porque de lo contrario el empleado queda bloqueado hasta que alguien intervenga. Un administrador puede revisar y publicar una corrección (versión nueva) cuando quiera; lo ya aprobado conserva sus fechas
 - Riesgo conocido: un festivo dudoso del servicio (por ejemplo uno regional) entra sin revisión previa en ese año; revisar los años cargados en `/admin/festivos` con «Ver festivos»
+
+## Anexo: correo saliente configurable
+- Parámetros acordados por el usuario: servidor 192.168.1.44, puerto 25, sin TLS, sin usuario ni clave, correo de origen nomflow@gr4l.co
+- `mail_settings` (fila única) + `mail-settings.service.ts` + `AdminMailController`; `ConfigurableMailer` lee la configuración al enviar. `nodemailer` con `requireTLS` envía STARTTLS aunque no se anuncie y un servidor sin TLS contesta 502: el clasificador lo reconoce (`TLS_REQUIRED`); una primera versión lo habría mostrado como «destinatario rechazado»
+- Pruebas: 9 de API con un servidor SMTP de prueba propio (entrega, AUTH, rechazo, sin TLS, conexión caída) y 2 de navegador; la de navegador restaura los valores de Mailpit por la pantalla para no afectar a las de activación
+- La utilidad de cifrado pasó a `security/secret-box.ts` (la comparten festivos y correo)

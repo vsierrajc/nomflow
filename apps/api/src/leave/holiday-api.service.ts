@@ -4,7 +4,7 @@ import type { Db } from '../db/client';
 import { auditLogs, holidayApiSettings, holidayCalendars, holidays } from '../db/schema';
 import { isValidIsoDate } from './business-days';
 import { REGION, createDraft, HolidayError, publish } from './holidays.service';
-import { open, seal } from './secret-box';
+import { open, seal } from '../security/secret-box';
 
 export type HolidayApiErrorCode =
   | 'INVALID_URL'

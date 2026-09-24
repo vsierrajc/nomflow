@@ -13,6 +13,7 @@ const NAV = [
   { href: '/admin/conceptos', label: 'Conceptos de nómina' },
   { href: '/admin/empleados', label: 'Empleados' },
   { href: '/admin/cuentas', label: 'Cuentas y roles' },
+  { href: '/admin/correo', label: 'Correo saliente' },
   { href: '/admin/importaciones', label: 'Importaciones' },
   { href: '/admin/nomina', label: 'Nómina publicada' },
   { href: '/admin/vacaciones', label: 'Períodos de vacaciones' },
