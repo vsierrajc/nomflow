@@ -95,7 +95,8 @@ Interfaz de módulos futuros (solicitudes, aprobaciones, documentos): ver `docs/
 9. `pkill -f` puede matar el propio shell si el patrón aparece en la orden; usar los archivos PID de `.run/` (`scripts/stack.sh`).
 10. Usar `@node-rs/argon2` (binarios precompilados); `argon2` necesita compilar y aquí falta `make`.
 11. **`overrides` de npm**: con un lockfile existente npm no re-resuelve versiones ya satisfechas; hay que regenerar el lockfile (`rm -rf package-lock.json node_modules && npm install`) y usar la forma anidada (`"exceljs": {"uuid": "11.1.1"}`) o versiones exactas. Dependabot solo actualiza dependencias **directas**; las transitivas (uuid por exceljs, esbuild por drizzle-kit) se fijan con `overrides`. No exportar `LD_LIBRARY_PATH` de Chromium al correr las pruebas de API: rompe `@napi-rs/canvas`.
-12. Integrar PR sin revisión de otra persona lo bloquea el clasificador de permisos salvo instrucción explícita del usuario y regla de permisos.
+12. **Pruebas de navegador y cierre de sesión**: `Cerrar sesión` es asíncrono (pide `/auth/logout` y luego redirige a `/login`). Una prueba que abra `/login` sin esperar `toHaveURL(/\/login$/)` compite con esa redirección y falla de forma intermitente (fue la causa de `acceso.spec` «cambio de clave»).
+13. Integrar PR sin revisión de otra persona lo bloquea el clasificador de permisos salvo instrucción explícita del usuario y regla de permisos.
 
 ## 9. Cierre de una tarea (definición de terminado)
 

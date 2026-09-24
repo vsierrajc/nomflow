@@ -113,6 +113,9 @@ test.describe('cambio de clave', () => {
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    // Esperar a que el cierre termine: si se abre /login con el perfil aún cargado, la página
+    // redirige al inicio y destruye el formulario a mitad de llenarlo.
+    await expect(page).toHaveURL(/\/login$/);
     await login(page, u.email, u.password);
     await expect(alertOf(page)).toBeVisible();
     await login(page, u.email, 'Otra-Clave-Larga-1');
