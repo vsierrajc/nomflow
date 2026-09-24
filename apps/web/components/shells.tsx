@@ -36,6 +36,8 @@ export function BrandMark() {
 }
 
 export function AuthFrame({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  if (pathname === '/login') return <div className="landing-shell">{children}</div>;
   return (
     <div className="auth-shell">
       <p className="auth-brand brand-mark">
@@ -44,6 +46,71 @@ export function AuthFrame({ children }: { children: ReactNode }) {
       </p>
       {children}
     </div>
+  );
+}
+
+const LANDING_SERVICES = [
+  {
+    title: 'Volantes de pago',
+    text: 'Consulte y descargue sus volantes de cada quincena en PDF.',
+  },
+  {
+    title: 'Certificados de retención',
+    text: 'Visualice y descargue su certificado de retención de cada año.',
+  },
+  {
+    title: 'Vacaciones y permisos',
+    text: 'Solicitudes y aprobaciones en línea.',
+    soon: true,
+  },
+];
+
+/** Portada de la pantalla de ingreso: marca, mensaje y servicios junto a la tarjeta de acceso. */
+export function LoginLanding({
+  title,
+  lead,
+  help,
+  children,
+}: {
+  title: string;
+  lead: string;
+  help?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <>
+      <section className="landing-hero" aria-labelledby="landing-titular">
+        <p className="brand-mark landing-brand">
+          <BrandMark />
+          <span>NOMFLOW</span>
+        </p>
+        <h2 id="landing-titular">Su información laboral, en un solo lugar</h2>
+        <p className="landing-lead">
+          El portal de autogestión de los empleados: consulte sus documentos y gestione sus
+          solicitudes sin desplazarse ni esperar.
+        </p>
+        <ul className="landing-services">
+          {LANDING_SERVICES.map((sv) => (
+            <li key={sv.title}>
+              <strong>
+                {sv.title}
+                {sv.soon ? <span className="landing-soon"> (próximamente)</span> : null}
+              </strong>
+              <span>{sv.text}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="landing-note">Acceso seguro con su correo corporativo.</p>
+      </section>
+      <div className="landing-access">
+        <main id="contenido" tabIndex={-1} className="auth-main">
+          <h1>{title}</h1>
+          <p className="auth-lead">{lead}</p>
+          {children}
+        </main>
+        {help ? <div className="auth-help">{help}</div> : null}
+      </div>
+    </>
   );
 }
 

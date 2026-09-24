@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { AuthCard } from '@/components/shells';
+import { LoginLanding } from '@/components/shells';
 import { Alert, Field, PasswordField, SubmitButton } from '@/components/ui';
 import { NETWORK_ERROR, api } from '@/lib/api';
 import { useProfile } from '@/lib/use-profile';
@@ -57,7 +57,7 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthCard
+    <LoginLanding
       title="Ingresar"
       lead="Use el correo y la clave de su cuenta de NOMFLOW."
       help={
@@ -98,6 +98,6 @@ export default function LoginPage() {
       <div className="links">
         <Link href="/activar">Activar mi cuenta con el código del correo</Link>
       </div>
-    </AuthCard>
+    </LoginLanding>
   );
 }
