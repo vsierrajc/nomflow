@@ -24,6 +24,11 @@ import {
   ManagerVacationsController,
   MeVacationsController,
 } from './leave/leave.controller';
+import {
+  AdminPermitTypesController,
+  ManagerPermitsController,
+  MePermitsController,
+} from './leave/permit.controller';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -48,6 +53,9 @@ import { HealthController } from './health.controller';
     MeVacationsController,
     ManagerVacationsController,
     FinalVacationsController,
+    AdminPermitTypesController,
+    MePermitsController,
+    ManagerPermitsController,
   ],
   providers: [SessionGuard, RolesGuard, RecentAuthGuard, RequestAuditService],
 })

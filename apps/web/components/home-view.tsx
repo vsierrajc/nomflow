@@ -79,10 +79,19 @@ export function HomeView() {
             </Link>
           </div>
         </li>
+        <li className="task-card">
+          <h3>Mis permisos</h3>
+          <p>Solicite un permiso a su jefe de área y consulte su respuesta.</p>
+          <div className="actions">
+            <Link className="button" href="/permisos">
+              Solicitar un permiso
+            </Link>
+          </div>
+        </li>
         {vacationApprover ? (
           <li className="task-card">
             <h3>Aprobaciones</h3>
-            <p>Revise y apruebe las solicitudes de vacaciones que le corresponden.</p>
+            <p>Revise y apruebe las solicitudes de vacaciones y permisos que le corresponden.</p>
             <div className="actions">
               <Link className="button" href="/aprobaciones">
                 Ver aprobaciones

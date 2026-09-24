@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Badge, Notice } from '@/components/admin-ui';
+import { PermitInbox } from '@/components/permit-inbox';
 import { VacationDetail } from '@/components/vacation-detail';
 import { Alert, EmptyState, Field, Loading } from '@/components/ui';
 import { NETWORK_ERROR } from '@/lib/api';
@@ -202,6 +203,8 @@ export default function ApprovalsPage() {
   const isManager = profile.roles.some((r) => r.role === 'AREA_MANAGER');
   const isFinal = profile.roles.some((r) => r.role === 'VACATION_FINAL_APPROVER');
   const [mode, setMode] = useState<Mode>(isManager ? 'manager' : 'final');
+  // Los permisos solo los decide el jefe de área; el aprobador final no interviene.
+  const [topic, setTopic] = useState<'vacaciones' | 'permisos'>('vacaciones');
 
   if (!isManager && !isFinal)
     return (
@@ -217,13 +220,36 @@ export default function ApprovalsPage() {
   return (
     <>
       <div className="page-head">
-        <h1>Aprobaciones de vacaciones</h1>
+        <h1>Aprobaciones</h1>
         <p className="muted">
-          Cada aprobación exige el rol vigente y confirmar su clave. La aprobación final descuenta
-          los días disponibles y registra el disfrute.
+          Cada aprobación exige el rol vigente y confirmar su clave. La aprobación final de
+          vacaciones descuenta los días disponibles; los permisos solo los decide el jefe de área.
         </p>
       </div>
-      {isManager && isFinal ? (
+      {isManager ? (
+        <div role="tablist" aria-label="Tipo de solicitud" className="toolbar">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={topic === 'vacaciones'}
+            className={topic === 'vacaciones' ? '' : 'secondary'}
+            onClick={() => setTopic('vacaciones')}
+          >
+            Vacaciones
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={topic === 'permisos'}
+            className={topic === 'permisos' ? '' : 'secondary'}
+            onClick={() => setTopic('permisos')}
+          >
+            Permisos
+          </button>
+        </div>
+      ) : null}
+      {topic === 'permisos' && isManager ? <PermitInbox /> : null}
+      {topic === 'vacaciones' && isManager && isFinal ? (
         <div role="tablist" aria-label="Bandeja" className="toolbar">
           <button
             type="button"
@@ -245,7 +271,7 @@ export default function ApprovalsPage() {
           </button>
         </div>
       ) : null}
-      <Inbox key={mode} mode={mode} />
+      {topic === 'vacaciones' || !isManager ? <Inbox key={mode} mode={mode} /> : null}
       <div className="links">
         <Link href="/">Volver al inicio</Link>
       </div>

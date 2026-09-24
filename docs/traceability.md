@@ -21,7 +21,7 @@ Estados: BACKLOG, READY, IN_PROGRESS, IN_REVIEW, BLOCKED, DONE.
 | ESS-LEAVE-002 | Solicitud multi-período, cálculo de fechas y retorno (6.2) | 4 | `business-days.ts`, `/me/vacations/preview` | `business-days.spec`, `leave.e2e.spec` | — | — | PARCIAL (solicitud, revisiones y aprobaciones listas; falta el PDF con firmas) |
 | ESS-LEAVE-003 | Revisiones, aprobación jefe y final, VACACIONES, PDF con firmas (6.2) | 4 | `vacation.service.ts`, `leave-plan.ts` | `vacation.e2e.spec`, `vacaciones-solicitud.spec` | — | — | PARCIAL (falta el PDF con firmas visuales) |
 | ESS-HOL-001 | Calendario de festivos: API, Excel, CRUD, respaldo local (6.2.1) | 4 | `holidays.service.ts` | `leave.e2e.spec`, `vacaciones.spec` | — | — | PARCIAL (CRUD, borradores, publicación y consulta a la API con configuración de URL y clave; falta la carga por Excel y el reintento programado) |
-| ESS-PERM-001 | Permisos por tipo, sin consumir DISP (6.2) | 4 | — | — | — | — | BACKLOG |
+| ESS-PERM-001 | Permisos por tipo, sin consumir DISP (6.2) | 4 | `permit.service.ts` | `permit.e2e.spec`, `permisos.spec` | — | — | HECHO (solo decide el jefe de área) |
 | ESS-OPS-001 | Endurecimiento, respaldo/restauración, despliegue, monitoreo (8, 11) | 5 | — | — | — | — | BACKLOG |
 | ESS-ORG-002 | Asignación de jefe de área con vigencia e historial (5, 9.1) | 2 | — | PR ESS-ORG-002 | org.e2e.spec.ts | — | IN_REVIEW |
 | ESS-AUTH-006 | Cambio de clave por el propio usuario (3.1) | 1 | — | PR ESS-AUTH-006 | change-password.e2e.spec.ts | — | IN_REVIEW |

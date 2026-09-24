@@ -1195,10 +1195,6 @@ th.num {
   border-radius: var(--radius-md);
 }
 
-.landing-soon {
-  font-weight: 400;
-}
-
 .landing-note {
   display: none;
   margin: var(--space-8) 0 0;

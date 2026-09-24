@@ -672,3 +672,96 @@ export const holidayApiSettings = pgTable('holiday_api_settings', {
   lastSyncYear: integer('last_sync_year'),
   lastSyncStatus: text('last_sync_status'),
 });
+
+/** Catálogo configurable de tipos de permiso (SSD 6.2). No consumen PROG_VAC.DISP. */
+export const permitTypes = pgTable(
+  'permit_types',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    supportRequired: boolean('support_required').notNull().default(false),
+    /** Permite indicar horas cuando el permiso es de un solo día. */
+    allowsHours: boolean('allows_hours').notNull().default(false),
+    maxDays: integer('max_days'),
+    active: boolean('active').notNull().default(true),
+    version: integer('version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('permit_types_code_uq').on(t.code)],
+);
+
+export const permitRequests = pgTable(
+  'permit_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id),
+    nIde: text('n_ide').notNull(),
+    nCont: text('n_cont').notNull(),
+    cEmp: text('c_emp').notNull(),
+    cArea: text('c_area').notNull(),
+    managerAccountId: uuid('manager_account_id')
+      .notNull()
+      .references(() => accounts.id),
+    typeId: uuid('type_id')
+      .notNull()
+      .references(() => permitTypes.id),
+    /** Copia de la regla vigente al enviar: cambiar el tipo después no altera solicitudes en curso. */
+    typeName: text('type_name').notNull(),
+    startDate: date('start_date').notNull(),
+    endDate: date('end_date').notNull(),
+    startTime: text('start_time'),
+    endTime: text('end_time'),
+    justification: text('justification').notNull(),
+    /** Solo decide el jefe de área: PENDIENTE_JEFE, APROBADO, RECHAZADO, CANCELADO */
+    status: text('status').notNull().default('PENDIENTE_JEFE'),
+    contentHash: text('content_hash').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('permit_requests_account_idx').on(t.accountId, t.createdAt),
+    index('permit_requests_manager_idx').on(t.managerAccountId, t.status),
+    check('permit_requests_dates_ck', sql`${t.endDate} >= ${t.startDate}`),
+  ],
+);
+
+export const permitSupports = pgTable(
+  'permit_supports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    requestId: uuid('request_id')
+      .notNull()
+      .references(() => permitRequests.id),
+    fileName: text('file_name').notNull(),
+    contentType: text('content_type').notNull(),
+    data: bytea('data').notNull(),
+    sha256: text('sha256').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('permit_supports_request_uq').on(t.requestId)],
+);
+
+export const permitActions = pgTable(
+  'permit_actions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    requestId: uuid('request_id')
+      .notNull()
+      .references(() => permitRequests.id),
+    actorAccountId: uuid('actor_account_id')
+      .notNull()
+      .references(() => accounts.id),
+    /** ENVIAR, APROBAR, RECHAZAR, CANCELAR */
+    action: text('action').notNull(),
+    comment: text('comment'),
+    contentHash: text('content_hash').notNull(),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('permit_actions_request_idx').on(t.requestId, t.at)],
+);
