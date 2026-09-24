@@ -1,7 +1,7 @@
 # Estado del proyecto NOMFLOW
 
 - Versión: 0.0.0 (pre-lanzamiento; sin despliegue en producción)
-- Última bitácora: [2026-09-23-jefes-de-area](sessions/2026-09-23-jefes-de-area.md)
+- Última bitácora: [2026-09-23-volantes-pdf](sessions/2026-09-23-volantes-pdf.md)
 - `main` contiene los PR #1 a #9 integrados; el PR de jefes de área (ESS-ORG-002) está en revisión.
 - Revisión por otra persona: ninguno de los PR integrados fue revisado por alguien distinto del autor y `main` no tiene protección de rama (la SSD, sección 11, la exige).
 
@@ -14,7 +14,8 @@
 | Importación de EMPLEADOS (ESS-IMPORT-002) | DONE (código); BLOQUEADO (datos: EST = A) | PR #8 | Recibir exportación con EST V/C |
 | Empresas y catálogos (ESS-ORG-001) | PARCIAL | PR #9 | CRUD de entradas individuales; corregir CCOSTOS y CARGOS en el origen |
 | Roles con alcance y jefes de área (ESS-ORG-002) | IN_REVIEW | PR ESS-ORG-002 | Integrar; asignar jefes reales cuando existan sus cuentas |
-| Volantes, certificados, ZIP, vacaciones, festivos, permisos | BACKLOG | — | Fases 3 y 4 |
+| Volantes de pago PDF (ESS-PAY-001) | IN_REVIEW (código); sin datos reales | PR ESS-PAY-001 | Recibir muestras anonimizadas de NOMINA (decimales y reversos); logo de empresa |
+| Certificados, ZIP, vacaciones, festivos, permisos | BACKLOG | — | Fases 3 y 4 |
 
 ## Bloqueos
 - `EMPLEADOS.xlsx` trae `EST = A` en las 240 filas; sin `V`/`C` no se pueden importar empleados reales ni crear cuentas.

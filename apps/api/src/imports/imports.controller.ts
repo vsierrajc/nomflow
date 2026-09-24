@@ -21,6 +21,11 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
 import { CATALOGS, isCatalogKind } from './catalog.parser';
+import {
+  applyPayrollBatch,
+  listPayrollVersions,
+  uploadPayroll,
+} from '../payroll/payroll-import.service';
 import { applyCatalogBatch, listCatalog, uploadCatalog } from './catalogs.service';
 import { RecentAuthGuard, Roles, RolesGuard } from '../auth/guards';
 import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
@@ -37,6 +42,14 @@ import {
 const MAX_BYTES = Number(process.env.IMPORT_MAX_BYTES ?? 10 * 1024 * 1024);
 const MAX_ROWS = Number(process.env.IMPORT_MAX_ROWS ?? 20000);
 
+const PayrollUploadDto = z.object({
+  per: z.string().regex(/^\d{6}$/),
+  nLiq: z.enum(['1', '2']).transform(Number),
+  sheet: z.string().trim().min(1).max(100).optional(),
+  sourceSystem: z.string().trim().min(1).max(100),
+  responsible: z.string().trim().min(1).max(150),
+});
+
 const UploadDto = z.object({
   cEmp: z.string().trim().min(1).max(30).optional(),
   sheet: z.string().trim().min(1).max(100).optional(),
@@ -49,12 +62,14 @@ function mapError(e: unknown): never {
   switch (e.code) {
     case 'NOT_XLSX':
     case 'COMPANY_REQUIRED':
+    case 'INVALID_SCOPE':
     case 'UNKNOWN_CATALOG':
       throw new BadRequestException({ code: e.code });
     case 'NOT_FOUND':
       throw new NotFoundException();
     case 'DUPLICATE_FILE':
     case 'NOT_READY':
+    case 'SAME_CONTENT':
       throw new ConflictException({ code: e.code });
     default:
       throw new UnprocessableEntityException({ code: e.code });
@@ -89,6 +104,39 @@ export class ImportsController {
     } catch (e) {
       return mapError(e);
     }
+  }
+
+  @Post('payroll')
+  @HttpCode(201)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_BYTES, files: 1 } }))
+  async uploadPayroll(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() body: unknown,
+    @Req() req: AuthedRequest,
+  ): Promise<BatchSummary> {
+    const dto = PayrollUploadDto.safeParse(body);
+    if (!file || !dto.success) throw new BadRequestException();
+    try {
+      return await uploadPayroll(this.db, req.auth.accountId, {
+        buffer: file.buffer,
+        fileName: file.originalname,
+        sheet: dto.data.sheet,
+        per: dto.data.per,
+        nLiq: dto.data.nLiq,
+        sourceSystem: dto.data.sourceSystem,
+        responsible: dto.data.responsible,
+        maxRows: MAX_ROWS,
+      });
+    } catch (e) {
+      return mapError(e);
+    }
+  }
+
+  @Get('payroll/versions')
+  @Header('Cache-Control', 'no-store')
+  async payrollVersions(@Query('per') per: string | undefined) {
+    if (per !== undefined && !/^\d{6}$/.test(per)) throw new BadRequestException();
+    return listPayrollVersions(this.db, per);
   }
 
   @Post('catalogs/:kind')
@@ -162,6 +210,7 @@ export class ImportsController {
   ): Promise<BatchSummary> {
     try {
       const batch = await getBatch(this.db, id);
+      if (batch.type === 'NOMINA') return await applyPayrollBatch(this.db, req.auth.accountId, id);
       return isCatalogKind(batch.type)
         ? await applyCatalogBatch(this.db, req.auth.accountId, id)
         : await applyEmployeesBatch(this.db, req.auth.accountId, id);

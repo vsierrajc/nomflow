@@ -57,6 +57,13 @@
       "when": 1790199153083,
       "tag": "0007_jefes_de_area",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790210686182,
+      "tag": "0008_nomina_volantes",
+      "breakpoints": true
     }
   ]
 }

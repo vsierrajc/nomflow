@@ -64,6 +64,9 @@ export default function HomePage() {
         </ul>
       )}
       <div className="actions">
+        <Link className="button" href="/volantes">
+          Mis volantes de pago
+        </Link>
         <Link className="button secondary" href="/cuenta/clave">
           Cambiar mi clave
         </Link>

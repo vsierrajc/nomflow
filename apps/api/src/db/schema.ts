@@ -223,6 +223,7 @@ export const companies = pgTable(
     sigla: text('sigla').notNull(),
     direccion: text('direccion').notNull(),
     active: boolean('active').notNull().default(true),
+    payrollDefaultMode: text('payroll_default_mode').notNull().default('ENTERO_SUPERIOR'),
     version: integer('version').notNull().default(1),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -278,4 +279,72 @@ export const areaManagerAssignments = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('area_manager_area_idx').on(t.cEmp, t.cArea)],
+);
+
+export const payrollVersions = pgTable(
+  'payroll_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    per: text('per').notNull(),
+    nLiq: integer('n_liq').notNull(),
+    version: integer('version').notNull(),
+    status: text('status').notNull(),
+    contentHash: text('content_hash').notNull(),
+    batchId: uuid('batch_id')
+      .notNull()
+      .references(() => importBatches.id),
+    rowCount: integer('row_count').notNull(),
+    totalDev: numeric('total_dev', { precision: 18, scale: 6 }).notNull(),
+    totalDed: numeric('total_ded', { precision: 18, scale: 6 }).notNull(),
+    publishedAt: timestamp('published_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('payroll_versions_scope_version_uq').on(t.per, t.nLiq, t.version),
+    uniqueIndex('payroll_versions_one_published_uq')
+      .on(t.per, t.nLiq)
+      .where(sql`${t.status} = 'PUBLICADA'`),
+  ],
+);
+
+export const payrollLines = pgTable(
+  'payroll_lines',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    versionId: uuid('version_id')
+      .notNull()
+      .references(() => payrollVersions.id),
+    rowIndex: integer('row_index').notNull(),
+    nIde: text('n_ide').notNull(),
+    contrato: text('contrato').notNull(),
+    cCon: text('c_con').notNull(),
+    concepto: text('concepto'),
+    slrio: numeric('slrio', { precision: 18, scale: 6 }),
+    cant: numeric('cant', { precision: 18, scale: 6 }),
+    ded: numeric('ded', { precision: 18, scale: 6 }),
+    dev: numeric('dev', { precision: 18, scale: 6 }),
+    tercero: text('tercero'),
+    nombreOrigen: text('nombre_origen'),
+  },
+  (t) => [
+    index('payroll_lines_voucher_idx').on(t.nIde, t.contrato, t.versionId),
+    index('payroll_lines_version_idx').on(t.versionId),
+  ],
+);
+
+export const payrollDownloadAudit = pgTable(
+  'payroll_download_audit',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id),
+    versionId: uuid('version_id'),
+    per: text('per').notNull(),
+    nLiq: integer('n_liq').notNull(),
+    contrato: text('contrato').notNull(),
+    mode: text('mode').notNull(),
+    result: text('result').notNull(),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('payroll_download_audit_account_idx').on(t.accountId, t.at)],
 );

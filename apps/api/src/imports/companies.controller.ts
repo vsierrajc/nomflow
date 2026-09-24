@@ -27,7 +27,12 @@ const Fields = {
   sigla: z.string().trim().min(1).max(30),
   direccion: z.string().trim().min(1).max(300),
 };
-const CreateDto = z.object({ cEmp: z.string().trim().min(1).max(30), ...Fields });
+const Mode = z.enum(['SIN_AJUSTE', 'ENTERO_SUPERIOR']);
+const CreateDto = z.object({
+  cEmp: z.string().trim().min(1).max(30),
+  ...Fields,
+  payrollDefaultMode: Mode.optional(),
+});
 const UpdateDto = z.object({
   ...Fields,
   active: z.boolean(),

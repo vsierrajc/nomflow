@@ -29,7 +29,9 @@ export type ImportErrorCode =
   | 'APPLY_FAILED'
   | 'COMPANY_REQUIRED'
   | 'COMPANY_NOT_FOUND'
-  | 'UNKNOWN_CATALOG';
+  | 'UNKNOWN_CATALOG'
+  | 'INVALID_SCOPE'
+  | 'SAME_CONTENT';
 
 export class ImportError extends Error {
   constructor(readonly code: ImportErrorCode) {
