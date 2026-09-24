@@ -14,7 +14,8 @@ export type HolidayApiErrorCode =
   | 'API_KEY_INVALID'
   | 'RATE_LIMITED'
   | 'UNAVAILABLE'
-  | 'INVALID_RESPONSE';
+  | 'INVALID_RESPONSE'
+  | 'NOT_JSON';
 
 export class HolidayApiError extends Error {
   constructor(readonly code: HolidayApiErrorCode) {
@@ -171,12 +172,14 @@ async function fetchYear(url: string, apiKey: string, year: number): Promise<Api
   if (res.status === 401 || res.status === 403) throw new HolidayApiError('API_KEY_INVALID');
   if (res.status === 429) throw new HolidayApiError('RATE_LIMITED');
   if (res.status !== 200) throw new HolidayApiError('UNAVAILABLE');
+  // Una URL que devuelve una página (por ejemplo la portada del sitio) no es el servicio.
+  let body: unknown;
   try {
-    return parseBody(await res.json(), year);
-  } catch (e) {
-    if (e instanceof HolidayApiError) throw e;
-    throw new HolidayApiError('INVALID_RESPONSE');
+    body = JSON.parse(await res.text());
+  } catch {
+    throw new HolidayApiError('NOT_JSON');
   }
+  return parseBody(body, year);
 }
 
 /**

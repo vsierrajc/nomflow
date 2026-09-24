@@ -43,7 +43,7 @@ describe.skipIf(!url)('API de festivos: configuración y sincronización (HTTP +
   let base = '';
   let hr: Sess;
   let emp: Sess;
-  let mode: 'ok' | '401' | '429' | '500' | 'bad' | 'redirect' | 'empty' = 'ok';
+  let mode: 'ok' | '401' | '429' | '500' | 'bad' | 'redirect' | 'empty' | 'html' = 'ok';
   let seen: { auth: string | undefined; url: string | undefined }[] = [];
   let days: { date: string; name_es: string }[] = [];
   const srv = () => app.getHttpServer();
@@ -64,6 +64,10 @@ describe.skipIf(!url)('API de festivos: configuración y sincronización (HTTP +
         return res.end();
       }
       if (mode === 'empty') return json(200, { data: [] });
+      if (mode === 'html') {
+        res.writeHead(200, { 'content-type': 'text/html' });
+        return res.end('<!doctype html><title>Portada</title>');
+      }
       if (mode === 'bad') return json(200, { data: [{ date: '2099-01-01', name_es: 'Otro año' }] });
       return json(200, { data: days });
     });
@@ -198,6 +202,7 @@ describe.skipIf(!url)('API de festivos: configuración y sincronización (HTTP +
       ['redirect', 'UNAVAILABLE'],
       ['bad', 'INVALID_RESPONSE'],
       ['empty', 'INVALID_RESPONSE'],
+      ['html', 'NOT_JSON'],
     ] as const) {
       mode = m;
       const res = await call(hr, 'post', '/admin/holiday-api/sync', { year: 2031 }).expect(502);
