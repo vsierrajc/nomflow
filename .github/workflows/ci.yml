@@ -43,11 +43,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: github/codeql-action/init@v3
         with: { languages: javascript-typescript }
-      # El repositorio es privado y no tiene GitHub Advanced Security: se analiza sin subir a
-      # Code scanning y el propio job falla si el SARIF trae hallazgos.
+      # Sube los resultados a Code scanning y, además, falla el job si el SARIF trae hallazgos.
       - uses: github/codeql-action/analyze@v3
         with:
-          upload: never
           output: codeql-results
       - name: Fallar si hay hallazgos
         run: |

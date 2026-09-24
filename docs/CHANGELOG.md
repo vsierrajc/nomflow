@@ -25,3 +25,4 @@
 - Traspaso y Graphify: `docs/HANDOFF.md` para la próxima sesión; Graphify con soporte SQL (`graphifyy[sql]` fijado en 0.9.67, también en el CI) que indexa las migraciones (58 nodos), guía actualizada con identificadores para nombres ambiguos.
 - ESS-TAX-001: certificados de retención por carga masiva desde carpeta (`TAX_CERT_INBOX_DIR`), versionados, con consulta y descarga del propio empleado y pantalla administrativa; migración 0015.
 - CI: CodeQL sin Code scanning (repositorio privado): `upload: never`, SARIF como artefacto y el job falla si hay hallazgos; ya no es informativo.
+- Repositorio público: Code scanning con CodeQL del workflow (la configuración predeterminada de GitHub queda desactivada para no chocar), escaneo de secretos con protección de push y alertas de Dependabot activados.

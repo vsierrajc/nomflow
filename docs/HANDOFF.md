@@ -61,7 +61,7 @@ Interfaz de módulos futuros (solicitudes, aprobaciones, documentos): ver `docs/
 - Certificados: firmantes y evidencia de firma.
 - Operación: SMTP de producción (dominio, TLS), almacenamiento, respaldos, monitoreo y suplencias.
 - **Retención** de: filas de preparación de importaciones (contienen datos personales y salarios), auditoría de peticiones (crece rápido) y sesiones/códigos vencidos (nada los purga hoy).
-- Gobierno: activar protección de `main`, exigir revisión de otra persona (ningún PR de la cadena #1 a #20 la tuvo). CodeQL ya es un control real sin Code scanning (analiza con `upload: never`, guarda el SARIF y falla por hallazgos); la pestaña Security de GitHub solo se llenaría con Advanced Security o si el repositorio pasara a público.
+- Gobierno: activar protección de `main`, exigir revisión de otra persona (ningún PR de la cadena #1 a #20 la tuvo). CodeQL ya es un control real: sube a Code scanning (pestaña Security), guarda el SARIF y falla por hallazgos. Con el repositorio público quedaron activos el escaneo de secretos con protección de push y las alertas de Dependabot.
 
 ## 6. Deuda técnica y de seguridad conocida
 

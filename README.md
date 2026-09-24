@@ -215,7 +215,7 @@ npm run test:e2e        # pruebas de navegador (Chromium); levantan su propia AP
 - **API: 215 pruebas** de integración contra PostgreSQL real (permisos, importaciones, concurrencia, reversión, contenido de los PDF, auditoría).
 - **Interfaz: 81 pruebas de navegador** (flujos, teclado, 320 px, texto al 200 %, contraste en modo claro y oscuro con axe).
 - Las pruebas **vacían las tablas**: nunca apunte `DATABASE_URL` a la base de desarrollo.
-- **CI** (`.github/workflows/ci.yml`): formato, lint, tipos, build, pruebas, `npm audit`, `gitleaks`, CodeQL, mapa del código y pruebas de navegador. CodeQL analiza sin subir a Code scanning (que exige Advanced Security en repositorios privados): guarda el SARIF como artefacto y falla si hay hallazgos.
+- **CI** (`.github/workflows/ci.yml`): formato, lint, tipos, build, pruebas, `npm audit`, `gitleaks`, CodeQL, mapa del código y pruebas de navegador. CodeQL sube sus resultados a Code scanning, guarda el SARIF como artefacto y falla si hay hallazgos.
 - En WSL sin `sudo`, Chromium puede necesitar bibliotecas locales: ver [`docs/local-stack.md`](docs/local-stack.md).
 
 ## Flujo de trabajo con Git
