@@ -61,7 +61,7 @@ Interfaz de módulos futuros (solicitudes, aprobaciones, documentos): ver `docs/
 - Certificados: firmantes y evidencia de firma.
 - Operación: SMTP de producción (dominio, TLS), almacenamiento, respaldos, monitoreo y suplencias.
 - **Retención** de: filas de preparación de importaciones (contienen datos personales y salarios), auditoría de peticiones (crece rápido) y sesiones/códigos vencidos (nada los purga hoy).
-- Gobierno: activar protección de `main`, exigir revisión de otra persona (ningún PR de la cadena #1 a #20 la tuvo) y activar Code scanning (CodeQL falla sin él).
+- Gobierno: activar protección de `main`, exigir revisión de otra persona (ningún PR de la cadena #1 a #20 la tuvo). CodeQL ya es un control real: sube a Code scanning (pestaña Security), guarda el SARIF y falla por hallazgos. Con el repositorio público quedaron activos el escaneo de secretos con protección de push y las alertas de Dependabot.
 
 ## 6. Deuda técnica y de seguridad conocida
 
@@ -71,7 +71,7 @@ Interfaz de módulos futuros (solicitudes, aprobaciones, documentos): ver `docs/
 - Jefes de área: faltan las **suplencias** que pide la SSD.
 - El logo se guarda en la base de datos; los documentos futuros deberían ir a S3.
 - `API_URL` de la web se lee al **compilar** (rewrites de Next).
-- El job `e2e` del CI es informativo; volverlo obligatorio cuando se estabilice, igual que CodeQL.
+- El job `e2e` del CI es informativo; volverlo obligatorio cuando se estabilice (CodeQL ya lo es).
 - Interfaz: sin conmutador manual de tema, sin lectores de pantalla reales ni otros navegadores, las tablas administrativas son regiones desplazables, el menú móvil no atrapa el foco.
 - Graphify: solo extracción por código; la semántica con LLM está prohibida sin aprobación (envía contenido a un tercero).
 
