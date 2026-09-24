@@ -64,8 +64,7 @@ const LANDING_SERVICES = [
   },
   {
     title: 'Permisos',
-    text: 'Solicitudes y aprobaciones en línea.',
-    soon: true,
+    text: 'Solicite permisos a su jefe de área y consulte su respuesta.',
   },
 ];
 
@@ -96,10 +95,7 @@ export function LoginLanding({
         <ul className="landing-services">
           {LANDING_SERVICES.map((sv) => (
             <li key={sv.title}>
-              <strong>
-                {sv.title}
-                {sv.soon ? <span className="landing-soon"> (próximamente)</span> : null}
-              </strong>
+              <strong>{sv.title}</strong>
               <span>{sv.text}</span>
             </li>
           ))}
@@ -154,6 +150,7 @@ function navFor(profile: Profile): NavItem[] {
     { href: '/', label: 'Inicio', match: (p) => p === '/' },
     { href: '/volantes', label: 'Mis volantes de pago', match: (p) => p.startsWith('/volantes') },
     { href: '/vacaciones', label: 'Mis vacaciones', match: (p) => p.startsWith('/vacaciones') },
+    { href: '/permisos', label: 'Mis permisos', match: (p) => p.startsWith('/permisos') },
     {
       href: '/retenciones',
       label: 'Certificados de retención',

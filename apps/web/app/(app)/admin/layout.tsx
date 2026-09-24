@@ -17,6 +17,7 @@ const NAV = [
   { href: '/admin/nomina', label: 'Nómina publicada' },
   { href: '/admin/vacaciones', label: 'Períodos de vacaciones' },
   { href: '/admin/festivos', label: 'Festivos' },
+  { href: '/admin/tipos-permiso', label: 'Tipos de permiso' },
   { href: '/admin/retenciones', label: 'Certificados de retención' },
   { href: '/admin/auditoria', label: 'Auditoría' },
 ];

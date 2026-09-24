@@ -676,6 +676,7 @@ test.describe('accesibilidad del área administrativa', () => {
       '/admin/nomina',
       '/admin/vacaciones',
       '/admin/festivos',
+      '/admin/tipos-permiso',
       '/admin/retenciones',
       '/admin/auditoria',
     ]) {
