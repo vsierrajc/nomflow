@@ -1,7 +1,8 @@
 # Estado del proyecto NOMFLOW
 
 - Versión: 0.0.0 (pre-lanzamiento; sin despliegue en producción)
-- Última bitácora: [2026-09-24-rediseno-interfaz](sessions/2026-09-24-rediseno-interfaz.md)
+- **Traspaso para la próxima sesión: [HANDOFF.md](HANDOFF.md)** (pendientes, próximos pasos y trampas conocidas).
+- Última bitácora: [2026-09-24-handoff-graphify](sessions/2026-09-24-handoff-graphify.md)
 - `main` contiene los PR #1 a #19 integrados; no hay PR abiertos.
 - Revisión por otra persona: ninguno de los PR fue revisado por alguien distinto del autor y `main` no tiene protección de rama (la SSD, sección 11, la exige).
 - Pruebas: 215 de API y 81 de navegador en verde. Ver [README](../README.md) para la visión general.
