@@ -1,11 +1,13 @@
 import PDFDocument from 'pdfkit';
 import { ceilToInteger, formatEsCo } from './decimal';
+import { unitLabel } from './units';
 
 export type VoucherMode = 'SIN_AJUSTE' | 'ENTERO_SUPERIOR';
 
 export interface VoucherLine {
   cCon: string;
   concepto: string;
+  unit: string | null;
   cant: bigint | null;
   dev: bigint | null;
   ded: bigint | null;
@@ -21,6 +23,7 @@ export interface VoucherData {
   salary: bigint | null;
   version: number;
   contentHash: string;
+  logo: Buffer | null;
   lines: VoucherLine[];
 }
 
@@ -70,7 +73,7 @@ function fit(doc: PDFKit.PDFDocument, text: string, width: number): string {
 
 const LEFT = 40;
 const RIGHT = 555;
-const COLS = { code: 40, name: 100, qty: 315, dev: 385, ded: 470 };
+const COLS = { code: 40, name: 100, qty: 290, dev: 375, ded: 462 };
 
 export function renderVoucherPdf(
   data: VoucherData,
@@ -100,17 +103,30 @@ export function renderVoucherPdf(
     const money = (v: bigint | null) =>
       v === null ? '' : formatEsCo(v, mode === 'ENTERO_SUPERIOR' ? 0 : 2);
 
+    let textX = LEFT;
+    if (data.logo) {
+      try {
+        doc.image(data.logo, LEFT, 36, { fit: [60, 60] });
+        textX = LEFT + 74;
+      } catch {
+        textX = LEFT;
+      }
+    }
     doc
       .font('Helvetica-Bold')
       .fontSize(14)
-      .text(clean(data.company?.nombre ?? 'NOMFLOW'), LEFT, 40);
+      .text(clean(data.company?.nombre ?? 'NOMFLOW'), textX, 42, { width: RIGHT - textX });
     if (data.company) {
       doc
         .font('Helvetica')
         .fontSize(9)
         .fillColor('#444')
-        .text(clean(`${data.company.sigla} - ${data.company.direccion}`));
+        .text(clean(`${data.company.sigla} - ${data.company.direccion}`), textX, doc.y, {
+          width: RIGHT - textX,
+        });
     }
+    if (data.logo) doc.y = Math.max(doc.y, 100);
+    doc.x = LEFT;
     doc.fillColor('#000').moveDown(0.8);
     doc.font('Helvetica-Bold').fontSize(12).text('COMPROBANTE DE PAGO (VOLANTE)');
     doc.font('Helvetica').fontSize(10).text(periodLabel(data.per, data.nLiq)).moveDown(0.6);
@@ -137,10 +153,10 @@ export function renderVoucherPdf(
         .fillColor('#000');
       doc.font('Helvetica-Bold').fontSize(9);
       doc.text('Código', COLS.code + 2, y + 1, { width: 55 });
-      doc.text('Concepto', COLS.name, y + 1, { width: 205 });
-      doc.text('Cantidad', COLS.qty, y + 1, { width: 65, align: 'right' });
-      doc.text('Devengado', COLS.dev, y + 1, { width: 75, align: 'right' });
-      doc.text('Deducido', COLS.ded, y + 1, { width: 85, align: 'right' });
+      doc.text('Concepto', COLS.name, y + 1, { width: 185 });
+      doc.text('Cantidad', COLS.qty, y + 1, { width: 80, align: 'right' });
+      doc.text('Devengado', COLS.dev, y + 1, { width: 80, align: 'right' });
+      doc.text('Deducido', COLS.ded, y + 1, { width: 93, align: 'right' });
       doc.y = y + 18;
       doc.font('Helvetica').fontSize(9);
     };
@@ -152,22 +168,25 @@ export function renderVoucherPdf(
       }
       const y = doc.y;
       doc.text(fit(doc, clean(line.cCon), 55), COLS.code + 2, y, { width: 58, lineBreak: false });
-      doc.text(fit(doc, clean(line.concepto), 200), COLS.name, y, {
-        width: 210,
+      doc.text(fit(doc, clean(line.concepto), 180), COLS.name, y, {
+        width: 190,
         lineBreak: false,
       });
-      doc.text(line.cant === null ? '' : formatEsCo(line.cant, 0), COLS.qty, y, {
-        width: 65,
+      const label = unitLabel(line.unit);
+      const qty =
+        line.cant === null ? '' : `${formatEsCo(line.cant, 0)}${label ? ` ${label}` : ''}`;
+      doc.text(fit(doc, qty, 78), COLS.qty, y, {
+        width: 80,
         align: 'right',
         lineBreak: false,
       });
       doc.text(money(adjust(line.dev)), COLS.dev, y, {
-        width: 75,
+        width: 80,
         align: 'right',
         lineBreak: false,
       });
       doc.text(money(adjust(line.ded)), COLS.ded, y, {
-        width: 85,
+        width: 93,
         align: 'right',
         lineBreak: false,
       });
@@ -185,9 +204,9 @@ export function renderVoucherPdf(
     const totalRow = (label: string, dev: string, ded: string, bold = false) => {
       const y = doc.y;
       doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(10);
-      doc.text(label, COLS.name, y, { width: 205, lineBreak: false });
-      doc.text(dev, COLS.dev, y, { width: 75, align: 'right', lineBreak: false });
-      doc.text(ded, COLS.ded, y, { width: 85, align: 'right', lineBreak: false });
+      doc.text(label, COLS.name, y, { width: 185, lineBreak: false });
+      doc.text(dev, COLS.dev, y, { width: 80, align: 'right', lineBreak: false });
+      doc.text(ded, COLS.ded, y, { width: 93, align: 'right', lineBreak: false });
       doc.y = y + 16;
     };
     const dec = mode === 'ENTERO_SUPERIOR' ? 0 : 2;

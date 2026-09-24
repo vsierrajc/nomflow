@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import type { Db } from '../db/client';
-import { hasActiveRole } from '../auth/roles';
+import { ADMIN_ROLES, hasActiveRole } from '../auth/roles';
 import { accounts, auditLogs, employeeSnapshots } from '../db/schema';
 import type { Mailer } from '../mail/mailer';
 import { issueVerificationCode } from './verification.service';
@@ -46,7 +46,7 @@ async function create(
   actorAccountId: string,
   nIde: string,
 ): Promise<Omit<CreatedAccount, 'verificationSent'>> {
-  if (!(await hasActiveRole(db, actorAccountId, ['HR_ADMIN']))) {
+  if (!(await hasActiveRole(db, actorAccountId, ADMIN_ROLES))) {
     throw new AccountError('FORBIDDEN');
   }
 

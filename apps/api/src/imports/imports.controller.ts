@@ -20,6 +20,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
+import { applyConceptsBatch, uploadConcepts } from '../payroll/concepts.service';
 import { CATALOGS, isCatalogKind } from './catalog.parser';
 import {
   applyPayrollBatch,
@@ -28,6 +29,7 @@ import {
 } from '../payroll/payroll-import.service';
 import { applyCatalogBatch, listCatalog, uploadCatalog } from './catalogs.service';
 import { RecentAuthGuard, Roles, RolesGuard } from '../auth/guards';
+import { ADMIN_ROLES } from '../auth/roles';
 import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
 import type { Db } from '../db/client';
 import { DB } from '../db/db.module';
@@ -78,7 +80,7 @@ function mapError(e: unknown): never {
 
 @Controller('admin/imports')
 @UseGuards(SessionGuard, RolesGuard, RecentAuthGuard)
-@Roles('HR_ADMIN')
+@Roles(...ADMIN_ROLES)
 export class ImportsController {
   constructor(@Inject(DB) private readonly db: Db) {}
 
@@ -94,6 +96,30 @@ export class ImportsController {
     if (!file || !dto.success) throw new BadRequestException();
     try {
       return await uploadEmployees(this.db, req.auth.accountId, {
+        buffer: file.buffer,
+        fileName: file.originalname,
+        sheet: dto.data.sheet,
+        sourceSystem: dto.data.sourceSystem,
+        responsible: dto.data.responsible,
+        maxRows: MAX_ROWS,
+      });
+    } catch (e) {
+      return mapError(e);
+    }
+  }
+
+  @Post('concepts')
+  @HttpCode(201)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_BYTES, files: 1 } }))
+  async uploadConcepts(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() body: unknown,
+    @Req() req: AuthedRequest,
+  ): Promise<BatchSummary> {
+    const dto = UploadDto.safeParse(body);
+    if (!file || !dto.success) throw new BadRequestException();
+    try {
+      return await uploadConcepts(this.db, req.auth.accountId, {
         buffer: file.buffer,
         fileName: file.originalname,
         sheet: dto.data.sheet,
@@ -211,6 +237,8 @@ export class ImportsController {
     try {
       const batch = await getBatch(this.db, id);
       if (batch.type === 'NOMINA') return await applyPayrollBatch(this.db, req.auth.accountId, id);
+      if (batch.type === 'CONCEPTO')
+        return await applyConceptsBatch(this.db, req.auth.accountId, id);
       return isCatalogKind(batch.type)
         ? await applyCatalogBatch(this.db, req.auth.accountId, id)
         : await applyEmployeesBatch(this.db, req.auth.accountId, id);

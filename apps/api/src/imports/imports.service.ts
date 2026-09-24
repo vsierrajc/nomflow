@@ -415,7 +415,12 @@ export async function applyEmployeesBatch(
           .values(values)
           .onConflictDoUpdate({
             target: [employeeSnapshots.nIde, employeeSnapshots.nCont],
-            set: values,
+            set: {
+              ...values,
+              source: 'IMPORT',
+              version: sql`${employeeSnapshots.version} + 1`,
+              updatedAt: new Date(),
+            },
           });
       }
       const [{ n } = { n: 0 }] = await tx
