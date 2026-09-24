@@ -114,3 +114,29 @@ export async function grantRole(
 export async function listRoles(db: Db, accountId: string) {
   return db.select().from(roleAssignments).where(eq(roleAssignments.accountId, accountId));
 }
+
+export async function endRole(
+  db: Db,
+  actorId: string,
+  accountId: string,
+  roleId: string,
+  validTo: string,
+) {
+  const fail = async (code: OrgErrorCode): Promise<never> => {
+    await audit(db, actorId, 'ROLE_END', roleId, code);
+    throw new OrgError(code);
+  };
+  if (!(await hasActiveRole(db, actorId, ADMIN_ROLES))) return fail('FORBIDDEN');
+  if (actorId === accountId) return fail('SELF_GRANT');
+  const [row] = await db
+    .select()
+    .from(roleAssignments)
+    .where(and(eq(roleAssignments.id, roleId), eq(roleAssignments.accountId, accountId)));
+  if (!row) return fail('NOT_FOUND');
+  if (PRIVILEGED.includes(row.role) && !(await hasActiveRole(db, actorId, ['SYSTEM_ADMIN'])))
+    return fail('FORBIDDEN');
+  if (!validRange(row.validFrom, validTo) || (row.validTo !== null && validTo > row.validTo))
+    return fail('INVALID_RANGE');
+  await db.update(roleAssignments).set({ validTo }).where(eq(roleAssignments.id, roleId));
+  await audit(db, actorId, 'ROLE_END', roleId, 'SUCCESS');
+}

@@ -211,7 +211,13 @@ export async function applyCatalogBatch(
           .values({ type: kind, cEmp, code: row.code, name: row.name, active: true, batchId })
           .onConflictDoUpdate({
             target: [catalogEntries.type, catalogEntries.cEmp, catalogEntries.code],
-            set: { name: row.name, active: true, batchId, updatedAt: new Date() },
+            set: {
+              name: row.name,
+              active: true,
+              batchId,
+              version: sql`${catalogEntries.version} + 1`,
+              updatedAt: new Date(),
+            },
           });
       }
       const [{ n } = { n: 0 }] = await tx

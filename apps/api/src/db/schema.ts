@@ -68,7 +68,10 @@ export const employeeSnapshots = pgTable(
     profesion: text('profesion'),
     nivelEducativo: text('nivel_educativo'),
     tipoContrato: text('tipo_contrato'),
+    version: integer('version').notNull().default(1),
+    source: text('source').notNull().default('IMPORT'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex('employee_snapshots_contract_uq').on(t.nIde, t.nCont),
@@ -131,7 +134,11 @@ export const auditLogs = pgTable(
     context: jsonb('context').notNull().default({}),
     at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('audit_logs_at_idx').on(t.at)],
+  (t) => [
+    index('audit_logs_at_idx').on(t.at),
+    index('audit_logs_actor_at_idx').on(t.actorAccountId, t.at),
+    index('audit_logs_action_at_idx').on(t.action, t.at),
+  ],
 );
 
 export const sessions = pgTable(
@@ -247,6 +254,7 @@ export const catalogEntries = pgTable(
     code: text('code').notNull(),
     name: text('name').notNull(),
     active: boolean('active').notNull().default(true),
+    version: integer('version').notNull().default(1),
     batchId: text('batch_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -351,6 +359,8 @@ export const payrollDownloadAudit = pgTable(
     contrato: text('contrato').notNull(),
     mode: text('mode').notNull(),
     result: text('result').notNull(),
+    targetNIde: text('target_n_ide'),
+    reason: text('reason'),
     at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('payroll_download_audit_account_idx').on(t.accountId, t.at)],
@@ -397,4 +407,22 @@ export const companyLogos = pgTable(
       .on(t.companyId)
       .where(sql`${t.active} = true`),
   ],
+);
+
+export const employeeChanges = pgTable(
+  'employee_changes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    employeeId: uuid('employee_id')
+      .notNull()
+      .references(() => employeeSnapshots.id),
+    changedBy: uuid('changed_by')
+      .notNull()
+      .references(() => accounts.id),
+    action: text('action').notNull(),
+    reason: text('reason').notNull(),
+    changes: jsonb('changes').notNull().default({}),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('employee_changes_employee_idx').on(t.employeeId, t.at)],
 );

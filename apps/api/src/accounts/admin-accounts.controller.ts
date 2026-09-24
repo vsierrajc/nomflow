@@ -3,8 +3,12 @@ import {
   Body,
   ConflictException,
   Controller,
-  ForbiddenException,
+  Get,
   Header,
+  Param,
+  ParseUUIDPipe,
+  Query,
+  ForbiddenException,
   HttpCode,
   Inject,
   NotFoundException,
@@ -21,6 +25,36 @@ import type { Db } from '../db/client';
 import { DB } from '../db/db.module';
 import { MAILER, type Mailer } from '../mail/mailer';
 import { AccountError, createAccountByAdmin } from './accounts.service';
+import {
+  AccountAdminError,
+  blockAccount,
+  listAccounts,
+  resetAccountPassword,
+  unblockAccount,
+} from './accounts-admin.service';
+
+const ListQuery = z.object({
+  q: z.string().trim().max(100).optional(),
+  status: z.enum(['PENDIENTE_VERIFICACION', 'ACTIVA', 'BLOQUEADA']).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(200).default(50),
+});
+
+function mapAdmin(e: unknown): never {
+  if (!(e instanceof AccountAdminError)) throw e;
+  switch (e.code) {
+    case 'NOT_FOUND':
+      throw new NotFoundException();
+    case 'SELF':
+    case 'FORBIDDEN':
+      throw new ForbiddenException({ code: e.code });
+    case 'CONFLICT':
+    case 'NOT_BLOCKED':
+      throw new ConflictException({ code: e.code });
+    default:
+      throw new UnprocessableEntityException({ code: e.code });
+  }
+}
 
 const CreateAccountDto = z.object({ nIde: z.string().trim().min(3).max(30) });
 
@@ -56,6 +90,45 @@ export class AdminAccountsController {
         default:
           throw new UnprocessableEntityException({ code: e.code });
       }
+    }
+  }
+
+  @Get()
+  @Header('Cache-Control', 'no-store')
+  list(@Query() query: unknown) {
+    const q = ListQuery.safeParse(query);
+    if (!q.success) throw new BadRequestException();
+    return listAccounts(this.db, q.data);
+  }
+
+  @Post(':id/block')
+  @HttpCode(204)
+  async block(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest): Promise<void> {
+    try {
+      await blockAccount(this.db, req.auth.accountId, id);
+    } catch (e) {
+      mapAdmin(e);
+    }
+  }
+
+  @Post(':id/unblock')
+  @HttpCode(200)
+  async unblock(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
+    try {
+      return await unblockAccount(this.db, req.auth.accountId, id);
+    } catch (e) {
+      return mapAdmin(e);
+    }
+  }
+
+  @Post(':id/reset-password')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  async reset(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
+    try {
+      return await resetAccountPassword(this.db, req.auth.accountId, id, this.mailer);
+    } catch (e) {
+      return mapAdmin(e);
     }
   }
 }

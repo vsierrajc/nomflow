@@ -23,7 +23,7 @@ import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
 import type { Db } from '../db/client';
 import { DB } from '../db/db.module';
 import { assignAreaManager, endAreaManager, listAreaManagers } from './area-managers.service';
-import { OrgError, grantRole, listRoles } from './roles.service';
+import { OrgError, endRole, grantRole, listRoles } from './roles.service';
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const GrantDto = z.object({
@@ -48,6 +48,7 @@ const AssignDto = z.object({
   validTo: date.nullable().optional(),
 });
 const EndDto = z.object({ validTo: date });
+const EndRoleDto = z.object({ validTo: date.optional() });
 
 function map(e: unknown): never {
   if (!(e instanceof OrgError)) throw e;
@@ -127,5 +128,29 @@ export class OrgController {
   @Get('areas/:cEmp/:cArea/managers')
   managers(@Param('cEmp') cEmp: string, @Param('cArea') cArea: string) {
     return listAreaManagers(this.db, cEmp, cArea);
+  }
+
+  @Put('accounts/:id/roles/:roleId/end')
+  @HttpCode(204)
+  @UseGuards(RecentAuthGuard)
+  async endAccountRole(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('roleId', ParseUUIDPipe) roleId: string,
+    @Body() body: unknown,
+    @Req() req: AuthedRequest,
+  ): Promise<void> {
+    const dto = EndRoleDto.safeParse(body ?? {});
+    if (!dto.success) throw new BadRequestException();
+    try {
+      await endRole(
+        this.db,
+        req.auth.accountId,
+        id,
+        roleId,
+        dto.data.validTo ?? new Date().toISOString().slice(0, 10),
+      );
+    } catch (e) {
+      map(e);
+    }
   }
 }

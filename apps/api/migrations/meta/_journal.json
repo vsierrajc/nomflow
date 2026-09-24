@@ -78,6 +78,34 @@
       "when": 1790212798729,
       "tag": "0010_logos_empresa",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790213246484,
+      "tag": "0011_catalogos_version",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790213425084,
+      "tag": "0012_empleados_crud",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790213730765,
+      "tag": "0013_soporte_administrativo",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790213795127,
+      "tag": "0014_auditoria_peticiones",
+      "breakpoints": true
     }
   ]
 }

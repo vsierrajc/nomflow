@@ -2,6 +2,7 @@ import { and, desc, eq, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import {
   accounts,
+  auditLogs,
   companies,
   employeeSnapshots,
   payrollDownloadAudit,
@@ -156,29 +157,37 @@ export function computeTotals(data: VoucherData, mode: VoucherMode): VoucherTota
   return { totalDev, totalDed, net: totalDev - totalDed };
 }
 
-export async function downloadVoucher(
+interface DownloadContext {
+  actorId: string;
+  nIde: string;
+  targetNIde: string | null;
+  reason: string | null;
+}
+
+async function produce(
   db: Db,
-  accountId: string,
+  ctx: DownloadContext,
   params: { per: string; nLiq: number; contrato: string },
   mode: unknown,
 ): Promise<{ pdf: Buffer; fileName: string }> {
   const audit = async (result: string, versionId: string | null, m: string) => {
     await db.insert(payrollDownloadAudit).values({
-      accountId,
+      accountId: ctx.actorId,
       versionId,
       per: params.per,
       nLiq: params.nLiq,
       contrato: params.contrato,
       mode: m,
       result,
+      targetNIde: ctx.targetNIde,
+      reason: ctx.reason,
     });
   };
   if (!isVoucherMode(mode)) {
     await audit('INVALID_MODE', null, 'INVALIDO');
     throw new VoucherError('INVALID_MODE');
   }
-  const nIde = await identity(db, accountId);
-  const data = await loadVoucher(db, nIde, params.per, params.nLiq, params.contrato);
+  const data = await loadVoucher(db, ctx.nIde, params.per, params.nLiq, params.contrato);
   if (!data) {
     await audit('NOT_FOUND', null, mode);
     throw new VoucherError('NOT_FOUND');
@@ -196,4 +205,51 @@ export async function downloadVoucher(
     );
   await audit('SUCCESS', version?.id ?? null, mode);
   return { pdf, fileName: `volante-${params.per}-q${params.nLiq}.pdf` };
+}
+
+export async function downloadVoucher(
+  db: Db,
+  accountId: string,
+  params: { per: string; nLiq: number; contrato: string },
+  mode: unknown,
+): Promise<{ pdf: Buffer; fileName: string }> {
+  const nIde = await identity(db, accountId);
+  return produce(db, { actorId: accountId, nIde, targetNIde: null, reason: null }, params, mode);
+}
+
+export async function adminDownloadVoucher(
+  db: Db,
+  actorId: string,
+  targetNIde: string,
+  params: { per: string; nLiq: number; contrato: string },
+  mode: unknown,
+  reason: string,
+): Promise<{ pdf: Buffer; fileName: string }> {
+  await db.insert(auditLogs).values({
+    actorAccountId: actorId,
+    action: 'ADMIN_PAYROLL_ACCESS',
+    resource: 'payroll_voucher',
+    result: 'REQUESTED',
+  });
+  return produce(db, { actorId, nIde: targetNIde, targetNIde, reason }, params, mode);
+}
+
+export async function adminListVouchers(db: Db, actorId: string, targetNIde: string) {
+  const vouchers = await db
+    .selectDistinct({
+      per: payrollVersions.per,
+      nLiq: payrollVersions.nLiq,
+      contrato: payrollLines.contrato,
+    })
+    .from(payrollLines)
+    .innerJoin(payrollVersions, eq(payrollVersions.id, payrollLines.versionId))
+    .where(and(eq(payrollLines.nIde, targetNIde), eq(payrollVersions.status, 'PUBLICADA')))
+    .orderBy(desc(payrollVersions.per), desc(payrollVersions.nLiq), payrollLines.contrato);
+  await db.insert(auditLogs).values({
+    actorAccountId: actorId,
+    action: 'ADMIN_PAYROLL_LIST',
+    resource: 'payroll_voucher',
+    result: 'SUCCESS',
+  });
+  return vouchers;
 }
