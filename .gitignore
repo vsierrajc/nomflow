@@ -53,3 +53,6 @@ tsconfig.tsbuildinfo
 
 # Herramientas locales
 graphify-out/
+
+# Procesos del stack local
+.run/
