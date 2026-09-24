@@ -106,9 +106,11 @@ npm run stack:down      # detiene todo (los datos se conservan)
 **Primer administrador** (con el stack en marcha):
 
 ```bash
-BOOTSTRAP_ADMIN_EMAIL=admin@nomflow.local BOOTSTRAP_ADMIN_PASSWORD='una-clave-de-12-o-mas' \
+BOOTSTRAP_ADMIN_EMAIL=admin@nomflow.local BOOTSTRAP_ADMIN_PASSWORD="$CLAVE_INICIAL" \
   npm run admin:bootstrap -w @nomflow/api
 ```
+
+`CLAVE_INICIAL` es una variable de su terminal con la clave elegida (mínimo 12 caracteres); no la escriba en archivos ni en el historial.
 
 Después, entre en http://localhost:3000/login con ese correo, cree la empresa y cargue los archivos desde **Administración** (ver [Cómo se cargan los datos](#cómo-se-cargan-los-datos)).
 
