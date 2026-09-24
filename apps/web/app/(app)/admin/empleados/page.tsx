@@ -11,6 +11,7 @@ import {
   formatDate,
 } from '@/components/admin-ui';
 import { EmployeeAccount } from '@/components/employee-account';
+import { IconButton } from '@/components/icon-button';
 import { Field } from '@/components/ui';
 import { NETWORK_ERROR } from '@/lib/api';
 import { useAdmin } from '@/lib/admin';
@@ -569,30 +570,22 @@ export default function EmployeesPage() {
                     <td>{r.hasAccount ? 'Sí' : 'No'}</td>
                     <td>
                       <div className="row-actions">
-                        <button
-                          type="button"
-                          className="secondary small"
+                        <IconButton
+                          icon="view"
+                          label={`Ver ${r.nombre}`}
                           onClick={() => setViewing(r.id)}
-                          aria-label={`Ver ${r.nombre}`}
-                        >
-                          Ver
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary small"
+                        />
+                        <IconButton
+                          icon="edit"
+                          label={`Corregir ${r.nombre}`}
                           onClick={() => void openEdit(r.id)}
-                          aria-label={`Corregir ${r.nombre}`}
-                        >
-                          Corregir
-                        </button>
-                        <button
-                          type="button"
-                          className={`small ${r.est === 'V' ? 'danger' : 'secondary'}`}
+                        />
+                        <IconButton
+                          icon={r.est === 'V' ? 'delete' : 'restore'}
+                          variant={r.est === 'V' ? 'danger' : 'secondary'}
+                          label={`${r.est === 'V' ? 'Dar de baja' : 'Reactivar'} ${r.nombre}`}
                           onClick={() => setStatus(r)}
-                          aria-label={`${r.est === 'V' ? 'Dar de baja' : 'Reactivar'} ${r.nombre}`}
-                        >
-                          {r.est === 'V' ? 'Dar de baja' : 'Reactivar'}
-                        </button>
+                        />
                       </div>
                     </td>
                   </tr>
