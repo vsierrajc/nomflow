@@ -20,6 +20,17 @@ async function login(page: Page, u: SeedUser) {
   await expect(page).toHaveURL(/\/$/);
 }
 
+/** Un año sin calendarios previos: las pruebas asumen que sus versiones empiezan en 1. */
+async function freeYear(from: number, count: number): Promise<number> {
+  const used = new Set(
+    (await query<{ year: number }>(`select distinct year from holiday_calendars`)).map(
+      (r) => r.year,
+    ),
+  );
+  const free = Array.from({ length: count }, (_, i) => from + i).filter((y) => !used.has(y));
+  return free[Math.floor(Math.random() * free.length)] ?? from;
+}
+
 const COLS = ['N_IDE', 'N_CONT', 'PER_INI', 'PER_FIN', 'DIAS', 'DISP', 'EST'];
 
 test.describe('períodos de vacaciones (PROG_VAC) y festivos', () => {
@@ -133,7 +144,7 @@ test.describe('períodos de vacaciones (PROG_VAC) y festivos', () => {
   test('festivos: borrador, publicación y versión reemplazada', async ({ page }) => {
     await login(page, await seedAdminUser('HR_ADMIN'));
     await page.goto('/admin/festivos');
-    const year = 2090 + Math.floor(Math.random() * 9);
+    const year = await freeYear(2071, 29);
     const fill = async (line: string) => {
       await page.getByLabel('Año', { exact: true }).fill(String(year));
       await page.getByLabel('Motivo (mínimo 10 caracteres)').fill('Calendario oficial de prueba');
@@ -189,8 +200,9 @@ test.describe('períodos de vacaciones (PROG_VAC) y festivos', () => {
   test('API de festivos: configuración sin exponer la clave, consulta y error del servicio', async ({
     page,
   }) => {
+    await query(`delete from holiday_api_settings`); // fila única: parte de cero
     const KEY = `clave-e2e-${Date.now()}`;
-    const year = 2060 + Math.floor(Math.random() * 8);
+    const year = await freeYear(2011, 40);
     let status = 200;
     const seen: (string | undefined)[] = [];
     const server = createServer((req, res) => {

@@ -38,3 +38,4 @@
 - API de festivos: si la URL responde una página y no JSON (por ejemplo la portada del sitio en lugar de `/api/v1/festivos`), el mensaje lo dice y sugiere la dirección del API; antes se informaba como «datos incompletos».
 - Festivos: botón «Ver festivos» por calendario (fecha con día de la semana y nombre) y, en un borrador, comparación con el calendario publicado del mismo año (nuevos, que ya no vienen y con otro nombre), para revisarlo antes de publicar.
 - Pruebas: estabilizada la prueba de cambio de clave (esperaba mal el cierre de sesión y fallaba de forma intermitente en CI).
+- Pruebas: las de festivos y API de festivos ya no dependen del estado previo de la base (eligen un año libre y parten de una configuración vacía); se comprobó con repeticiones.
