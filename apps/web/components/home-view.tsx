@@ -27,7 +27,10 @@ export function HomeView() {
   }, [loadVouchers]);
 
   const roles = profile.roles.map(roleView);
-  const hasApproverRole = roles.some((r) => r.approver);
+  const pendingApprover = profile.roles.some((r) => r.role === 'CERTIFICATE_APPROVER');
+  const vacationApprover = profile.roles.some((r) =>
+    ['AREA_MANAGER', 'VACATION_FINAL_APPROVER'].includes(r.role),
+  );
 
   return (
     <>
@@ -67,6 +70,26 @@ export function HomeView() {
             </Link>
           </div>
         </li>
+        <li className="task-card">
+          <h3>Mis vacaciones</h3>
+          <p>Solicite sus vacaciones y siga su aprobación.</p>
+          <div className="actions">
+            <Link className="button" href="/vacaciones">
+              Solicitar vacaciones
+            </Link>
+          </div>
+        </li>
+        {vacationApprover ? (
+          <li className="task-card">
+            <h3>Aprobaciones</h3>
+            <p>Revise y apruebe las solicitudes de vacaciones que le corresponden.</p>
+            <div className="actions">
+              <Link className="button" href="/aprobaciones">
+                Ver aprobaciones
+              </Link>
+            </div>
+          </li>
+        ) : null}
         <li className="task-card">
           <h3>Mi cuenta</h3>
           <p>Revise sus datos de acceso y cambie su clave cuando lo necesite.</p>
@@ -129,10 +152,10 @@ export function HomeView() {
             ))}
           </ul>
         )}
-        {hasApproverRole ? (
+        {pendingApprover ? (
           <p className="hint" style={{ marginTop: 'var(--space-3)' }}>
-            Sus roles de aprobación quedan registrados, pero los flujos de aprobación todavía no
-            están disponibles en NOMFLOW.
+            Su rol de aprobador de certificados queda registrado, pero ese flujo todavía no está
+            disponible en NOMFLOW.
           </p>
         ) : null}
       </section>

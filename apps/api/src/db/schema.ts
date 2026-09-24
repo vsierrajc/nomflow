@@ -540,3 +540,123 @@ export const progVacAdjustments = pgTable(
   },
   (t) => [index('prog_vac_adjustments_idx').on(t.progVacId, t.at)],
 );
+
+export const vacationRequests = pgTable(
+  'vacation_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id),
+    nIde: text('n_ide').notNull(),
+    nCont: text('n_cont').notNull(),
+    cEmp: text('c_emp').notNull(),
+    cArea: text('c_area').notNull(),
+    /** Jefe de área resuelto al enviar (vigente en esa fecha). */
+    managerAccountId: uuid('manager_account_id')
+      .notNull()
+      .references(() => accounts.id),
+    /** PENDIENTE_JEFE, REVISION_EMPLEADO, PENDIENTE_FINAL, APROBADA, RECHAZADA, CANCELADA */
+    status: text('status').notNull().default('PENDIENTE_JEFE'),
+    currentRevision: integer('current_revision').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('vacation_requests_account_idx').on(t.accountId, t.createdAt),
+    index('vacation_requests_manager_idx').on(t.managerAccountId, t.status),
+    index('vacation_requests_status_idx').on(t.status),
+  ],
+);
+
+export const vacationRevisions = pgTable(
+  'vacation_revisions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    requestId: uuid('request_id')
+      .notNull()
+      .references(() => vacationRequests.id),
+    number: integer('number').notNull(),
+    startDate: date('start_date').notNull(),
+    endDate: date('end_date').notNull(),
+    /** DIAS_DIS: diferencia literal en días calendario. */
+    calendarDiff: integer('calendar_diff').notNull(),
+    businessDays: integer('business_days').notNull(),
+    returnDate: date('return_date').notNull(),
+    countedDays: jsonb('counted_days').notNull(),
+    calendarIds: jsonb('calendar_ids').notNull(),
+    /** Quién creó la revisión (empleado o jefe) y por qué. */
+    proposedBy: uuid('proposed_by')
+      .notNull()
+      .references(() => accounts.id),
+    reason: text('reason'),
+    contentHash: text('content_hash').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('vacation_revisions_uq').on(t.requestId, t.number)],
+);
+
+export const vacationRevisionAllocations = pgTable(
+  'vacation_revision_allocations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    revisionId: uuid('revision_id')
+      .notNull()
+      .references(() => vacationRevisions.id),
+    progVacId: uuid('prog_vac_id')
+      .notNull()
+      .references(() => progVac.id),
+    days: integer('days').notNull(),
+  },
+  (t) => [
+    uniqueIndex('vacation_alloc_uq').on(t.revisionId, t.progVacId),
+    check('vacation_alloc_days_ck', sql`${t.days} > 0`),
+  ],
+);
+
+export const vacationActions = pgTable(
+  'vacation_actions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    requestId: uuid('request_id')
+      .notNull()
+      .references(() => vacationRequests.id),
+    revisionNumber: integer('revision_number').notNull(),
+    actorAccountId: uuid('actor_account_id')
+      .notNull()
+      .references(() => accounts.id),
+    /** ENVIAR, ACEPTAR, PROPONER, APROBAR_JEFE, APROBAR_FINAL, RECHAZAR, CANCELAR */
+    action: text('action').notNull(),
+    comment: text('comment'),
+    /** Hash del contenido de la revisión sobre la que se actuó. */
+    contentHash: text('content_hash').notNull(),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('vacation_actions_request_idx').on(t.requestId, t.at)],
+);
+
+/** VACACIONES: disfrutes aprobados (SSD 6.2). */
+export const vacaciones = pgTable(
+  'vacaciones',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    requestId: uuid('request_id')
+      .notNull()
+      .references(() => vacationRequests.id),
+    revisionId: uuid('revision_id')
+      .notNull()
+      .references(() => vacationRevisions.id),
+    nIde: text('n_ide').notNull(),
+    nCont: text('n_cont').notNull(),
+    fecIniDis: date('fec_ini_dis').notNull(),
+    fecFinDis: date('fec_fin_dis').notNull(),
+    diasDis: integer('dias_dis').notNull(),
+    diasHabiles: integer('dias_habiles').notNull(),
+    fechaRetorno: date('fecha_retorno').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('vacaciones_request_uq').on(t.requestId),
+    index('vacaciones_person_idx').on(t.nIde, t.nCont, t.fecIniDis),
+  ],
+);

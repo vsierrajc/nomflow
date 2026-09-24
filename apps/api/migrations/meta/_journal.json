@@ -120,6 +120,13 @@
       "when": 1790267691317,
       "tag": "0016_festivos_prog_vac",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790269899544,
+      "tag": "0017_solicitud_vacaciones",
+      "breakpoints": true
     }
   ]
 }

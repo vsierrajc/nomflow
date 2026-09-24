@@ -162,7 +162,13 @@ export async function listAdjustments(db: Db, id: string) {
 /** Contrato vigente del empleado de la cuenta (N_CONT) o null. */
 export async function activeContract(db: Db, accountId: string) {
   const [row] = await db
-    .select({ nIde: accounts.nIde, nCont: employeeSnapshots.nCont })
+    .select({
+      nIde: accounts.nIde,
+      nCont: employeeSnapshots.nCont,
+      cEmp: employeeSnapshots.cEmp,
+      cArea: employeeSnapshots.cArea,
+      nombre: employeeSnapshots.nombre,
+    })
     .from(accounts)
     .innerJoin(
       employeeSnapshots,
