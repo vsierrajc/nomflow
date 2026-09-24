@@ -273,7 +273,7 @@ test.describe('inicio: espacio de trabajo con lo que existe', () => {
       /aprobaci/i,
       /vacaciones/i,
       /permiso/i,
-      /certificado/i,
+      /certificado laboral/i,
       /mis documentos/i,
     ]) {
       await expect(page.getByRole('link', { name: pending }), String(pending)).toHaveCount(0);
@@ -303,12 +303,20 @@ test.describe('inicio: espacio de trabajo con lo que existe', () => {
 });
 
 test.describe('navegación según el rol', () => {
-  test('el empleado ve tres opciones y el administrador una cuarta', async ({ page, browser }) => {
+  test('el empleado ve cuatro opciones y el administrador una quinta', async ({
+    page,
+    browser,
+  }) => {
     const emp = newUser('emp');
     await seedActiveAccount(emp);
     await login(page, emp);
     const nav = page.getByRole('navigation', { name: 'Principal' });
-    await expect(nav.getByRole('link')).toHaveText(['Inicio', 'Mis volantes de pago', 'Mi cuenta']);
+    await expect(nav.getByRole('link')).toHaveText([
+      'Inicio',
+      'Mis volantes de pago',
+      'Certificados de retención',
+      'Mi cuenta',
+    ]);
     await expect(nav.getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page');
     await nav.getByRole('link', { name: 'Mis volantes de pago' }).click();
     await expect(page).toHaveURL(/\/volantes$/);
@@ -321,7 +329,13 @@ test.describe('navegación según el rol', () => {
     const adminPage = await openAs(browser, admin);
     await expect(
       adminPage.getByRole('navigation', { name: 'Principal' }).getByRole('link'),
-    ).toHaveText(['Inicio', 'Mis volantes de pago', 'Mi cuenta', 'Administración']);
+    ).toHaveText([
+      'Inicio',
+      'Mis volantes de pago',
+      'Certificados de retención',
+      'Mi cuenta',
+      'Administración',
+    ]);
     await adminPage.context().close();
   });
 

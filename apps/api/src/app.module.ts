@@ -15,6 +15,7 @@ import { OrgController } from './org/org.controller';
 import { ConceptsController } from './payroll/concepts.controller';
 import { MePayrollController } from './payroll/me-payroll.controller';
 import { MailModule } from './mail/mail.module';
+import { AdminTaxController, MeTaxController } from './tax/tax.controller';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -31,6 +32,8 @@ import { HealthController } from './health.controller';
     CatalogsController,
     EmployeesController,
     AdminSupportController,
+    MeTaxController,
+    AdminTaxController,
   ],
   providers: [SessionGuard, RolesGuard, RecentAuthGuard, RequestAuditService],
 })
