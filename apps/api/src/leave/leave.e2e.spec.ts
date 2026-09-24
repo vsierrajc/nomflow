@@ -154,6 +154,47 @@ describe.skipIf(!url)('festivos, PROG_VAC y cálculo previo (HTTP + PostgreSQL)'
     await request(srv()).get('/admin/prog-vac').set('Cookie', emp.cookie).expect(403);
   });
 
+  it('la lista de empleados del alta manual trae solo activos con su contrato vigente', async () => {
+    await db.insert(employeeSnapshots).values([
+      { nIde: '300', nCont: '7', email: 'c@x.co', est: 'C', nombre: 'ANA CANCELADA' },
+      { nIde: '400', nCont: '3', email: 'd@x.co', est: 'V', nombre: 'BRUNO DIAZ' },
+    ]);
+    const all = await request(srv())
+      .get('/admin/prog-vac/employees')
+      .set('Cookie', hr.cookie)
+      .expect(200);
+    const sorted = (all.body as { nIde: string }[])
+      .slice()
+      .sort((a, b) => a.nIde.localeCompare(b.nIde));
+    expect(sorted).toEqual([
+      { nIde: '100', nCont: '1', nombre: '100' },
+      { nIde: '400', nCont: '3', nombre: 'BRUNO DIAZ' },
+      { nIde: 'ADM', nCont: '1', nombre: 'ADM' },
+    ]); // sin la cancelada
+    const byName = await request(srv())
+      .get('/admin/prog-vac/employees?q=bruno')
+      .set('Cookie', hr.cookie)
+      .expect(200);
+    expect(byName.body).toHaveLength(1);
+    const byId = await request(srv())
+      .get('/admin/prog-vac/employees?q=40')
+      .set('Cookie', hr.cookie)
+      .expect(200);
+    expect(byId.body.map((e: { nIde: string }) => e.nIde)).toEqual(['400']);
+    const none = await request(srv())
+      .get('/admin/prog-vac/employees?q=%25')
+      .set('Cookie', hr.cookie)
+      .expect(200);
+    expect(none.body).toEqual([]); // el comodín se toma literalmente
+    await request(srv()).get('/admin/prog-vac/employees').set('Cookie', emp.cookie).expect(403);
+    await request(srv()).get('/admin/prog-vac/employees').expect(401);
+
+    const base = { perIni: '2025-01-01', perFin: '2025-12-31', dias: 15, disp: 15 };
+    await post(hr, '/admin/prog-vac', { ...base, nIde: '300', nCont: '7' }).expect(400); // cancelado
+    await post(hr, '/admin/prog-vac', { ...base, nIde: '400', nCont: '1' }).expect(400); // contrato que no es el suyo
+    await post(hr, '/admin/prog-vac', { ...base, nIde: '400', nCont: '3' }).expect(201);
+  });
+
   it('el empleado ve solo sus períodos con DISP > 0 y calcula fechas', async () => {
     const other = await person('200', 'o@x.co');
     void other;

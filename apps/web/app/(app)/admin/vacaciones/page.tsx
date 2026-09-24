@@ -20,6 +20,12 @@ interface Period {
   version: number;
 }
 
+interface EmployeeOption {
+  nIde: string;
+  nCont: string;
+  nombre: string | null;
+}
+
 export default function VacationPeriodsPage() {
   const { call, profile } = useAdmin();
   const [items, setItems] = useState<Period[] | null>(null);
@@ -27,6 +33,9 @@ export default function VacationPeriodsPage() {
   const [ok, setOk] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
   const [editing, setEditing] = useState<Period | null>(null);
+  const [employees, setEmployees] = useState<EmployeeOption[] | null>(null);
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState('');
 
   const load = useCallback(
     async (nIde = '') => {
@@ -42,6 +51,21 @@ export default function VacationPeriodsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Lista de valores: empleados activos, filtrada por lo que se escriba en la búsqueda.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      void (async () => {
+        const res = await call<EmployeeOption[]>(
+          `/admin/prog-vac/employees${search.trim() ? `?q=${encodeURIComponent(search.trim())}` : ''}`,
+        );
+        if (res.status === 200 && res.data) setEmployees(res.data);
+      })();
+    }, 250);
+    return () => clearTimeout(t);
+  }, [call, search]);
+
+  const chosen = employees?.find((e) => e.nIde === selected) ?? null;
 
   function fail(status: number) {
     if (status === 400)
@@ -59,11 +83,12 @@ export default function VacationPeriodsPage() {
     setOk(null);
     const form = e.currentTarget;
     const f = new FormData(form);
+    if (!chosen) return setError('Elija el empleado de la lista.');
     const res = await call('/admin/prog-vac', {
       method: 'POST',
       body: {
-        nIde: String(f.get('nIde') ?? ''),
-        nCont: String(f.get('nCont') ?? ''),
+        nIde: chosen.nIde,
+        nCont: chosen.nCont,
         perIni: String(f.get('perIni') ?? ''),
         perFin: String(f.get('perFin') ?? ''),
         dias: Number(f.get('dias')),
@@ -73,6 +98,7 @@ export default function VacationPeriodsPage() {
     if (res.status === 201) {
       setOk('Período creado.');
       form.reset();
+      setSelected('');
       await load(filter);
     } else fail(res.status);
   }
@@ -147,8 +173,44 @@ export default function VacationPeriodsPage() {
         <h2>Nuevo período</h2>
         <form onSubmit={create} noValidate>
           <div className="grid-2">
-            <Field label="Identificación (N_IDE)" name="nIde" required maxLength={30} />
-            <Field label="Contrato (N_CONT)" name="nCont" required maxLength={30} />
+            <Field
+              label="Buscar empleado (nombre o identificación)"
+              name="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              autoComplete="off"
+              maxLength={100}
+              hint="Solo se listan empleados activos."
+            />
+            <div className="field">
+              <label htmlFor="prog-vac-empleado">Empleado (N_IDE)</label>
+              <select
+                id="prog-vac-empleado"
+                value={selected}
+                onChange={(e) => setSelected(e.target.value)}
+                required
+              >
+                <option value="">
+                  {employees === null
+                    ? 'Cargando…'
+                    : employees.length === 0
+                      ? 'Ningún empleado activo coincide'
+                      : 'Elija un empleado'}
+                </option>
+                {employees?.map((e) => (
+                  <option key={e.nIde} value={e.nIde}>
+                    {e.nIde} - {e.nombre ?? 'Sin nombre'}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Field
+              label="Contrato (N_CONT)"
+              name="nCont"
+              value={chosen?.nCont ?? ''}
+              readOnly
+              hint="Se completa con el contrato vigente del empleado elegido."
+            />
             <Field label="Inicio del período" name="perIni" type="date" required />
             <Field label="Fin del período" name="perFin" type="date" required />
             <Field label="Días hábiles programados (máx. 15)" name="dias" type="number" required />
