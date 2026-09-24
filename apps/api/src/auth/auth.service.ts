@@ -1,6 +1,6 @@
-import { and, eq, isNull, ne, sql } from 'drizzle-orm';
+import { and, eq, gte, isNull, lte, ne, or, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
-import { accounts, auditLogs, employeeSnapshots, sessions } from '../db/schema';
+import { accounts, auditLogs, employeeSnapshots, roleAssignments, sessions } from '../db/schema';
 import { hashPassword, verifyPassword } from '../accounts/password.service';
 import { MIN_PASSWORD_LENGTH } from '../accounts/verification.service';
 import { hasActiveRole } from './roles';
@@ -179,4 +179,45 @@ export async function changePassword(
       );
   });
   await audit(db, accountId, 'PASSWORD_CHANGE', 'SUCCESS');
+}
+
+export interface Profile {
+  accountId: string;
+  email: string;
+  name: string | null;
+  roles: {
+    role: string;
+    cEmp: string | null;
+    areaCode: string | null;
+    validFrom: string;
+    validTo: string | null;
+  }[];
+}
+
+export async function getProfile(db: Db, accountId: string): Promise<Profile> {
+  const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId));
+  if (!account) throw new Error('cuenta inexistente');
+  const [employee] = await db
+    .select({ nombre: employeeSnapshots.nombre })
+    .from(employeeSnapshots)
+    .where(and(eq(employeeSnapshots.nIde, account.nIde), eq(employeeSnapshots.est, 'V')))
+    .limit(1);
+  const today = new Date().toISOString().slice(0, 10);
+  const roles = await db
+    .select({
+      role: roleAssignments.role,
+      cEmp: roleAssignments.companyCode,
+      areaCode: roleAssignments.areaCode,
+      validFrom: roleAssignments.validFrom,
+      validTo: roleAssignments.validTo,
+    })
+    .from(roleAssignments)
+    .where(
+      and(
+        eq(roleAssignments.accountId, accountId),
+        lte(roleAssignments.validFrom, today),
+        or(isNull(roleAssignments.validTo), gte(roleAssignments.validTo, today)),
+      ),
+    );
+  return { accountId, email: account.email, name: employee?.nombre ?? null, roles };
 }
