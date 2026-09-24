@@ -1,7 +1,7 @@
 # Estado del proyecto NOMFLOW
 
 - Versión: 0.0.0 (pre-lanzamiento; sin despliegue en producción)
-- Última bitácora: [2026-09-23-administracion-web](sessions/2026-09-23-administracion-web.md)
+- Última bitácora: [2026-09-24-rediseno-interfaz](sessions/2026-09-24-rediseno-interfaz.md)
 - `main` contiene los PR #1 a #9 integrados; el PR de jefes de área (ESS-ORG-002) está en revisión.
 - Revisión por otra persona: ninguno de los PR integrados fue revisado por alguien distinto del autor y `main` no tiene protección de rama (la SSD, sección 11, la exige).
 
