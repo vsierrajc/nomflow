@@ -42,6 +42,7 @@ const SYNC_STATUS: Record<string, string> = {
   RATE_LIMITED: 'El servicio alcanzó su límite de consultas',
   UNAVAILABLE: 'El servicio no respondió',
   INVALID_RESPONSE: 'El servicio devolvió datos incompletos o inválidos',
+  NOT_JSON: 'La URL respondió una página y no datos del servicio',
 };
 
 const SYNC_ERROR: Record<string, string> = {
@@ -50,6 +51,8 @@ const SYNC_ERROR: Record<string, string> = {
   UNAVAILABLE: 'El servicio no respondió. Se sigue usando el último calendario publicado.',
   INVALID_RESPONSE:
     'El servicio devolvió datos incompletos o inválidos. Se sigue usando el último calendario publicado.',
+  NOT_JSON:
+    'La URL no es la del servicio: respondió una página y no datos. Use la dirección del API, por ejemplo https://www.festivos.com.co/api/v1/festivos (no la del sitio web).',
   NOT_CONFIGURED: 'Primero guarde la URL del servicio.',
   NO_API_KEY: 'Primero guarde la clave (API KEY) del servicio.',
   INVALID_YEAR: 'Escriba un año válido.',
