@@ -399,6 +399,41 @@ export async function setEmployeeStatus(
   const [current] = await db.select().from(employeeSnapshots).where(eq(employeeSnapshots.id, id));
   if (!current) throw new EmployeeError('NOT_FOUND');
   if (current.version !== version) throw new EmployeeError('VERSION_CONFLICT');
+
+  if (est === 'C') {
+    if (current.est === 'C') return current;
+    const updated = await db.transaction(async (tx) => {
+      const rows = await tx
+        .update(employeeSnapshots)
+        .set({
+          est: 'C',
+          source: 'MANUAL',
+          version: sql`${employeeSnapshots.version} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(employeeSnapshots.id, id), eq(employeeSnapshots.version, version)))
+        .returning();
+      const row = rows[0];
+      if (!row) return null;
+      await tx.insert(employeeChanges).values({
+        employeeId: id,
+        changedBy: actorId,
+        action: 'DEACTIVATE',
+        reason,
+        changes: { est: { from: 'V', to: 'C' } },
+      });
+      return row;
+    });
+    if (!updated) throw new EmployeeError('VERSION_CONFLICT');
+    const accs = await db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(eq(accounts.nIde, current.nIde));
+    for (const a of accs) await revokeAllForAccount(db, a.id);
+    await audit(db, actorId, 'EMPLOYEE_UPDATE', id, 'SUCCESS');
+    return updated;
+  }
+
   const {
     nIde: _n,
     nCont: _c,

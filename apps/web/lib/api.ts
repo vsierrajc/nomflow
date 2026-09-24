@@ -37,3 +37,57 @@ export async function api<T = unknown>(path: string, init: ApiInit = {}): Promis
 
 export const NETWORK_ERROR = 'No se pudo conectar con el servidor. Intente de nuevo.';
 export const MIN_PASSWORD_LENGTH = 12;
+
+export async function upload<T = unknown>(
+  path: string,
+  form: FormData,
+  csrf: string,
+): Promise<ApiResult<T>> {
+  try {
+    const res = await fetch(`/api${path}`, {
+      method: 'POST',
+      headers: { 'X-CSRF-Token': csrf },
+      credentials: 'same-origin',
+      cache: 'no-store',
+      body: form,
+    });
+    let data: T | null = null;
+    if (res.status !== 204) {
+      try {
+        data = (await res.json()) as T;
+      } catch {
+        data = null;
+      }
+    }
+    return { status: res.status, data };
+  } catch {
+    return { status: 0, data: null };
+  }
+}
+
+export interface DownloadResult {
+  status: number;
+  blob: Blob | null;
+  filename: string | null;
+  data: unknown;
+}
+
+export async function fetchBlob(path: string): Promise<DownloadResult> {
+  try {
+    const res = await fetch(`/api${path}`, { credentials: 'same-origin', cache: 'no-store' });
+    if (res.ok) {
+      const disposition = res.headers.get('content-disposition') ?? '';
+      const name = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? null;
+      return { status: res.status, blob: await res.blob(), filename: name, data: null };
+    }
+    let data: unknown = null;
+    try {
+      data = await res.json();
+    } catch {
+      data = null;
+    }
+    return { status: res.status, blob: null, filename: null, data };
+  } catch {
+    return { status: 0, blob: null, filename: null, data: null };
+  }
+}

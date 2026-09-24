@@ -34,7 +34,7 @@ test.describe('volantes de pago', () => {
   test('lista, cambia de modo y descarga un PDF válido', async ({ page }) => {
     const u = newUser('vol');
     await seedActiveAccount(u);
-    const per = nextPeriod();
+    const per = await nextPeriod();
     await seedPayroll(u, per, LINES);
     await login(page, u.email, u.password);
     await page.getByRole('link', { name: 'Mis volantes de pago' }).click();
@@ -64,7 +64,7 @@ test.describe('volantes de pago', () => {
     const intruder = newUser('intruso');
     await seedActiveAccount(owner);
     await seedActiveAccount(intruder);
-    const per = nextPeriod();
+    const per = await nextPeriod();
     await seedPayroll(owner, per, LINES);
     await login(page, intruder.email, intruder.password);
     const res = await page.request.get(`/api/me/payroll/${per}/1/1/pdf?mode=SIN_AJUSTE`);
@@ -76,7 +76,7 @@ test.describe('volantes de pago', () => {
   test('sin violaciones graves de accesibilidad', async ({ page }) => {
     const u = newUser('a11yv');
     await seedActiveAccount(u);
-    await seedPayroll(u, nextPeriod(), LINES);
+    await seedPayroll(u, await nextPeriod(), LINES);
     await login(page, u.email, u.password);
     await page.goto('/volantes');
     await expect(page.getByRole('link', { name: /Descargar PDF/ })).toBeVisible();
