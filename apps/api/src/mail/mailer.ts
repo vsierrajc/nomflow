@@ -1,4 +1,5 @@
-import { createTransport } from 'nodemailer';
+import type { Db } from '../db/client';
+import { cachedConfig, transportFor } from './mail-settings.service';
 
 export interface Mailer {
   send(to: string, subject: string, text: string): Promise<void>;
@@ -6,24 +7,14 @@ export interface Mailer {
 
 export const MAILER = Symbol('MAILER');
 
-export class SmtpMailer implements Mailer {
-  private readonly transport = createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT ?? 587),
-    secure: process.env.SMTP_SECURE === 'true',
-    requireTLS: process.env.SMTP_REQUIRE_TLS !== 'false',
-    auth: process.env.SMTP_USER
-      ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS ?? '' }
-      : undefined,
-  });
+/** Envía con la configuración de la administración (o, si no hay, la del entorno), leída al enviar. */
+export class ConfigurableMailer implements Mailer {
+  constructor(private readonly db: Db) {}
 
   async send(to: string, subject: string, text: string): Promise<void> {
-    await this.transport.sendMail({
-      from: process.env.SMTP_FROM ?? 'NOMFLOW <no-reply@localhost>',
-      to,
-      subject,
-      text,
-    });
+    const cfg = await cachedConfig(this.db);
+    if (!cfg) throw new Error('SMTP no configurado');
+    await transportFor(cfg).sendMail({ from: cfg.from, to, subject, text });
   }
 }
 

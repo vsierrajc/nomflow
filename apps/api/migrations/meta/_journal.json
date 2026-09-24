@@ -141,6 +141,13 @@
       "when": 1790274619152,
       "tag": "0019_permisos",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790282411955,
+      "tag": "0020_mail_settings",
+      "breakpoints": true
     }
   ]
 }

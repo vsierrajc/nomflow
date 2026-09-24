@@ -17,7 +17,7 @@ npm run stack:down     # detiene API, web y los contenedores (los datos se conse
 
 ## Notas
 - `stack:up` crea `.env` (ignorado por git) desde `.env.example` con un `SESSION_SECRET` aleatorio, compila, migra y arranca los procesos; los registros quedan en `.run/*.log`.
-- Para usar el SMTP real de la red interna, editar `SMTP_HOST`, `SMTP_PORT` y `SMTP_REQUIRE_TLS` en `.env` y repetir `stack:up`.
+- Para usar el SMTP real de la red interna, lo más simple es configurarlo desde la aplicación: `/admin/correo` (servidor `192.168.1.44`, puerto `25`, sin TLS, sin usuario ni clave, correo de origen `nomflow@gr4l.co`). También puede hacerse con `SMTP_HOST`, `SMTP_PORT` y `SMTP_REQUIRE_TLS` en `.env` (respaldo cuando nada se guardó en la pantalla).
 - Primer administrador: `BOOTSTRAP_ADMIN_EMAIL=... BOOTSTRAP_ADMIN_PASSWORD=... npm run admin:bootstrap -w @nomflow/api`.
 - Las pruebas vacían las tablas: correrlas siempre con `DATABASE_URL=postgresql://nomflow:nomflow@localhost:5432/nomflow_test`.
 - Redis, MinIO y la web todavía no los usa ninguna funcionalidad: se levantan para tener el stack completo de la SSD (sección 2).
