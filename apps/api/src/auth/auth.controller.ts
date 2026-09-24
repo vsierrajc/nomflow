@@ -152,6 +152,9 @@ export class AuthController {
     res: Response,
     s: { token: string; sessionId: string },
   ): { csrfToken: string } {
+    // Falso positivo revisado: es la cookie de sesión (token aleatorio de 256 bits, cuyo hash es lo que se
+    // guarda en la base). Enviarla al navegador es el diseño; va HttpOnly, SameSite=Strict y Secure en producción.
+    // codeql[js/clear-text-storage-of-sensitive-data]
     res.cookie(SESSION_COOKIE, s.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

@@ -98,7 +98,9 @@ Interfaz de módulos futuros (solicitudes, aprobaciones, documentos): ver `docs/
 12. **Pruebas de navegador y cierre de sesión**: `Cerrar sesión` es asíncrono (pide `/auth/logout` y luego redirige a `/login`). Una prueba que abra `/login` sin esperar `toHaveURL(/\/login$/)` compite con esa redirección y falla de forma intermitente (fue la causa de `acceso.spec` «cambio de clave»).
 13. **Pruebas que se repiten sobre la misma base**: la base `nomflow_test` persiste entre ejecuciones locales. Una prueba que elija un año o dependa de una tabla de fila única (`holiday_api_settings`) debe elegir un dato libre o partir de cero; verificar con `--repeat-each`.
 14. **Migraciones aún no integradas**: si regeneras una migración que ya se aplicó en `nomflow_test`, la base de pruebas queda con la versión vieja (`CREATE TABLE` falla por «ya existe»). Solucionar quitando la tabla y su fila de `drizzle.__drizzle_migrations` en la base de pruebas (solo esa base).
-15. Integrar PR sin revisión de otra persona lo bloquea el clasificador de permisos salvo instrucción explícita del usuario y regla de permisos.
+15. **Falsos positivos de CodeQL**: una alerta descartada por la API se pierde si el código cambia de línea. Las decisiones ya revisadas (cookie de sesión) van como comentario `// codeql[regla]` con su justificación junto al código.
+16. **Pruebas de navegador**: tras pulsar «Ingresar» hay que esperar la URL `/` antes de navegar; abrir otra página antes interrumpe el ingreso y falla de forma intermitente. Un aviso que ya estaba en pantalla no sirve para esperar una acción repetida: esperar el estado real.
+17. Integrar PR sin revisión de otra persona lo bloquea el clasificador de permisos salvo instrucción explícita del usuario y regla de permisos.
 
 ## 9. Cierre de una tarea (definición de terminado)
 

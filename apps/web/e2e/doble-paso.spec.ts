@@ -17,6 +17,12 @@ async function login(page: Page, u: SeedUser, password = u.password) {
   await page.getByRole('button', { name: 'Ingresar' }).click();
 }
 
+/** Ingresa como administrador y espera a tener sesión antes de seguir. */
+async function loginAdmin(page: Page) {
+  await login(page, await seedAdminUser('HR_ADMIN'));
+  await expect(page).toHaveURL(/\/$/);
+}
+
 async function session(browser: Browser, u: SeedUser, password = u.password): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
   await page.goto('http://localhost:3100/login');
@@ -125,8 +131,7 @@ test.describe('cuenta de acceso en la gestión de empleados', () => {
     page,
     browser,
   }) => {
-    await login(page, await seedAdminUser('HR_ADMIN'));
-    await expect(page).toHaveURL(/\/$/);
+    await loginAdmin(page);
     const u = newUser('asigna');
     await seedActiveAccount(u);
     const section = await openAccount(page, u);
@@ -165,7 +170,7 @@ test.describe('cuenta de acceso en la gestión de empleados', () => {
   test('exigiendo el cambio, el empleado debe activar la cuenta con el código del correo', async ({
     page,
   }) => {
-    await login(page, await seedAdminUser('HR_ADMIN'));
+    await loginAdmin(page);
     const u = newUser('exige');
     await seedActiveAccount(u);
     const section = await openAccount(page, u);
@@ -185,7 +190,7 @@ test.describe('cuenta de acceso en la gestión de empleados', () => {
   test('crea la cuenta de un empleado sin cuenta, con clave elegida, y muestra el doble paso y su desactivación', async ({
     page,
   }) => {
-    await login(page, await seedAdminUser('HR_ADMIN'));
+    await loginAdmin(page);
     const u = newUser('crea');
     await seedEmployee(u);
     const section = await openAccount(page, u);
