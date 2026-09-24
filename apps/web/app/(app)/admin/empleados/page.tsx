@@ -10,6 +10,7 @@ import {
   SelectField,
   formatDate,
 } from '@/components/admin-ui';
+import { EmployeeAccount } from '@/components/employee-account';
 import { Field } from '@/components/ui';
 import { NETWORK_ERROR } from '@/lib/api';
 import { useAdmin } from '@/lib/admin';
@@ -433,6 +434,7 @@ function DetailDialog({ id, onClose }: { id: string; onClose: () => void }) {
               </div>
             ))}
           </dl>
+          <EmployeeAccount nIde={detail.nIde} />
           <h3>Historial de cambios</h3>
           {history.length === 0 ? (
             <p className="muted">Sin cambios manuales registrados.</p>

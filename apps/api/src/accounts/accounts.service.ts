@@ -3,11 +3,17 @@ import type { Db } from '../db/client';
 import { ADMIN_ROLES, hasActiveRole } from '../auth/roles';
 import { accounts, auditLogs, employeeSnapshots } from '../db/schema';
 import type { Mailer } from '../mail/mailer';
+import { validAssignedPassword } from './accounts-admin.service';
 import { issueVerificationCode } from './verification.service';
 import { generateTemporaryPassword, hashPassword } from './password.service';
 
 export type AccountErrorCode =
-  'FORBIDDEN' | 'EMPLOYEE_NOT_FOUND' | 'NO_ACTIVE_CONTRACT' | 'EMAIL_MISSING' | 'ACCOUNT_EXISTS';
+  | 'FORBIDDEN'
+  | 'EMPLOYEE_NOT_FOUND'
+  | 'NO_ACTIVE_CONTRACT'
+  | 'EMAIL_MISSING'
+  | 'ACCOUNT_EXISTS'
+  | 'WEAK_PASSWORD';
 
 export class AccountError extends Error {
   constructor(readonly code: AccountErrorCode) {
@@ -17,6 +23,7 @@ export class AccountError extends Error {
 
 export interface CreatedAccount {
   accountId: string;
+  /** Clave generada por el sistema. Vacía si el administrador eligió la clave: esa no se devuelve. */
   temporaryPassword: string;
   verificationSent: boolean;
 }
@@ -26,9 +33,10 @@ export async function createAccountByAdmin(
   actorAccountId: string,
   nIde: string,
   mailer: Mailer,
+  chosenPassword?: string,
 ): Promise<CreatedAccount> {
   try {
-    const base = await create(db, actorAccountId, nIde);
+    const base = await create(db, actorAccountId, nIde, chosenPassword);
     const verificationSent = await issueVerificationCode(db, mailer, base.accountId);
     const created = { ...base, verificationSent };
     await audit(db, actorAccountId, 'ACCOUNT_CREATE', 'SUCCESS', created.accountId, nIde);
@@ -45,6 +53,7 @@ async function create(
   db: Db,
   actorAccountId: string,
   nIde: string,
+  chosenPassword?: string,
 ): Promise<Omit<CreatedAccount, 'verificationSent'>> {
   if (!(await hasActiveRole(db, actorAccountId, ADMIN_ROLES))) {
     throw new AccountError('FORBIDDEN');
@@ -57,8 +66,10 @@ async function create(
   const email = active[0]?.email.trim().toLowerCase() ?? '';
   if (!email) throw new AccountError('EMAIL_MISSING');
 
-  const temporaryPassword = generateTemporaryPassword();
-  const passwordHash = await hashPassword(temporaryPassword);
+  if (chosenPassword !== undefined && !validAssignedPassword(chosenPassword, email))
+    throw new AccountError('WEAK_PASSWORD');
+  const temporaryPassword = chosenPassword === undefined ? generateTemporaryPassword() : '';
+  const passwordHash = await hashPassword(chosenPassword ?? temporaryPassword);
   try {
     const [row] = await db
       .insert(accounts)

@@ -23,13 +23,16 @@ import { ADMIN_ROLES } from '../auth/roles';
 import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
 import type { Db } from '../db/client';
 import { DB } from '../db/db.module';
+import { TwoFactorError, disableByAdmin } from '../auth/two-factor.service';
 import { MAILER, type Mailer } from '../mail/mailer';
 import { AccountError, createAccountByAdmin } from './accounts.service';
 import {
   AccountAdminError,
+  accountOfEmployee,
   blockAccount,
   listAccounts,
   resetAccountPassword,
+  setAccountPassword,
   unblockAccount,
 } from './accounts-admin.service';
 
@@ -51,12 +54,22 @@ function mapAdmin(e: unknown): never {
     case 'CONFLICT':
     case 'NOT_BLOCKED':
       throw new ConflictException({ code: e.code });
+    case 'WEAK_PASSWORD':
+      throw new BadRequestException({ code: e.code });
     default:
       throw new UnprocessableEntityException({ code: e.code });
   }
 }
 
-const CreateAccountDto = z.object({ nIde: z.string().trim().min(3).max(30) });
+const CreateAccountDto = z.object({
+  nIde: z.string().trim().min(3).max(30),
+  /** Opcional: si no viene, el sistema genera una clave temporal. */
+  password: z.string().min(1).max(200).optional(),
+});
+const SetPasswordDto = z.object({
+  password: z.string().min(1).max(200),
+  requireChange: z.boolean().default(true),
+});
 
 @Controller('admin/accounts')
 @UseGuards(SessionGuard, RolesGuard, RecentAuthGuard)
@@ -77,7 +90,13 @@ export class AdminAccountsController {
     const dto = CreateAccountDto.safeParse(body);
     if (!dto.success) throw new BadRequestException();
     try {
-      return await createAccountByAdmin(this.db, req.auth.accountId, dto.data.nIde, this.mailer);
+      return await createAccountByAdmin(
+        this.db,
+        req.auth.accountId,
+        dto.data.nIde,
+        this.mailer,
+        dto.data.password,
+      );
     } catch (e) {
       if (!(e instanceof AccountError)) throw e;
       switch (e.code) {
@@ -87,6 +106,8 @@ export class AdminAccountsController {
           throw new NotFoundException();
         case 'ACCOUNT_EXISTS':
           throw new ConflictException();
+        case 'WEAK_PASSWORD':
+          throw new BadRequestException({ code: e.code });
         default:
           throw new UnprocessableEntityException({ code: e.code });
       }
@@ -118,6 +139,53 @@ export class AdminAccountsController {
       return await unblockAccount(this.db, req.auth.accountId, id);
     } catch (e) {
       return mapAdmin(e);
+    }
+  }
+
+  /** Estado de la cuenta de acceso de un empleado (usuario, estado y doble paso). */
+  @Get('by-employee/:nIde')
+  @Header('Cache-Control', 'no-store')
+  async byEmployee(@Param('nIde') nIde: string) {
+    if (!nIde || nIde.length > 30) throw new BadRequestException();
+    try {
+      return await accountOfEmployee(this.db, nIde);
+    } catch (e) {
+      return mapAdmin(e);
+    }
+  }
+
+  /** Asigna una clave elegida por el administrador. No se devuelve ni se registra. */
+  @Post(':id/set-password')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  async setPassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+    @Req() req: AuthedRequest,
+  ) {
+    const dto = SetPasswordDto.safeParse(body);
+    if (!dto.success) throw new BadRequestException({ code: 'WEAK_PASSWORD' });
+    try {
+      return await setAccountPassword(this.db, req.auth.accountId, id, dto.data, this.mailer);
+    } catch (e) {
+      return mapAdmin(e);
+    }
+  }
+
+  /** Recuperación: desactiva el doble paso de un empleado que perdió el acceso a su correo. */
+  @Post(':id/two-factor/disable')
+  @HttpCode(200)
+  async disableTwoFactor(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
+    if (id === req.auth.accountId) throw new ForbiddenException({ code: 'SELF' });
+    try {
+      await disableByAdmin(this.db, req.auth.accountId, id);
+      return { ok: true };
+    } catch (e) {
+      if (e instanceof TwoFactorError) {
+        if (e.code === 'NOT_FOUND') throw new NotFoundException();
+        throw new ConflictException({ code: e.code });
+      }
+      throw e;
     }
   }
 

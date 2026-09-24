@@ -114,6 +114,23 @@ export async function latestCode(to: string): Promise<string> {
   throw new Error(`No llegó el código a ${to}`);
 }
 
+/** Espera un código numérico de 6 dígitos (doble paso) que no sea ninguno de `known`. */
+export async function newTwoFactorCode(to: string, known: string[] = []): Promise<string> {
+  for (let i = 0; i < 60; i++) {
+    const search = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:${to}`)}`);
+    const list = (await search.json()) as { messages?: { ID: string }[] };
+    for (const m of list.messages ?? []) {
+      const msg = (await (await fetch(`${MAILPIT}/api/v1/message/${m.ID}`)).json()) as {
+        Text: string;
+      };
+      const code = /es (\d{6})\./.exec(msg.Text)?.[1];
+      if (code && !known.includes(code)) return code;
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  throw new Error(`No llegó un código nuevo a ${to}`);
+}
+
 export async function adminCreateAccount(nIde: string): Promise<{ temporaryPassword: string }> {
   const login = await fetch(`${API}/auth/login`, {
     method: 'POST',

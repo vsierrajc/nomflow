@@ -1,6 +1,6 @@
 import { type MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 import { AdminAccountsController } from './accounts/admin-accounts.controller';
-import { AuthController } from './auth/auth.controller';
+import { AuthController, MeTwoFactorController } from './auth/auth.controller';
 import { RecentAuthGuard, RolesGuard } from './auth/guards';
 import { SessionGuard } from './auth/session.guard';
 import { DbModule } from './db/db.module';
@@ -37,6 +37,7 @@ import { HealthController } from './health.controller';
   controllers: [
     HealthController,
     AuthController,
+    MeTwoFactorController,
     AdminAccountsController,
     ImportsController,
     CompaniesController,
