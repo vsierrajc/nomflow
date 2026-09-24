@@ -15,6 +15,7 @@ import {
   getBatch,
   type BatchSummary,
 } from '../imports/imports.service';
+import { conceptUnits } from './concepts.service';
 import { parseDecimal, toDecimalString } from './decimal';
 import {
   parseNominaWorkbook,
@@ -170,6 +171,9 @@ export async function uploadPayroll(
         .where(inArray(employeeSnapshots.nIde, people))
     : [];
   const knownSet = new Set(known.map((k) => k.nIde));
+  const codes = [...new Set(parsed.rows.map((r) => r.cCon))];
+  const knownConcepts = await conceptUnits(db, codes);
+  const unknownConcepts = codes.filter((c) => !knownConcepts.has(c)).length;
   const warnings = parsed.warnings.length;
   const stats = {
     per: input.per,
@@ -182,6 +186,7 @@ export async function uploadPayroll(
     net: toDecimalString(totals.dev - totals.ded),
     contentHash: hash,
     withoutEmployee: people.filter((p) => !knownSet.has(p)).length,
+    unknownConcepts,
     warnings,
     replaces: published
       ? {

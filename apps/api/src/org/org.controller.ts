@@ -18,6 +18,7 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 import { RecentAuthGuard, Roles, RolesGuard } from '../auth/guards';
+import { ADMIN_ROLES } from '../auth/roles';
 import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
 import type { Db } from '../db/client';
 import { DB } from '../db/db.module';
@@ -67,7 +68,7 @@ function map(e: unknown): never {
 
 @Controller('admin')
 @UseGuards(SessionGuard, RolesGuard)
-@Roles('HR_ADMIN', 'SYSTEM_ADMIN')
+@Roles(...ADMIN_ROLES)
 export class OrgController {
   constructor(@Inject(DB) private readonly db: Db) {}
 

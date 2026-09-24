@@ -4,6 +4,8 @@ import { roleAssignments } from '../db/schema';
 
 export type RoleName = (typeof roleAssignments.$inferSelect)['role'];
 
+export const ADMIN_ROLES: readonly RoleName[] = ['HR_ADMIN', 'SYSTEM_ADMIN'];
+
 export async function hasActiveRole(
   db: Db,
   accountId: string,

@@ -1,7 +1,7 @@
 import { and, eq, gte, isNull, lte, or, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { accounts, areaManagerAssignments, auditLogs, roleAssignments } from '../db/schema';
-import { hasActiveRole } from '../auth/roles';
+import { ADMIN_ROLES, hasActiveRole } from '../auth/roles';
 import { OrgError, areaExists, validRange } from './roles.service';
 
 export interface AssignInput {
@@ -33,7 +33,7 @@ export async function assignAreaManager(
     await audit(db, actorId, 'AREA_MANAGER_ASSIGN', null, code);
     throw new OrgError(code);
   };
-  if (!(await hasActiveRole(db, actorId, ['HR_ADMIN', 'SYSTEM_ADMIN']))) return fail('FORBIDDEN');
+  if (!(await hasActiveRole(db, actorId, ADMIN_ROLES))) return fail('FORBIDDEN');
   if (!validRange(input.validFrom, input.validTo)) return fail('INVALID_RANGE');
   if (!(await areaExists(db, input.cEmp, input.cArea))) return fail('AREA_NOT_FOUND');
 
@@ -108,8 +108,7 @@ export async function endAreaManager(
   id: string,
   validTo: string,
 ): Promise<void> {
-  if (!(await hasActiveRole(db, actorId, ['HR_ADMIN', 'SYSTEM_ADMIN'])))
-    throw new OrgError('FORBIDDEN');
+  if (!(await hasActiveRole(db, actorId, ADMIN_ROLES))) throw new OrgError('FORBIDDEN');
   const [row] = await db
     .select()
     .from(areaManagerAssignments)

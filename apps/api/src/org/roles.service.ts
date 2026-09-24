@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { accounts, auditLogs, catalogEntries, roleAssignments } from '../db/schema';
-import { hasActiveRole, type RoleName } from '../auth/roles';
+import { ADMIN_ROLES, hasActiveRole, type RoleName } from '../auth/roles';
 
 export type OrgErrorCode =
   | 'FORBIDDEN'
@@ -20,7 +20,7 @@ export class OrgError extends Error {
   }
 }
 
-const PRIVILEGED: readonly RoleName[] = ['HR_ADMIN', 'SYSTEM_ADMIN'];
+const PRIVILEGED: readonly RoleName[] = ADMIN_ROLES;
 
 export function validRange(from: string, to: string | null | undefined): boolean {
   const ok = (d: string) => {
@@ -79,7 +79,7 @@ export async function grantRole(
     await audit(db, actorId, 'ROLE_GRANT', targetId, code);
     throw new OrgError(code);
   };
-  if (!(await hasActiveRole(db, actorId, ['HR_ADMIN', 'SYSTEM_ADMIN']))) return fail('FORBIDDEN');
+  if (!(await hasActiveRole(db, actorId, ADMIN_ROLES))) return fail('FORBIDDEN');
   if (actorId === targetId) return fail('SELF_GRANT');
   if (PRIVILEGED.includes(input.role) && !(await hasActiveRole(db, actorId, ['SYSTEM_ADMIN'])))
     return fail('FORBIDDEN');

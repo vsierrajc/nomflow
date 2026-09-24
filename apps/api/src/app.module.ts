@@ -7,6 +7,7 @@ import { DbModule } from './db/db.module';
 import { CompaniesController } from './imports/companies.controller';
 import { ImportsController } from './imports/imports.controller';
 import { OrgController } from './org/org.controller';
+import { ConceptsController } from './payroll/concepts.controller';
 import { MePayrollController } from './payroll/me-payroll.controller';
 import { MailModule } from './mail/mail.module';
 import { HealthController } from './health.controller';
@@ -21,6 +22,7 @@ import { HealthController } from './health.controller';
     CompaniesController,
     OrgController,
     MePayrollController,
+    ConceptsController,
   ],
   providers: [SessionGuard, RolesGuard, RecentAuthGuard],
 })

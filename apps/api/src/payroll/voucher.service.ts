@@ -8,6 +8,8 @@ import {
   payrollLines,
   payrollVersions,
 } from '../db/schema';
+import { logoForCompanyCode } from '../org/logos.service';
+import { conceptUnits } from './concepts.service';
 import { ceilToInteger, parseDecimal } from './decimal';
 import { renderVoucherPdf, type VoucherData, type VoucherMode } from './voucher.pdf';
 
@@ -110,6 +112,7 @@ async function loadVoucher(
   const [company] = emp?.cEmp
     ? await db.select().from(companies).where(eq(companies.cEmp, emp.cEmp))
     : [];
+  const units = await conceptUnits(db, [...new Set(lines.map((l) => l.cCon))]);
   const salary = lines.find((l) => l.slrio !== null)?.slrio ?? null;
   return {
     per,
@@ -123,9 +126,11 @@ async function loadVoucher(
     salary: salary === null ? null : parseDecimal(salary),
     version: version.version,
     contentHash: version.contentHash,
+    logo: await logoForCompanyCode(db, emp?.cEmp),
     lines: lines.map((l) => ({
       cCon: l.cCon,
       concepto: l.concepto ?? '',
+      unit: units.get(l.cCon) ?? null,
       cant: l.cant === null ? null : parseDecimal(l.cant),
       dev: l.dev === null ? null : parseDecimal(l.dev),
       ded: l.ded === null ? null : parseDecimal(l.ded),

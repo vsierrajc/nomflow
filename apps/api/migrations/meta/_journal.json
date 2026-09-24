@@ -64,6 +64,20 @@
       "when": 1790210686182,
       "tag": "0008_nomina_volantes",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790212448642,
+      "tag": "0009_conceptos_nomina",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790212798729,
+      "tag": "0010_logos_empresa",
+      "breakpoints": true
     }
   ]
 }

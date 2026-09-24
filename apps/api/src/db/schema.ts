@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  customType,
   index,
   pgEnum,
   pgTable,
@@ -14,6 +15,12 @@ import {
   primaryKey,
   jsonb,
 } from 'drizzle-orm/pg-core';
+
+const bytea = customType<{ data: Buffer }>({
+  dataType() {
+    return 'bytea';
+  },
+});
 
 export const accountStatus = pgEnum('account_status', [
   'PENDIENTE_VERIFICACION',
@@ -347,4 +354,47 @@ export const payrollDownloadAudit = pgTable(
     at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('payroll_download_audit_account_idx').on(t.accountId, t.at)],
+);
+
+export const payrollConcepts = pgTable(
+  'payroll_concepts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    unit: text('unit').notNull(),
+    active: boolean('active').notNull().default(true),
+    version: integer('version').notNull().default(1),
+    batchId: text('batch_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('payroll_concepts_code_uq').on(t.code)],
+);
+
+export const companyLogos = pgTable(
+  'company_logos',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id),
+    version: integer('version').notNull(),
+    contentType: text('content_type').notNull(),
+    data: bytea('data').notNull(),
+    sha256: text('sha256').notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    active: boolean('active').notNull().default(false),
+    uploadedBy: uuid('uploaded_by')
+      .notNull()
+      .references(() => accounts.id),
+    uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('company_logos_version_uq').on(t.companyId, t.version),
+    uniqueIndex('company_logos_one_active_uq')
+      .on(t.companyId)
+      .where(sql`${t.active} = true`),
+  ],
 );

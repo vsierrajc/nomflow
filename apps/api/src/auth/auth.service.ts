@@ -3,7 +3,7 @@ import type { Db } from '../db/client';
 import { accounts, auditLogs, employeeSnapshots, roleAssignments, sessions } from '../db/schema';
 import { hashPassword, verifyPassword } from '../accounts/password.service';
 import { MIN_PASSWORD_LENGTH } from '../accounts/verification.service';
-import { hasActiveRole } from './roles';
+import { ADMIN_ROLES, hasActiveRole } from './roles';
 import { createSession, markReauthenticated, type SessionMeta } from './session.service';
 
 export const MAX_FAILED_ATTEMPTS = 5;
@@ -72,7 +72,7 @@ export async function login(
   if (account.status !== 'ACTIVA') return fail(db, account.id, 'ACCOUNT_NOT_ACTIVE');
   if (account.mustChangePassword) return fail(db, account.id, 'PASSWORD_CHANGE_REQUIRED');
 
-  const isAdmin = await hasActiveRole(db, account.id, ['HR_ADMIN', 'SYSTEM_ADMIN']);
+  const isAdmin = await hasActiveRole(db, account.id, ADMIN_ROLES);
   if (!isAdmin) {
     const [active] = await db
       .select({ id: employeeSnapshots.id })
