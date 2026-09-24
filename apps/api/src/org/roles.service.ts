@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import type { Db } from '../db/client';
-import { accounts, auditLogs, catalogEntries, roleAssignments } from '../db/schema';
+import { accounts, auditLogs, catalogEntries, companies, roleAssignments } from '../db/schema';
 import { ADMIN_ROLES, hasActiveRole, type RoleName } from '../auth/roles';
 
 export type OrgErrorCode =
@@ -10,6 +10,7 @@ export type OrgErrorCode =
   | 'SCOPE_REQUIRED'
   | 'INVALID_RANGE'
   | 'AREA_NOT_FOUND'
+  | 'COMPANY_NOT_FOUND'
   | 'MANAGER_NOT_ELIGIBLE'
   | 'OVERLAP'
   | 'NOT_FOUND';
@@ -94,6 +95,15 @@ export async function grantRole(
   if (input.role === 'AREA_MANAGER') {
     if (!input.cEmp || !input.areaCode) return fail('SCOPE_REQUIRED');
     if (!(await areaExists(db, input.cEmp, input.areaCode))) return fail('AREA_NOT_FOUND');
+  }
+  if (input.role === 'VACATION_FINAL_APPROVER') {
+    // El aprobador final es por empresa: sin empresa no podría aprobar nada.
+    if (!input.cEmp) return fail('SCOPE_REQUIRED');
+    const [company] = await db
+      .select({ id: companies.id })
+      .from(companies)
+      .where(eq(companies.cEmp, input.cEmp));
+    if (!company) return fail('COMPANY_NOT_FOUND');
   }
   const [row] = await db
     .insert(roleAssignments)

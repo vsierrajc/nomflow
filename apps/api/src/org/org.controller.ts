@@ -58,6 +58,7 @@ function map(e: unknown): never {
       throw new ForbiddenException({ code: e.code });
     case 'ACCOUNT_NOT_FOUND':
     case 'AREA_NOT_FOUND':
+    case 'COMPANY_NOT_FOUND':
     case 'NOT_FOUND':
       throw new NotFoundException({ code: e.code });
     case 'OVERLAP':

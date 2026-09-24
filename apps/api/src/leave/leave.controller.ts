@@ -462,8 +462,7 @@ export class FinalVacationsController {
   @Get()
   @Header('Cache-Control', 'no-store')
   list(@Req() req: AuthedRequest) {
-    void req;
-    return listForFinal(this.db);
+    return listForFinal(this.db, req.auth.accountId);
   }
 
   @Post(':id/approve')

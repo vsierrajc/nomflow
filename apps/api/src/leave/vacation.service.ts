@@ -12,7 +12,7 @@ import {
   vacationRevisionAllocations,
   vacationRevisions,
 } from '../db/schema';
-import { hasActiveRole } from '../auth/roles';
+import { activeCompaniesForRole, hasActiveRole } from '../auth/roles';
 import { resolveAreaManager } from '../org/area-managers.service';
 import { PlanError, hashPlan, planLeave, type Allocation } from './leave-plan';
 import { internalState } from './prog-vac.service';
@@ -266,11 +266,19 @@ export async function listAssignedToManager(db: Db, managerId: string) {
   return withNames(db, rows, reqs);
 }
 
-export async function listForFinal(db: Db) {
+/** Solo las solicitudes de las empresas donde el usuario es aprobador final. */
+export async function listForFinal(db: Db, actorId: string) {
+  const companies = await activeCompaniesForRole(db, actorId, 'VACATION_FINAL_APPROVER');
+  if (companies.length === 0) return [];
   const reqs = await db
     .select()
     .from(vacationRequests)
-    .where(inArray(vacationRequests.status, ['PENDIENTE_FINAL', 'APROBADA', 'RECHAZADA']))
+    .where(
+      and(
+        inArray(vacationRequests.status, ['PENDIENTE_FINAL', 'APROBADA', 'RECHAZADA']),
+        inArray(vacationRequests.cEmp, companies),
+      ),
+    )
     .orderBy(desc(vacationRequests.updatedAt))
     .limit(200);
   const rows = await summary(db, reqs);
@@ -299,8 +307,11 @@ export async function detail(db: Db, viewerId: string, id: string) {
   const req = await loadRequest(db, id);
   const isOwner = req.accountId === viewerId;
   const isManager = req.managerAccountId === viewerId;
-  if (!isOwner && !isManager && !(await hasActiveRole(db, viewerId, ['VACATION_FINAL_APPROVER'])))
-    throw new VacationError('NOT_FOUND');
+  const canFinal =
+    !isOwner &&
+    !isManager &&
+    (await activeCompaniesForRole(db, viewerId, 'VACATION_FINAL_APPROVER')).includes(req.cEmp);
+  if (!isOwner && !isManager && !canFinal) throw new VacationError('NOT_FOUND');
   const revisions = await db
     .select()
     .from(vacationRevisions)
@@ -485,8 +496,10 @@ const errCode = (e: unknown) =>
 
 async function asFinal(db: Runner, actor: string, req: typeof vacationRequests.$inferSelect) {
   if (req.accountId === actor) throw new VacationError('SELF_APPROVAL');
-  if (!(await hasActiveRole(db as Db, actor, ['VACATION_FINAL_APPROVER'])))
-    throw new VacationError('FORBIDDEN');
+  const companies = await activeCompaniesForRole(db as Db, actor, 'VACATION_FINAL_APPROVER');
+  if (companies.length === 0) throw new VacationError('FORBIDDEN');
+  // Con el rol, pero de otra empresa: la solicitud no existe para él.
+  if (!companies.includes(req.cEmp)) throw new VacationError('NOT_FOUND');
 }
 
 export async function finalReject(db: Db, actor: string, id: string, reason?: string) {

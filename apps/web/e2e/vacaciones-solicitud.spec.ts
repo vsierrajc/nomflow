@@ -29,7 +29,7 @@ async function seedScenario(year: number) {
   const fin = newUser('vfin');
   await seedActiveAccount(emp);
   await seedActiveAccount(mgr, [{ role: 'AREA_MANAGER', cEmp: 'GA', areaCode: area }]);
-  await seedActiveAccount(fin, [{ role: 'VACATION_FINAL_APPROVER' }]);
+  await seedActiveAccount(fin, [{ role: 'VACATION_FINAL_APPROVER', cEmp: 'GA' }]);
   await query(`update employee_snapshots set c_area = $1 where n_ide = $2`, [area, emp.nIde]);
   await query(`update employee_snapshots set c_area = $1 where n_ide = $2`, [area, mgr.nIde]);
   const [m] = await query<{ id: string }>(`select id from accounts where n_ide = $1`, [mgr.nIde]);

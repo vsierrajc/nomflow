@@ -15,3 +15,9 @@
 - La consulta crea un borrador (origen API) y devuelve las fechas nuevas y las que ya no vienen frente al publicado; nunca publica solos
 - Pruebas: 6 de API con un servicio simulado y 1 de navegador; un error de mi prueba de navegador (año fuera de rango) y uno de selector
 - Pendiente: reintento programado con alerta al administrador (SSD 6.2.1) y límite de uso propio (20/min, 1000/día)
+
+## Anexo: aprobador final por empresa
+- Regla del negocio: el aprobador final es un usuario común con el rol adicional, y lo es por empresa. `activeCompaniesForRole` (auth/roles.ts) da las empresas del rol vigente; `asFinal`, `listForFinal` y `detail` filtran por `cEmp` de la solicitud
+- Al asignar el rol se exige una empresa registrada (`SCOPE_REQUIRED`, `COMPANY_NOT_FOUND`); una asignación antigua sin empresa no da acceso a nada (más estricto a propósito)
+- Pruebas: alcance por empresa (otra empresa: 404 en detalle, firma y rechazo, bandeja vacía; sin empresa: 403) y asignación del rol
+- Nota operativa: las asignaciones de este rol creadas antes de este cambio sin empresa deben rehacerse desde `/admin/cuentas`
