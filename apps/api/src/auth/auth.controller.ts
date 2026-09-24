@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   Inject,
   Post,
@@ -25,8 +26,10 @@ import {
   ChangePasswordError,
   LoginError,
   changePassword,
+  getProfile,
   login,
   reauthenticate,
+  type Profile,
 } from './auth.service';
 import { SESSION_COOKIE, SessionGuard, type AuthedRequest } from './session.guard';
 import { ABSOLUTE_TIMEOUT_MS, csrfTokenFor, revokeSession } from './session.service';
@@ -110,8 +113,10 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(SessionGuard)
-  me(@Req() req: AuthedRequest): { accountId: string; csrfToken: string } {
-    return { accountId: req.auth.accountId, csrfToken: csrfTokenFor(req.auth.sessionId) };
+  @Header('Cache-Control', 'no-store')
+  async me(@Req() req: AuthedRequest): Promise<Profile & { csrfToken: string }> {
+    const profile = await getProfile(this.db, req.auth.accountId);
+    return { ...profile, csrfToken: csrfTokenFor(req.auth.sessionId) };
   }
 
   @Post('reauth')
