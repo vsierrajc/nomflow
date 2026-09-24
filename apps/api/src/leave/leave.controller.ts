@@ -46,7 +46,7 @@ import {
 } from './prog-vac.service';
 import { HolidayApiError, getSettings, saveSettings, syncYear } from './holiday-api.service';
 import { PlanError, type Allocation } from './leave-plan';
-import { planLeave } from './leave-plan';
+import { planLeave, prepareCalendars } from './leave-plan';
 import {
   VacationError,
   acceptRevision,
@@ -338,6 +338,7 @@ export class MeVacationsController {
     const contract = await activeContract(this.db, req.auth.accountId);
     if (!contract) throw new NotFoundException();
     try {
+      await prepareCalendars(this.db, req.auth.accountId, dto.data.start, dto.data.allocations);
       return await planLeave(this.db, contract, dto.data.start, dto.data.allocations);
     } catch (e) {
       return mapLeave(e);

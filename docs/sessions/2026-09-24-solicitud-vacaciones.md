@@ -21,3 +21,8 @@
 - Al asignar el rol se exige una empresa registrada (`SCOPE_REQUIRED`, `COMPANY_NOT_FOUND`); una asignación antigua sin empresa no da acceso a nada (más estricto a propósito)
 - Pruebas: alcance por empresa (otra empresa: 404 en detalle, firma y rechazo, bandeja vacía; sin empresa: 403) y asignación del rol
 - Nota operativa: las asignaciones de este rol creadas antes de este cambio sin empresa deben rehacerse desde `/admin/cuentas`
+
+## Anexo: carga automática de festivos
+- Decisión del usuario: una vez la API carga la tabla local de un año, el sistema no vuelve a consultarla salvo que falte información de ese año. Implementado en `ensureHolidayYears` (`holiday-api.service.ts`), invocado por `prepareCalendars` antes de calcular
+- Diferencia con la SSD 6.2.1 (la API propone y el administrador publica): para un año **sin ningún calendario** se publica sola, porque de lo contrario el empleado queda bloqueado hasta que alguien intervenga. Un administrador puede revisar y publicar una corrección (versión nueva) cuando quiera; lo ya aprobado conserva sus fechas
+- Riesgo conocido: un festivo dudoso del servicio (por ejemplo uno regional) entra sin revisión previa en ese año; revisar los años cargados en `/admin/festivos` con «Ver festivos»

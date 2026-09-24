@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { auditLogs, holidayApiSettings, holidayCalendars, holidays } from '../db/schema';
 import { isValidIsoDate } from './business-days';
-import { REGION, createDraft, HolidayError } from './holidays.service';
+import { REGION, createDraft, HolidayError, publish } from './holidays.service';
 import { open, seal } from './secret-box';
 
 export type HolidayApiErrorCode =
@@ -246,4 +246,94 @@ async function diffAgainstPublished(db: Db, year: number, days: ApiDay[]) {
     added: days.filter((d) => !have.has(d.date)).map((d) => d.date),
     removed: [...have].filter((d) => !incoming.has(d)),
   };
+}
+
+/* ---------------------- carga automática de un año sin información ---------------------- */
+
+const RETRY_AFTER_MS = 10 * 60 * 1000;
+const failedAt = new Map<number, number>();
+const inFlight = new Map<number, Promise<void>>();
+
+/** Solo para pruebas: olvida los reintentos pendientes y las cargas en curso. */
+export function resetAutoLoadState(): void {
+  failedAt.clear();
+  inFlight.clear();
+}
+
+async function hasPublished(db: Db, year: number): Promise<boolean> {
+  const [row] = await db
+    .select({ id: holidayCalendars.id })
+    .from(holidayCalendars)
+    .where(
+      and(
+        eq(holidayCalendars.region, REGION),
+        eq(holidayCalendars.year, year),
+        eq(holidayCalendars.status, 'PUBLICADO'),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
+}
+
+async function autoLoadYear(db: Db, requester: string, year: number): Promise<void> {
+  // Regla: la API solo se consulta si el año no tiene información local publicada.
+  if (await hasPublished(db, year)) return;
+  const [s] = await db.select().from(holidayApiSettings).where(eq(holidayApiSettings.id, 1));
+  if (!s?.apiKeyEnc || !s.updatedBy) return; // sin servicio configurado no hay nada que consultar
+  const last = failedAt.get(year);
+  if (last !== undefined && Date.now() - last < RETRY_AFTER_MS) return; // no insistir tras un fallo
+  const record = async (status: string) => {
+    await db
+      .update(holidayApiSettings)
+      .set({ lastSyncAt: new Date(), lastSyncYear: year, lastSyncStatus: status })
+      .where(eq(holidayApiSettings.id, 1));
+    await audit(db, requester, 'HOLIDAY_API_AUTOLOAD', status);
+  };
+  try {
+    const days = await fetchYear(s.url, open(s.apiKeyEnc), year);
+    // Se atribuye a quien configuró el servicio: fue esa persona quien autorizó la carga.
+    const draft = await createDraft(
+      db,
+      s.updatedBy,
+      year,
+      days,
+      'API',
+      `Carga automática: el año no tenía calendario (${days.length} días)`,
+    );
+    await publish(db, s.updatedBy, draft.id);
+    failedAt.delete(year);
+    await record('OK');
+  } catch (e) {
+    failedAt.set(year, Date.now());
+    await record(
+      e instanceof HolidayApiError
+        ? e.code
+        : e instanceof HolidayError
+          ? 'INVALID_RESPONSE'
+          : 'UNAVAILABLE',
+    );
+  }
+}
+
+/**
+ * Antes de calcular: para cada año sin calendario publicado, y solo si hay servicio configurado,
+ * lo consulta y lo carga en la tabla local. Un año con información nunca vuelve a consultarse.
+ * Nunca lanza: si falla, el cálculo responde que falta el calendario, como antes.
+ */
+export async function ensureHolidayYears(
+  db: Db,
+  requester: string,
+  years: number[],
+): Promise<void> {
+  for (const year of years) {
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) continue;
+    let job = inFlight.get(year);
+    if (!job) {
+      job = autoLoadYear(db, requester, year)
+        .catch(() => undefined)
+        .finally(() => inFlight.delete(year));
+      inFlight.set(year, job);
+    }
+    await job;
+  }
 }
