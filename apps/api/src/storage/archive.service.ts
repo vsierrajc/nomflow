@@ -7,6 +7,7 @@ import {
   archiveSettings,
   archivedObjects,
   auditLogs,
+  certificateRequests,
   taxCertificates,
   vacationDocuments,
 } from '../db/schema';
@@ -80,7 +81,7 @@ export class ArchiveService {
     const notArchived = (key: unknown) =>
       sql`not exists (select 1 from archived_objects a where a.object_key = ${key})`;
     const one = async (q: Promise<{ n: number }[]>) => (await q)[0]?.n ?? 0;
-    const [taxTotal, vacTotal, taxDue, vacDue] = await Promise.all([
+    const [taxTotal, vacTotal, taxDue, vacDue, labTotal, labDue] = await Promise.all([
       one(
         this.db
           .select({ n: sql<number>`count(*)::int` })
@@ -111,6 +112,18 @@ export class ArchiveService {
             ),
           ),
       ),
+      one(this.db.select({ n: sql<number>`count(*)::int` }).from(certificateRequests)),
+      one(
+        this.db
+          .select({ n: sql<number>`count(*)::int` })
+          .from(certificateRequests)
+          .where(
+            and(
+              lte(certificateRequests.createdAt, cutoff),
+              notArchived(certificateRequests.objectKey),
+            ),
+          ),
+      ),
     ]);
     const byStatus = await this.db
       .select({
@@ -125,11 +138,11 @@ export class ArchiveService {
     return {
       settings,
       stats: {
-        totalObjects: taxTotal + vacTotal,
+        totalObjects: taxTotal + vacTotal + labTotal,
         onlyInCloud: cloud?.n ?? 0,
         inBoth: both?.n ?? 0,
         cloudBytes: Number(cloud?.bytes ?? 0),
-        eligible: taxDue + vacDue,
+        eligible: taxDue + vacDue + labDue,
       },
     };
   }
@@ -200,9 +213,17 @@ export class ArchiveService {
         and(lte(vacationDocuments.generatedAt, cutoff), notArchived(vacationDocuments.objectKey)),
       )
       .limit(BATCH);
+    const lab = await this.db
+      .select({ key: certificateRequests.objectKey, size: certificateRequests.sizeBytes })
+      .from(certificateRequests)
+      .where(
+        and(lte(certificateRequests.createdAt, cutoff), notArchived(certificateRequests.objectKey)),
+      )
+      .limit(BATCH);
     return [
       ...tax.map((r) => ({ ...r, source: 'TAX_CERT' })),
       ...vac.map((r) => ({ ...r, source: 'VACATION_DOC' })),
+      ...lab.map((r) => ({ ...r, source: 'LABOR_CERT' })),
     ].slice(0, BATCH);
   }
 

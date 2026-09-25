@@ -32,6 +32,11 @@ import {
   ManagerPermitsController,
   MePermitsController,
 } from './leave/permit.controller';
+import {
+  AdminLaborCertController,
+  MeCertificateSignerController,
+  MeLaborCertController,
+} from './certificates/labor-cert.controller';
 import { HealthController } from './health.controller';
 import { InboxController } from './inbox/inbox.controller';
 import { NotificationMonitor } from './inbox/notification-monitor';
@@ -68,6 +73,9 @@ import { SystemHealthModule } from './health/health.module';
     AdminMailController,
     InboxController,
     AdminNotificationsController,
+    MeLaborCertController,
+    MeCertificateSignerController,
+    AdminLaborCertController,
   ],
   providers: [
     SessionGuard,

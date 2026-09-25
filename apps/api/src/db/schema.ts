@@ -948,3 +948,129 @@ export const notificationLog = pgTable(
     index('notification_log_sent_idx').on(t.sentAt),
   ],
 );
+
+/** Parámetros del certificado laboral por empresa (ADR-005). Sin fila se usan los valores por omisión. */
+export const certificateSettings = pgTable('certificate_settings', {
+  cEmp: text('c_emp').primaryKey(),
+  /** Modalidades que se ofrecen al empleado: GENERAL, DIRIGIDO o AMBOS. */
+  mode: text('mode').notNull().default('AMBOS'),
+  /** Control del sistema de gestión de la calidad: código, versión y fecha del formato. */
+  docCode: text('doc_code').notNull().default('GH-FO-001'),
+  docVersion: text('doc_version').notNull().default('01'),
+  docDate: text('doc_date').notNull().default(''),
+  city: text('city').notNull().default('Barranquilla'),
+  signerName: text('signer_name').notNull().default(''),
+  signerTitle: text('signer_title').notNull().default(''),
+  /** Datos de la empresa para el pie de página (NIT, teléfonos, correo...), una línea por renglón. */
+  footerText: text('footer_text').notNull().default(''),
+  /** Máximo de certificados que un empleado puede generar por día. */
+  maxPerDay: integer('max_per_day').notNull().default(10),
+  /** Si es verdadero, solo pueden firmar quienes tengan firma digital criptográfica vigente. */
+  requireDigital: boolean('require_digital').notNull().default(false),
+  updatedBy: uuid('updated_by').references(() => accounts.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Contenido editable del certificado. Cada cambio crea una versión nueva; solo una está vigente. */
+export const certificateTemplates = pgTable(
+  'certificate_templates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    cEmp: text('c_emp').notNull(),
+    /** GENERAL (sin destinatario) o DIRIGIDO (con destinatario). */
+    kind: text('kind').notNull(),
+    version: integer('version').notNull(),
+    title: text('title').notNull(),
+    bodyTemplate: text('body_template').notNull(),
+    /** VIGENTE o RETIRADA (las versiones usadas para emitir se conservan). */
+    status: text('status').notNull().default('VIGENTE'),
+    contentHash: text('content_hash').notNull(),
+    createdBy: uuid('created_by').references(() => accounts.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('certificate_templates_version_uq').on(t.cEmp, t.kind, t.version),
+    uniqueIndex('certificate_templates_current_uq')
+      .on(t.cEmp, t.kind)
+      .where(sql`${t.status} = 'VIGENTE'`),
+  ],
+);
+
+/**
+ * Personas que firman los certificados laborales (director financiero, directora de Gestión Humana,
+ * gerente general...). Firma quien esté disponible: primero los PRINCIPAL y, si no hay ninguno, los RESPALDO.
+ * La imagen de la firma la carga la propia persona, con su consentimiento; nunca otro usuario.
+ */
+export const certificateSigners = pgTable(
+  'certificate_signers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    cEmp: text('c_emp').notNull(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id),
+    /** Cargo que aparece bajo la firma. */
+    title: text('title').notNull(),
+    /** PRINCIPAL o RESPALDO (por ejemplo el gerente general, «en su defecto»). */
+    tier: text('tier').notNull().default('PRINCIPAL'),
+    active: boolean('active').notNull().default(true),
+    signature: bytea('signature'),
+    signatureContentType: text('signature_content_type'),
+    signatureSha256: text('signature_sha256'),
+    /** Cuándo la persona cargó su firma y autorizó su uso en los certificados. */
+    consentAt: timestamp('consent_at', { withTimezone: true }),
+    /** Firma digital criptográfica: PKCS#12 y clave, cifrados con la clave de ajustes del sistema. */
+    digitalEnc: text('digital_enc'),
+    digitalSubject: text('digital_subject'),
+    digitalFingerprint: text('digital_fingerprint'),
+    digitalNotAfter: timestamp('digital_not_after', { withTimezone: true }),
+    /** AUTOFIRMADO (generado por NOMFLOW, para pruebas) o CARGADO (de una entidad de certificación). */
+    digitalOrigin: text('digital_origin'),
+    digitalConsentAt: timestamp('digital_consent_at', { withTimezone: true }),
+    createdBy: uuid('created_by').references(() => accounts.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('certificate_signers_uq').on(t.cEmp, t.accountId)],
+);
+
+/** Historial de certificados laborales emitidos: uno por solicitud del empleado. */
+export const certificateRequests = pgTable(
+  'certificate_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id),
+    nIde: text('n_ide').notNull(),
+    nCont: text('n_cont').notNull(),
+    cEmp: text('c_emp').notNull(),
+    kind: text('kind').notNull(),
+    addressee: text('addressee'),
+    templateId: uuid('template_id')
+      .notNull()
+      .references(() => certificateTemplates.id),
+    templateVersion: integer('template_version').notNull(),
+    /** Datos de control del formato vigentes al emitir. */
+    docCode: text('doc_code').notNull(),
+    docVersion: text('doc_version').notNull(),
+    /** Quién firmó y evidencia de la firma aplicada (nulos en certificados anteriores). */
+    signerAccountId: uuid('signer_account_id').references(() => accounts.id),
+    signerName: text('signer_name'),
+    signerTitle: text('signer_title'),
+    signatureSha256: text('signature_sha256'),
+    /** IMAGEN, DIGITAL o IMAGEN+DIGITAL, y la huella del certificado con que se firmó digitalmente. */
+    signatureMode: text('signature_mode'),
+    signerCertFingerprint: text('signer_cert_fingerprint'),
+    /** Valores con los que se generó el documento (copia: un cambio posterior no lo altera). */
+    snapshot: jsonb('snapshot').notNull(),
+    objectKey: text('object_key').notNull(),
+    sha256: text('sha256').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('certificate_requests_account_idx').on(t.accountId, t.createdAt),
+    index('certificate_requests_created_idx').on(t.createdAt),
+    index('certificate_requests_nide_idx').on(t.nIde),
+  ],
+);

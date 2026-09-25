@@ -267,7 +267,7 @@ test.describe('inicio: espacio de trabajo con lo que existe', () => {
     const u = newUser('sin');
     await seedActiveAccount(u, [{ role: 'CERTIFICATE_APPROVER' }]);
     await login(page, u);
-    for (const pending of [/certificado laboral/i, /mis documentos/i]) {
+    for (const pending of [/mis documentos/i]) {
       await expect(page.getByRole('link', { name: pending }), String(pending)).toHaveCount(0);
       await expect(page.getByRole('button', { name: pending }), String(pending)).toHaveCount(0);
     }
@@ -295,7 +295,7 @@ test.describe('inicio: espacio de trabajo con lo que existe', () => {
 });
 
 test.describe('navegación según el rol', () => {
-  test('el empleado ve siete opciones y el administrador una octava', async ({ page, browser }) => {
+  test('el empleado ve ocho opciones y el administrador una novena', async ({ page, browser }) => {
     const emp = newUser('emp');
     await seedActiveAccount(emp);
     await login(page, emp);
@@ -306,6 +306,7 @@ test.describe('navegación según el rol', () => {
       'Mis volantes de pago',
       'Mis vacaciones',
       'Mis permisos',
+      'Certificado laboral',
       'Certificados de retención',
       'Mi cuenta',
     ]);
@@ -327,6 +328,7 @@ test.describe('navegación según el rol', () => {
       'Mis volantes de pago',
       'Mis vacaciones',
       'Mis permisos',
+      'Certificado laboral',
       'Certificados de retención',
       'Mi cuenta',
       'Administración',

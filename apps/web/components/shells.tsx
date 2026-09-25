@@ -153,6 +153,11 @@ function navFor(profile: Profile): NavItem[] {
     { href: '/vacaciones', label: 'Mis vacaciones', match: (p) => p.startsWith('/vacaciones') },
     { href: '/permisos', label: 'Mis permisos', match: (p) => p.startsWith('/permisos') },
     {
+      href: '/certificado-laboral',
+      label: 'Certificado laboral',
+      match: (p) => p.startsWith('/certificado-laboral'),
+    },
+    {
       href: '/retenciones',
       label: 'Certificados de retención',
       match: (p) => p.startsWith('/retenciones'),
@@ -164,6 +169,12 @@ function navFor(profile: Profile): NavItem[] {
       href: '/aprobaciones',
       label: 'Aprobaciones',
       match: (p) => p.startsWith('/aprobaciones'),
+    });
+  if (profile.roles.some((r) => r.role === 'CERTIFICATE_APPROVER'))
+    items.push({
+      href: '/firma-certificados',
+      label: 'Mi firma de certificados',
+      match: (p) => p.startsWith('/firma-certificados'),
     });
   if (isAdmin(profile))
     items.push({ href: '/admin', label: 'Administración', match: (p) => p.startsWith('/admin') });

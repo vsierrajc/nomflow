@@ -27,7 +27,6 @@ export function HomeView() {
   }, [loadVouchers]);
 
   const roles = profile.roles.map(roleView);
-  const pendingApprover = profile.roles.some((r) => r.role === 'CERTIFICATE_APPROVER');
   const vacationApprover = profile.roles.some((r) =>
     ['AREA_MANAGER', 'VACATION_FINAL_APPROVER'].includes(r.role),
   );
@@ -168,12 +167,6 @@ export function HomeView() {
             ))}
           </ul>
         )}
-        {pendingApprover ? (
-          <p className="hint" style={{ marginTop: 'var(--space-3)' }}>
-            Su rol de aprobador de certificados queda registrado, pero ese flujo todavía no está
-            disponible en NOMFLOW.
-          </p>
-        ) : null}
       </section>
     </>
   );
