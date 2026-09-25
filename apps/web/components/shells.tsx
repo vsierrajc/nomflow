@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '@/lib/api';
 import { isAdmin } from '@/lib/admin';
 import { displayName } from '@/lib/roles';
@@ -148,6 +148,7 @@ interface NavItem {
 function navFor(profile: Profile): NavItem[] {
   const items: NavItem[] = [
     { href: '/', label: 'Inicio', match: (p) => p === '/' },
+    { href: '/bandeja', label: 'Bandeja de entrada', match: (p) => p.startsWith('/bandeja') },
     { href: '/volantes', label: 'Mis volantes de pago', match: (p) => p.startsWith('/volantes') },
     { href: '/vacaciones', label: 'Mis vacaciones', match: (p) => p.startsWith('/vacaciones') },
     { href: '/permisos', label: 'Mis permisos', match: (p) => p.startsWith('/permisos') },
@@ -181,6 +182,18 @@ export function AppShell({
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const wide = pathname.startsWith('/admin');
+  const [pending, setPending] = useState(0);
+
+  // Actividades pendientes en la insignia del menú; se actualiza al cambiar de pantalla.
+  useEffect(() => {
+    let alive = true;
+    void api<{ pending: number }>('/me/inbox/count').then((res) => {
+      if (alive && res.status === 200 && res.data) setPending(res.data.pending);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [pathname]);
   const menu = open ? ' open' : '';
 
   return (
@@ -213,6 +226,11 @@ export function AppShell({
                 onClick={() => setOpen(false)}
               >
                 {item.label}
+                {item.href === '/bandeja' && pending > 0 ? (
+                  <span className="nav-count" aria-label={`${pending} pendientes`}>
+                    {pending}
+                  </span>
+                ) : null}
               </Link>
             ))}
           </nav>

@@ -295,13 +295,14 @@ test.describe('inicio: espacio de trabajo con lo que existe', () => {
 });
 
 test.describe('navegación según el rol', () => {
-  test('el empleado ve seis opciones y el administrador una séptima', async ({ page, browser }) => {
+  test('el empleado ve siete opciones y el administrador una octava', async ({ page, browser }) => {
     const emp = newUser('emp');
     await seedActiveAccount(emp);
     await login(page, emp);
     const nav = page.getByRole('navigation', { name: 'Principal' });
     await expect(nav.getByRole('link')).toHaveText([
       'Inicio',
+      'Bandeja de entrada',
       'Mis volantes de pago',
       'Mis vacaciones',
       'Mis permisos',
@@ -322,6 +323,7 @@ test.describe('navegación según el rol', () => {
       adminPage.getByRole('navigation', { name: 'Principal' }).getByRole('link'),
     ).toHaveText([
       'Inicio',
+      'Bandeja de entrada',
       'Mis volantes de pago',
       'Mis vacaciones',
       'Mis permisos',

@@ -44,6 +44,13 @@ export function HomeView() {
       <h2 className="sr-only">Lo que puede hacer</h2>
       <ul className="task-grid">
         <li className="task-card">
+          <h3>Bandeja de entrada</h3>
+          <p>Vea las actividades que esperan su acción y el avance de sus solicitudes.</p>
+          <Link className="button" href="/bandeja">
+            Abrir la bandeja
+          </Link>
+        </li>
+        <li className="task-card">
           <h3>Mis volantes de pago</h3>
           <p>Consulte y descargue sus volantes de pago en PDF.</p>
           {vouchers.status === 'loading' ? <Loading>Consultando…</Loading> : null}
