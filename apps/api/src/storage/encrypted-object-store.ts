@@ -18,7 +18,8 @@ export class EncryptedObjectStore implements ObjectStore {
     private readonly inner: ObjectStore,
     secret: string,
   ) {
-    if (secret.length < 32) throw new Error('La clave de cifrado de objetos debe tener 32+ caracteres');
+    if (secret.length < 32)
+      throw new Error('La clave de cifrado de objetos debe tener 32+ caracteres');
     this.key = createHash('sha256').update(`nomflow-objects:v1:${secret}`).digest();
   }
 

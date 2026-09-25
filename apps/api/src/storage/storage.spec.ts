@@ -36,7 +36,9 @@ describe('cifrado de objetos en la aplicación', () => {
     const store = new EncryptedObjectStore(raw, SECRET);
     await store.put('a', PDF);
     await store.put('b', PDF);
-    expect(raw.objects.get('a')?.data.equals(raw.objects.get('b')?.data ?? Buffer.alloc(0))).toBe(false);
+    expect(raw.objects.get('a')?.data.equals(raw.objects.get('b')?.data ?? Buffer.alloc(0))).toBe(
+      false,
+    );
   });
 
   it('detecta un objeto alterado', async () => {
@@ -57,7 +59,10 @@ describe('cifrado de objetos en la aplicación', () => {
     const raw = new MemoryObjectStore();
     const store = new EncryptedObjectStore(raw, SECRET);
     await store.put('certificado-de-ana', PDF);
-    raw.objects.set('certificado-de-luis', raw.objects.get('certificado-de-ana') ?? { data: PDF, contentType: 'x' });
+    raw.objects.set(
+      'certificado-de-luis',
+      raw.objects.get('certificado-de-ana') ?? { data: PDF, contentType: 'x' },
+    );
     expect(await code(store.get('certificado-de-luis'))).toBe('INTEGRITY');
     expect(await store.get('certificado-de-ana')).toEqual(PDF);
   });
@@ -65,7 +70,9 @@ describe('cifrado de objetos en la aplicación', () => {
   it('otra clave, o un objeto sin cifrar, no se descifran', async () => {
     const raw = new MemoryObjectStore();
     await new EncryptedObjectStore(raw, SECRET).put('doc', PDF);
-    expect(await code(new EncryptedObjectStore(raw, `${SECRET}-otra`).get('doc'))).toBe('INTEGRITY');
+    expect(await code(new EncryptedObjectStore(raw, `${SECRET}-otra`).get('doc'))).toBe(
+      'INTEGRITY',
+    );
     raw.objects.set('plano', { data: PDF, contentType: 'x' });
     expect(await code(new EncryptedObjectStore(raw, SECRET).get('plano'))).toBe('INTEGRITY');
     raw.objects.set('corto', { data: Buffer.from('NF1'), contentType: 'x' });
@@ -89,7 +96,12 @@ describe('cifrado de objetos en la aplicación', () => {
 describe('configuración del almacén', () => {
   it('sin variables S3_* no hay almacén: falla de forma explícita y no cae a memoria', async () => {
     expect(s3ConfigFromEnv({})).toBeNull();
-    for (const missing of ['S3_ENDPOINT', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY']) {
+    for (const missing of [
+      'S3_ENDPOINT',
+      'S3_BUCKET',
+      'S3_ACCESS_KEY_ID',
+      'S3_SECRET_ACCESS_KEY',
+    ]) {
       const env: NodeJS.ProcessEnv = {
         S3_ENDPOINT: 'http://x:3900',
         S3_BUCKET: 'b',

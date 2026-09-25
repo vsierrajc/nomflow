@@ -9,7 +9,9 @@ async function main(): Promise<void> {
   const { db, pool } = createDb(url);
   try {
     const r = await migrateTaxCertificatesToStore(db, createObjectStore());
-    console.log(`Certificados de retención: ${r.migrated} de ${r.found} pasados al almacén de objetos.`);
+    console.log(
+      `Certificados de retención: ${r.migrated} de ${r.found} pasados al almacén de objetos.`,
+    );
   } finally {
     await pool.end();
   }
