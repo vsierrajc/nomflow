@@ -114,6 +114,7 @@ jobs:
             echo "S3_TEST_BUCKET=nomflow-test"
             echo "S3_ACCESS_KEY_ID=GK$(openssl rand -hex 12)"
             echo "S3_SECRET_ACCESS_KEY=$(openssl rand -hex 32)"
+            echo "OBJECT_ENCRYPTION_KEY=$(openssl rand -hex 32)"
           } >> "$GITHUB_ENV"
           docker run -d --name garage -p 3900:3900 -p 3903:3903 \
             -v "$PWD/docker/garage/garage.toml:/etc/garage.toml:ro" \

@@ -65,6 +65,7 @@ Interfaz de módulos futuros (solicitudes, aprobaciones, documentos): ver `docs/
 
 ## 6. Deuda técnica y de seguridad conocida
 
+- **Clave de objetos (`OBJECT_ENCRYPTION_KEY`)**: sin copia fuera del servidor los certificados y constancias guardados no se recuperan. Falta que una persona la custodie (ver `docs/backup-clave-objetos.md`) y la rotación con identificador de clave (`NF2|kid`, varias claves, `storage:rotate`), aplazada por decisión del usuario.
 - Sin segundo factor por correo en cada ingreso ni límite por IP en los endpoints públicos; `req.ip` requiere configurar `trust proxy` detrás de un proxy.
 - La auditoría de peticiones se escribe de forma asíncrona (si la base falla solo queda un aviso) y no se correlaciona con los eventos de negocio (solo por usuario y hora; el `requestId` no se guarda en los eventos).
 - El cambio de correo de un empleado con cuenta exige una «resolución administrativa» que no está implementada; una importación posterior sobrescribe las correcciones manuales (`source = MANUAL` → `IMPORT`).
