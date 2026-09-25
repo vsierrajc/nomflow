@@ -3,18 +3,28 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { hashPassword } from '../accounts/password.service';
 import { AppModule } from '../app.module';
 import { createDb } from '../db/client';
 import { runMigrations } from '../db/migrate';
-import { accounts, employeeSnapshots, roleAssignments, taxCertificates } from '../db/schema';
-import { parseFileName } from './tax.service';
+import {
+  accounts,
+  auditLogs,
+  employeeSnapshots,
+  roleAssignments,
+  taxCertificates,
+} from '../db/schema';
+import { EncryptedObjectStore } from '../storage/encrypted-object-store';
+import { MemoryObjectStore } from '../storage/memory-object-store';
+import { OBJECT_STORE } from '../storage/object-store';
+import { migrateTaxCertificatesToStore, parseFileName } from './tax.service';
 
 const url = process.env.DATABASE_URL;
 const PASSWORD = 'Clave-Definitiva-1';
+const OBJECT_SECRET = 'clave-de-objetos-de-prueba-con-mas-de-32-caracteres';
 const pdf = (tag: string) => Buffer.from(`%PDF-1.4\n% ${tag}\n%%EOF\n`);
 
 describe('nombre de archivo', () => {
@@ -40,10 +50,15 @@ describe.skipIf(!url)('certificados de retención (HTTP + PostgreSQL)', () => {
   let app: INestApplication;
   let inbox = '';
   let hr = { cookie: '', csrf: '' };
+  const raw = new MemoryObjectStore();
+  const store = new EncryptedObjectStore(raw, OBJECT_SECRET);
 
   beforeAll(async () => {
     await runMigrations(url ?? '');
-    const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const mod = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(OBJECT_STORE)
+      .useValue(store)
+      .compile();
     app = mod.createNestApplication();
     await app.init();
   });
@@ -93,6 +108,8 @@ describe.skipIf(!url)('certificados de retención (HTTP + PostgreSQL)', () => {
     await db.execute(
       sql`TRUNCATE tax_certificates, audit_logs, sessions, role_assignments, accounts, employee_snapshots CASCADE`,
     );
+    raw.objects.clear();
+    raw.down = false;
     hr = await account('ADM', 'hr@x.co', 'HR_ADMIN');
   });
 
@@ -175,5 +192,127 @@ describe.skipIf(!url)('certificados de retención (HTTP + PostgreSQL)', () => {
       .get('/admin/tax-certificates')
       .set('Cookie', e1.cookie)
       .expect(403);
+  });
+
+  const download = (s: { cookie: string }, year: number) =>
+    request(app.getHttpServer()).get(`/me/tax-certificates/${year}/pdf`).set('Cookie', s.cookie);
+
+  it('el PDF va al almacén de objetos, cifrado; en la base solo queda su nombre y su huella', async () => {
+    const e1 = await account('840695', 'e1@x.co');
+    await put('840695_2025.pdf', pdf('contenido-legible'));
+    await process().expect(200);
+    const [row] = await db.select().from(taxCertificates);
+    expect(row?.data).toBeNull();
+    expect(row?.objectKey).toMatch(/^tax-certificates\/[0-9a-f-]{36}\.pdf$/);
+    expect(row?.objectKey).not.toContain('840695'); // el nombre del objeto no lleva datos personales
+    expect(row?.sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect([...raw.objects.keys()]).toEqual([row?.objectKey]);
+    expect(raw.objects.get(row?.objectKey ?? '')?.contentType).toBe('application/pdf');
+    expect(
+      raw.objects.get(row?.objectKey ?? '')?.data.includes(Buffer.from('contenido-legible')),
+    ).toBe(false);
+    const dl = await download(e1, 2025).buffer(true).expect(200);
+    expect((dl.body as Buffer).toString()).toContain('contenido-legible');
+    // el mismo contenido no sube nada nuevo; uno distinto sube otro objeto
+    await put('840695_2025.pdf', pdf('contenido-legible'));
+    expect((await process()).body.results[0].result).toBe('SIN_CAMBIOS');
+    expect(raw.objects.size).toBe(1);
+    await put('840695_2025.pdf', pdf('contenido-nuevo'));
+    await process().expect(200);
+    expect(raw.objects.size).toBe(2);
+    expect((await download(e1, 2025).buffer(true).expect(200)).body.toString()).toContain(
+      'contenido-nuevo',
+    );
+  });
+
+  it('si el almacén no responde: el archivo queda por procesar y nada se registra a medias', async () => {
+    const e1 = await account('840695', 'e1@x.co');
+    await put('840695_2025.pdf', pdf('a'));
+    raw.down = true;
+    const res = await process().expect(200);
+    expect(res.body.results).toEqual([
+      { file: '840695_2025.pdf', result: 'ALMACENAMIENTO_NO_DISPONIBLE' },
+    ]);
+    expect(await readdir(inbox)).toEqual(['840695_2025.pdf']); // sigue en la carpeta
+    expect(await db.select().from(taxCertificates)).toHaveLength(0);
+    raw.down = false;
+    expect((await process().expect(200)).body.results[0].result).toBe('CARGADO'); // reintento correcto
+    expect(await readdir(inbox)).toEqual(['procesados']);
+    // una descarga con el almacén caído es reintentable (503), no un 404 ni un 500
+    raw.down = true;
+    const dl = await download(e1, 2025).expect(503);
+    expect(dl.body.code).toBe('STORAGE_UNAVAILABLE');
+  });
+
+  it('un objeto alterado, perdido o con otra huella no se entrega', async () => {
+    const e1 = await account('840695', 'e1@x.co');
+    await put('840695_2025.pdf', pdf('a'));
+    await process().expect(200);
+    const [row] = await db.select().from(taxCertificates);
+    const key = row?.objectKey ?? '';
+    const original = raw.objects.get(key) ?? { data: Buffer.alloc(0), contentType: 'x' };
+
+    const tampered = Buffer.from(original.data);
+    tampered[tampered.length - 1] = (tampered[tampered.length - 1] ?? 0) ^ 0xff;
+    raw.objects.set(key, { data: tampered, contentType: 'application/pdf' });
+    expect((await download(e1, 2025).expect(500)).body.code).toBe('STORAGE_INTEGRITY');
+
+    raw.objects.delete(key);
+    expect((await download(e1, 2025).expect(500)).body.code).toBe('STORAGE_INTEGRITY');
+
+    raw.objects.set(key, original);
+    await download(e1, 2025).expect(200); // restaurado: vuelve a funcionar
+    await db
+      .update(taxCertificates)
+      .set({ sha256: 'f'.repeat(64) })
+      .where(eq(taxCertificates.id, row?.id ?? ''));
+    expect((await download(e1, 2025).expect(500)).body.code).toBe('STORAGE_INTEGRITY');
+    const results = (await db.select().from(auditLogs))
+      .filter((l) => l.action === 'TAX_CERT_DOWNLOAD')
+      .map((l) => l.result);
+    expect(results).toEqual(['INTEGRITY', 'OBJECT_MISSING', 'OK', 'HASH_MISMATCH']);
+  });
+
+  it('los certificados anteriores (PDF en la base) se siguen descargando y se pueden pasar al almacén', async () => {
+    const e1 = await account('840695', 'e1@x.co');
+    const legacy = pdf('antiguo');
+    const { createHash } = await import('node:crypto');
+    await db.insert(taxCertificates).values({
+      nIde: '840695',
+      year: 2023,
+      version: 1,
+      data: legacy,
+      sha256: createHash('sha256').update(legacy).digest('hex'),
+      sizeBytes: legacy.length,
+      fileName: '840695_2023.pdf',
+    });
+    expect((await download(e1, 2023).buffer(true).expect(200)).body.toString()).toContain(
+      'antiguo',
+    );
+    expect(raw.objects.size).toBe(0);
+
+    expect(await migrateTaxCertificatesToStore(db, store)).toEqual({ found: 1, migrated: 1 });
+    const [row] = await db.select().from(taxCertificates);
+    expect(row?.data).toBeNull();
+    expect(row?.objectKey).toBe(`tax-certificates/${row?.id}.pdf`);
+    expect(raw.objects.size).toBe(1);
+    expect((await download(e1, 2023).buffer(true).expect(200)).body.toString()).toContain(
+      'antiguo',
+    );
+    expect(await migrateTaxCertificatesToStore(db, store)).toEqual({ found: 0, migrated: 0 }); // repetible
+  });
+
+  it('una fila sin PDF ni objeto no puede existir', async () => {
+    await account('840695', 'e1@x.co');
+    await expect(
+      db.insert(taxCertificates).values({
+        nIde: '840695',
+        year: 2022,
+        version: 1,
+        sha256: 'a',
+        sizeBytes: 1,
+        fileName: 'x.pdf',
+      }),
+    ).rejects.toThrow();
   });
 });

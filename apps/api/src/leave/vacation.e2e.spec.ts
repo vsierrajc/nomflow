@@ -1,10 +1,14 @@
 import type { INestApplication } from '@nestjs/common';
+import { join } from 'node:path';
 import { Test } from '@nestjs/testing';
 import { eq, sql } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { hashPassword } from '../accounts/password.service';
 import { AppModule } from '../app.module';
+import { EncryptedObjectStore } from '../storage/encrypted-object-store';
+import { MemoryObjectStore } from '../storage/memory-object-store';
+import { OBJECT_STORE } from '../storage/object-store';
 import { createDb } from '../db/client';
 import { runMigrations } from '../db/migrate';
 import {
@@ -18,6 +22,7 @@ import {
   progVacAdjustments,
   roleAssignments,
   vacaciones,
+  vacationDocuments,
   vacationActions,
   vacationRequests,
 } from '../db/schema';
@@ -26,6 +31,23 @@ const url = process.env.DATABASE_URL;
 const PASSWORD = 'Clave-Definitiva-1';
 type Sess = { cookie: string; csrf: string; id: string };
 type Role = (typeof roleAssignments.$inferInsert)['role'];
+
+async function pdfText(buf: Buffer): Promise<string> {
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const fonts =
+    join(process.cwd(), '..', '..', 'node_modules', 'pdfjs-dist', 'standard_fonts') + '/';
+  const doc = await pdfjs.getDocument({
+    data: new Uint8Array(buf),
+    standardFontDataUrl: fonts,
+    verbosity: 0,
+  }).promise;
+  let text = '';
+  for (let p = 1; p <= doc.numPages; p++) {
+    const content = await (await doc.getPage(p)).getTextContent();
+    text += content.items.map((i) => ('str' in i ? i.str : '')).join(' ') + '\n';
+  }
+  return text.replace(/\s+/g, ' ');
+}
 
 describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQL)', () => {
   const ctx = createDb(url ?? '');
@@ -38,10 +60,18 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
   let adm: Sess;
   let p1 = '';
   let p2 = '';
+  const raw = new MemoryObjectStore();
+  const store = new EncryptedObjectStore(
+    raw,
+    'clave-de-objetos-de-prueba-con-mas-de-32-caracteres',
+  );
 
   beforeAll(async () => {
     await runMigrations(url ?? '');
-    const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const mod = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(OBJECT_STORE)
+      .useValue(store)
+      .compile();
     app = mod.createNestApplication();
     await app.init();
   });
@@ -115,8 +145,10 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
     (await db.select().from(vacationRequests).where(eq(vacationRequests.id, id)))[0]?.status;
 
   beforeEach(async () => {
+    raw.objects.clear();
+    raw.down = false;
     await db.execute(
-      sql`TRUNCATE companies, vacaciones, vacation_actions, vacation_revision_allocations, vacation_revisions, vacation_requests, prog_vac_adjustments, prog_vac, holidays, holiday_calendars, area_manager_assignments, audit_logs, sessions, role_assignments, accounts, employee_snapshots CASCADE`,
+      sql`TRUNCATE vacation_documents, companies, vacaciones, vacation_actions, vacation_revision_allocations, vacation_revisions, vacation_requests, prog_vac_adjustments, prog_vac, holidays, holiday_calendars, area_manager_assignments, audit_logs, sessions, role_assignments, accounts, employee_snapshots CASCADE`,
     );
     adm = await person('ADM', 'adm@x.co', [{ role: 'HR_ADMIN' }], '99999');
     emp = await person('100', 'e@x.co');
@@ -451,6 +483,133 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
     await grant({ role: 'VACATION_FINAL_APPROVER' }).expect(422); // sin empresa
     await grant({ role: 'VACATION_FINAL_APPROVER', cEmp: 'ZZ' }).expect(404); // empresa inexistente
     await grant({ role: 'VACATION_FINAL_APPROVER', cEmp: 'GA' }).expect(201);
+  });
+
+  /** Solicitud aprobada de punta a punta; devuelve su id. */
+  async function approved(start = '2026-03-02', days = 5) {
+    const a = await submit(start, [{ progVacId: p1, days }]).expect(201);
+    await send(mgr, 'post', `/approvals/vacations/manager/${a.body.id}/approve`).expect(200);
+    await send(fin, 'post', `/approvals/vacations/final/${a.body.id}/approve`).expect(200);
+    return a.body.id as string;
+  }
+  const pdf = (s: Sess, id: string) =>
+    request(srv()).get(`/me/vacations/${id}/pdf`).set('Cookie', s.cookie);
+  const body = (r: request.Response) => r.body as Buffer;
+  const binary = (r: request.Test) =>
+    r.buffer(true).parse((res, cb) => {
+      const c: Buffer[] = [];
+      res.on('data', (d: Buffer) => c.push(d));
+      res.on('end', () => cb(null, Buffer.concat(c)));
+    });
+
+  it('al aprobar, la constancia PDF queda guardada como objeto cifrado y con su huella', async () => {
+    const id = await approved();
+    const [doc] = await db.select().from(vacationDocuments);
+    expect(doc).toMatchObject({
+      requestId: id,
+      revisionNumber: 1,
+      objectKey: `vacation-requests/${id}/rev-1.pdf`,
+    });
+    expect(doc?.sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect([...raw.objects.keys()]).toEqual([doc?.objectKey]);
+    expect(
+      raw.objects
+        .get(doc?.objectKey ?? '')
+        ?.data.subarray(0, 3)
+        .toString(),
+    ).toBe('NF1'); // cifrado
+    expect(raw.objects.get(doc?.objectKey ?? '')?.contentType).toBe('application/pdf');
+
+    const res = await binary(pdf(emp, id)).expect(200);
+    expect(res.headers['content-type']).toContain('application/pdf');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    const text = await pdfText(body(res));
+    expect(text).toContain('CONSTANCIA DE SOLICITUD DE VACACIONES APROBADA');
+    expect(text).toContain('Persona 100'); // el empleado
+    expect(text).toContain('2 de marzo de 2026'); // inicio
+    expect(text).toContain('6 de marzo de 2026'); // último día hábil
+    expect(text).toContain('9 de marzo de 2026'); // retorno
+    expect(text).toMatch(/Días hábiles aprobados \(se descuentan\) 5/);
+    expect(text).toMatch(/Diferencia en días calendario \(fin - inicio\) 4/);
+    expect(text).toContain('Solicitud enviada y fechas aceptadas por el empleado');
+    expect(text).toContain('Aprobada por el jefe de área');
+    expect(text).toContain('Persona 200'); // el jefe
+    expect(text).toContain('Aprobación final');
+    expect(text).toContain('Persona 300'); // el aprobador final
+    expect(text).toContain('no equivalen a una firma digital');
+  });
+
+  it('la descargan el dueño, su jefe y el aprobador final de la empresa; nadie más', async () => {
+    const id = await approved();
+    for (const who of [emp, mgr, fin]) await pdf(who, id).expect(200);
+    const other = await person('600', 'o@x.co', [{ role: 'AREA_MANAGER', area: true }]);
+    const otherCo = await person(
+      '810',
+      'gb@x.co',
+      [{ role: 'VACATION_FINAL_APPROVER', company: 'GB' }],
+      '99999',
+    );
+    const stranger = await person('700', 'x7@x.co', [], '10400');
+    for (const who of [other, otherCo, stranger, adm]) await pdf(who, id).expect(404);
+    await request(srv()).get(`/me/vacations/${id}/pdf`).expect(401);
+    await pdf(emp, '00000000-0000-4000-8000-000000000000').expect(404);
+  });
+
+  it('solo existe la constancia de una solicitud aprobada', async () => {
+    const pending = await submit('2026-03-02', [{ progVacId: p1, days: 2 }]).expect(201);
+    await pdf(emp, pending.body.id).expect(404);
+    await send(mgr, 'post', `/approvals/vacations/manager/${pending.body.id}/reject`, {
+      reason: 'Hay cierre contable esa semana',
+    }).expect(200);
+    await pdf(emp, pending.body.id).expect(404);
+    expect(raw.objects.size).toBe(0);
+  });
+
+  it('si el almacén falla al aprobar, la aprobación se mantiene y la constancia se genera al descargarla', async () => {
+    raw.down = true;
+    const id = await approved();
+    expect(await status(id)).toBe('APROBADA'); // la aprobación no se pierde
+    expect((await db.select().from(progVac).where(eq(progVac.id, p1)))[0]?.disp).toBe(5);
+    expect(await db.select().from(vacationDocuments)).toHaveLength(0);
+    await pdf(emp, id).expect(503); // sin almacén: reintentable
+    raw.down = false;
+    const first = await binary(pdf(emp, id)).expect(200);
+    expect(await db.select().from(vacationDocuments)).toHaveLength(1);
+    // la constancia no se vuelve a generar ni se sobrescribe: siempre el mismo documento
+    const second = await binary(pdf(emp, id)).expect(200);
+    expect(body(second).equals(body(first))).toBe(true);
+    expect(raw.objects.size).toBe(1);
+  });
+
+  it('descargas simultáneas de una constancia pendiente generan una sola', async () => {
+    raw.down = true;
+    const id = await approved();
+    raw.down = false;
+    const res = await Promise.all([pdf(emp, id), pdf(mgr, id), pdf(fin, id)].map((r) => binary(r)));
+    expect(res.map((r) => r.status)).toEqual([200, 200, 200]);
+    expect(await db.select().from(vacationDocuments)).toHaveLength(1);
+    expect(raw.objects.size).toBe(1);
+    expect(body(res[1] as request.Response).equals(body(res[0] as request.Response))).toBe(true);
+  });
+
+  it('un objeto alterado, perdido o con otra huella no se entrega', async () => {
+    const id = await approved();
+    const [doc] = await db.select().from(vacationDocuments);
+    const key = doc?.objectKey ?? '';
+    const original = raw.objects.get(key) ?? { data: Buffer.alloc(0), contentType: 'x' };
+    const tampered = Buffer.from(original.data);
+    tampered[tampered.length - 1] = (tampered[tampered.length - 1] ?? 0) ^ 0xff;
+    raw.objects.set(key, { data: tampered, contentType: 'application/pdf' });
+    expect((await pdf(emp, id).expect(500)).body.code).toBe('STORAGE_INTEGRITY');
+    raw.objects.delete(key);
+    expect((await pdf(emp, id).expect(500)).body.code).toBe('STORAGE_INTEGRITY');
+    raw.objects.set(key, original);
+    await pdf(emp, id).expect(200);
+    await db
+      .update(vacationDocuments)
+      .set({ sha256: 'f'.repeat(64) })
+      .where(eq(vacationDocuments.id, doc?.id ?? ''));
+    expect((await pdf(emp, id).expect(500)).body.code).toBe('STORAGE_INTEGRITY');
   });
 
   it('dos aprobaciones concurrentes no consumen más que DISP', async () => {

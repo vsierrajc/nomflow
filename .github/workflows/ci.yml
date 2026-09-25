@@ -104,6 +104,24 @@ jobs:
         with: { node-version-file: .nvmrc, cache: npm }
       - run: npm ci
       - run: npm run build
+      # Garage (almacenamiento de objetos). Las credenciales se generan aquí: no hay claves en el archivo.
+      - name: Levantar Garage
+        run: |
+          {
+            echo "S3_ENDPOINT=http://localhost:3900"
+            echo "S3_REGION=garage"
+            echo "S3_BUCKET=nomflow-private"
+            echo "S3_TEST_BUCKET=nomflow-test"
+            echo "S3_ACCESS_KEY_ID=GK$(openssl rand -hex 12)"
+            echo "S3_SECRET_ACCESS_KEY=$(openssl rand -hex 32)"
+          } >> "$GITHUB_ENV"
+          docker run -d --name garage -p 3900:3900 -p 3903:3903 \
+            -v "$PWD/docker/garage/garage.toml:/etc/garage.toml:ro" \
+            -e GARAGE_RPC_SECRET="$(openssl rand -hex 32)" -e GARAGE_ADMIN_TOKEN="$(openssl rand -hex 24)" \
+            dxflrs/garage:v2.4.1
+      - run: GARAGE_EXEC="docker exec garage /garage" bash scripts/garage-init.sh
+      - name: Integración con Garage real
+        run: npm test -w @nomflow/api -- src/storage/garage.integration.spec.ts
       - run: npx playwright install --with-deps chromium
         working-directory: apps/web
       - run: npm run test:e2e

@@ -1,7 +1,7 @@
 # Stack local de desarrollo
 
 ```bash
-npm run stack:up       # PostgreSQL, Redis, MinIO y Mailpit en Docker + API y web locales
+npm run stack:up       # PostgreSQL, Redis, Garage y Mailpit en Docker + API y web locales
 npm run stack:status   # URLs y estado
 npm run stack:down     # detiene API, web y los contenedores (los datos se conservan)
 ```
@@ -11,7 +11,7 @@ npm run stack:down     # detiene API, web y los contenedores (los datos se conse
 | Web (Next.js) | http://localhost:3000 | Aún sin pantallas de usuario |
 | API (NestJS) | http://localhost:4000/health | Login, cuentas, importaciones, catálogos, roles |
 | Mailpit | http://localhost:8025 (SMTP 1025) | Bandeja de desarrollo: ningún correo sale a empleados reales |
-| MinIO | consola http://localhost:9101, S3 http://localhost:9100 | Puertos 9100/9101 para no chocar con otros proyectos en 9000/9001 |
+| Garage | S3 http://localhost:3900, admin http://localhost:3903 | Bucket `nomflow-private` (`scripts/garage-init.sh`, idempotente) |
 | PostgreSQL | localhost:5432 | Bases `nomflow` (desarrollo) y `nomflow_test` (pruebas) |
 | Redis | localhost:6379 | Aún sin uso (cola de trabajos pendiente) |
 
@@ -20,7 +20,7 @@ npm run stack:down     # detiene API, web y los contenedores (los datos se conse
 - Para usar el SMTP real de la red interna, lo más simple es configurarlo desde la aplicación: `/admin/correo` (servidor `192.168.1.44`, puerto `25`, sin TLS, sin usuario ni clave, correo de origen `nomflow@gr4l.co`). También puede hacerse con `SMTP_HOST`, `SMTP_PORT` y `SMTP_REQUIRE_TLS` en `.env` (respaldo cuando nada se guardó en la pantalla).
 - Primer administrador: `BOOTSTRAP_ADMIN_EMAIL=... BOOTSTRAP_ADMIN_PASSWORD=... npm run admin:bootstrap -w @nomflow/api`.
 - Las pruebas vacían las tablas: correrlas siempre con `DATABASE_URL=postgresql://nomflow:nomflow@localhost:5432/nomflow_test`.
-- Redis, MinIO y la web todavía no los usa ninguna funcionalidad: se levantan para tener el stack completo de la SSD (sección 2).
+- Redis todavía no lo usa ninguna funcionalidad: se levantan para tener el stack completo de la SSD (sección 2).
 
 ## Pruebas de interfaz (Playwright)
 ```bash
@@ -40,6 +40,6 @@ Son 57 pruebas (acceso, volantes y el área administrativa completa: empresas y 
 ./detener_app.sh --borrar-datos   # además borra los volúmenes; exige escribir BORRAR
 ```
 
-Son envoltorios de `scripts/stack.sh` (`npm run stack:up|down|status`). Los datos de PostgreSQL viven en el volumen con nombre `nomflow_pgdata` y los de MinIO en `nomflow_minio-data`; sobreviven a `down`. Antes de que existiera `nomflow_pgdata`, PostgreSQL usaba un volumen anónimo que **se perdía de vista** al eliminar el contenedor (los datos quedaban huérfanos en un volumen sin nombre): si eso pasó, se recuperan copiando ese volumen a `nomflow_pgdata`.
+Son envoltorios de `scripts/stack.sh` (`npm run stack:up|down|status`). Los datos de PostgreSQL viven en el volumen con nombre `nomflow_pgdata` y los de Garage en `nomflow_garage-meta` y `nomflow_garage-data`; sobreviven a `down`. Antes de que existiera `nomflow_pgdata`, PostgreSQL usaba un volumen anónimo que **se perdía de vista** al eliminar el contenedor (los datos quedaban huérfanos en un volumen sin nombre): si eso pasó, se recuperan copiando ese volumen a `nomflow_pgdata`.
 
 No ejecute `npm run build` mientras la aplicación está en marcha: sustituye los archivos que la web está sirviendo y las páginas fallan con «This page couldn't load» hasta reiniciarla con `./iniciar_app.sh`.

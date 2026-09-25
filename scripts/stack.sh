@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stack local de NOMFLOW: PostgreSQL, Redis, MinIO y Mailpit en Docker; API y web como procesos locales.
+# Stack local de NOMFLOW: PostgreSQL, Redis, Garage (S3) y Mailpit en Docker; API y web como procesos locales.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -16,10 +16,26 @@ ensure_env() {
     sed -i "s|^SESSION_SECRET=.*|SESSION_SECRET=${secret}|" .env
     echo "Creado .env local (ignorado por git) con un SESSION_SECRET aleatorio."
   fi
+  migrate_env
   set -a
   # shellcheck disable=SC1091
   . ./.env
   set +a
+}
+
+# Añade a un .env existente lo que falte (credenciales de Garage) y quita lo de MinIO, ya retirado.
+migrate_env() {
+  add_var() { grep -q "^$1=" .env || printf '%s=%s\n' "$1" "$2" >> .env; }
+  if grep -q '^S3_ENDPOINT=.*:9100' .env; then sed -i 's|^S3_ENDPOINT=.*|S3_ENDPOINT=http://localhost:3900|' .env; fi
+  sed -i '/^MINIO_ROOT_/d' .env
+  add_var S3_ENDPOINT "http://localhost:3900"
+  add_var S3_REGION "garage"
+  add_var S3_BUCKET "nomflow-private"
+  add_var S3_TEST_BUCKET "nomflow-test"
+  add_var S3_ACCESS_KEY_ID "GK$(openssl rand -hex 12)"
+  add_var S3_SECRET_ACCESS_KEY "$(openssl rand -hex 32)"
+  add_var GARAGE_RPC_SECRET "$(openssl rand -hex 32)"
+  add_var GARAGE_ADMIN_TOKEN "$(openssl rand -hex 24)"
 }
 
 pid_alive() { [ -f "$RUN/$1.pid" ] && kill -0 "$(cat "$RUN/$1.pid")" 2>/dev/null; }
@@ -50,13 +66,15 @@ wait_url() {
 
 up() {
   ensure_env
-  docker compose up -d postgres redis minio mailpit
+  docker compose up -d --remove-orphans postgres redis garage mailpit
   for _ in $(seq 1 40); do
     docker compose exec -T postgres pg_isready -U nomflow >/dev/null 2>&1 && break
     sleep 0.5
   done
   docker compose exec -T postgres psql -U nomflow -tc "select 1 from pg_database where datname='nomflow_test'" | grep -q 1 \
     || docker compose exec -T postgres psql -U nomflow -c "create database nomflow_test" >/dev/null
+
+  bash scripts/garage-init.sh
 
   [ -d node_modules ] || npm ci --no-audit --no-fund
   npm run build
@@ -73,7 +91,7 @@ up() {
 
 down() {
   if [ "${1:-}" = "--borrar-datos" ]; then
-    echo "ATENCIÓN: se eliminarán los contenedores y sus VOLÚMENES: la base de desarrollo (nomflow y nomflow_test), MinIO y Redis."
+    echo "ATENCIÓN: se eliminarán los contenedores y sus VOLÚMENES: la base de desarrollo (nomflow y nomflow_test) y los documentos guardados en Garage."
     printf 'Escriba BORRAR para confirmar: '
     read -r answer
     if [ "$answer" != "BORRAR" ]; then
@@ -95,7 +113,7 @@ status() {
   echo "API      http://localhost:${API_PORT}/health  $(pid_alive api && echo 'en ejecución' || echo 'detenida')"
   echo "Web      http://localhost:${WEB_PORT}         $(pid_alive web && echo 'en ejecución' || echo 'detenida')"
   echo "Mailpit  http://localhost:8025  (SMTP 1025)"
-  echo "MinIO    consola http://localhost:9101  (S3 http://localhost:9100)"
+  echo "Garage   S3 http://localhost:3900  (administración http://localhost:3903)"
   echo "Postgres localhost:5432   Redis localhost:6379"
   docker compose ps --format 'table {{.Service}}\t{{.Status}}'
 }

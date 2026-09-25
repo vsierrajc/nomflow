@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Almacenamiento de objetos con Garage (reemplaza a MinIO, ADR-003): certificados de retención y constancias PDF de solicitudes de vacaciones se guardan cifrados (AES-256-GCM en la aplicación) en el bucket S3; permisos siguen en la BD y los volantes se generan al descargar; `npm run storage:migrate` mueve certificados antiguos; migración 0022.
 - Documentación inicial: SSD canónica, STATUS, ADR-001 (stack) y matriz de trazabilidad.
 - Monorepo npm workspaces: apps/api (NestJS 11, /health), apps/web (Next 16), CI (format, lint, tipos, build, tests, audit, gitleaks, CodeQL), docker-compose de desarrollo.
 - Esquema inicial (Drizzle): cuentas, asignaciones de rol y auditoría; hash Argon2id de claves; pruebas de integración con PostgreSQL.

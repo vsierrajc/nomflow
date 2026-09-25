@@ -16,6 +16,7 @@ import { ConceptsController } from './payroll/concepts.controller';
 import { MePayrollController } from './payroll/me-payroll.controller';
 import { AdminMailController } from './mail/mail.controller';
 import { MailModule } from './mail/mail.module';
+import { StorageModule } from './storage/storage.module';
 import { AdminTaxController, MeTaxController } from './tax/tax.controller';
 import {
   AdminHolidayApiController,
@@ -33,7 +34,7 @@ import {
 import { HealthController } from './health.controller';
 
 @Module({
-  imports: [DbModule, MailModule],
+  imports: [DbModule, MailModule, StorageModule],
   controllers: [
     HealthController,
     AuthController,

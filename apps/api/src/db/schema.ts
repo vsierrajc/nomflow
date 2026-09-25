@@ -438,7 +438,10 @@ export const taxCertificates = pgTable(
     nIde: text('n_ide').notNull(),
     year: integer('year').notNull(),
     version: integer('version').notNull(),
-    data: bytea('data').notNull(),
+    /** Certificados anteriores a ADR-003: el PDF vivía en la base. Se pasa a objetos con `storage:migrate`. */
+    data: bytea('data'),
+    /** Objeto en el almacén (Garage), cifrado por la aplicación. */
+    objectKey: text('object_key'),
     sha256: text('sha256').notNull(),
     sizeBytes: integer('size_bytes').notNull(),
     fileName: text('file_name').notNull(),
@@ -447,6 +450,7 @@ export const taxCertificates = pgTable(
     uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    check('tax_certificates_stored_ck', sql`${t.data} is not null or ${t.objectKey} is not null`),
     uniqueIndex('tax_certificates_version_uq').on(t.nIde, t.year, t.version),
     uniqueIndex('tax_certificates_one_active_uq')
       .on(t.nIde, t.year)
@@ -808,4 +812,22 @@ export const twoFactorChallenges = pgTable(
     usedAt: timestamp('used_at', { withTimezone: true }),
   },
   (t) => [index('two_factor_challenges_account_idx').on(t.accountId, t.purpose, t.createdAt)],
+);
+
+/** Constancia PDF de una solicitud de vacaciones aprobada, guardada como objeto (ADR-003). */
+export const vacationDocuments = pgTable(
+  'vacation_documents',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    requestId: uuid('request_id')
+      .notNull()
+      .references(() => vacationRequests.id),
+    /** Revisión aprobada a la que corresponde el documento. */
+    revisionNumber: integer('revision_number').notNull(),
+    objectKey: text('object_key').notNull(),
+    sha256: text('sha256').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    generatedAt: timestamp('generated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('vacation_documents_request_uq').on(t.requestId)],
 );

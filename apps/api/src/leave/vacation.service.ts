@@ -304,7 +304,8 @@ async function withNames(
 }
 
 /** Detalle: solo el dueño, el jefe asignado o quien tenga el rol de aprobación final. */
-export async function detail(db: Db, viewerId: string, id: string) {
+/** Quién puede ver una solicitud: su dueño, el jefe asignado y el aprobador final de su empresa. */
+export async function loadViewable(db: Db, viewerId: string, id: string) {
   const req = await loadRequest(db, id);
   const isOwner = req.accountId === viewerId;
   const isManager = req.managerAccountId === viewerId;
@@ -313,6 +314,11 @@ export async function detail(db: Db, viewerId: string, id: string) {
     !isManager &&
     (await activeCompaniesForRole(db, viewerId, 'VACATION_FINAL_APPROVER')).includes(req.cEmp);
   if (!isOwner && !isManager && !canFinal) throw new VacationError('NOT_FOUND');
+  return { req, isOwner, isManager };
+}
+
+export async function detail(db: Db, viewerId: string, id: string) {
+  const { req, isOwner, isManager } = await loadViewable(db, viewerId, id);
   const revisions = await db
     .select()
     .from(vacationRevisions)

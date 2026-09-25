@@ -43,6 +43,13 @@ export function VacationDetail({ detail }: { detail: RequestDetail }) {
       <p>
         <strong>Estado:</strong> {STATUS_LABEL[detail.status] ?? detail.status}
       </p>
+      {detail.status === 'APROBADA' ? (
+        <p>
+          <a href={`/api/me/vacations/${detail.id}/pdf`} download>
+            Descargar constancia (PDF)
+          </a>
+        </p>
+      ) : null}
       {detail.revisions.map((r) => (
         <section key={r.number} aria-label={`Revisión ${r.number}`}>
           <h3>

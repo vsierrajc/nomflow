@@ -244,6 +244,16 @@ export default function MyVacationsPage() {
                         Aceptar el cambio
                       </button>
                     ) : null}
+                    {r.status === 'APROBADA' ? (
+                      <a
+                        className="button secondary"
+                        href={`/api/me/vacations/${r.id}/pdf`}
+                        download
+                        aria-label={`Descargar la constancia de la solicitud del ${longDate(r.start)}`}
+                      >
+                        Constancia (PDF)
+                      </a>
+                    ) : null}
                     {OPEN.includes(r.status) ? (
                       <button
                         type="button"

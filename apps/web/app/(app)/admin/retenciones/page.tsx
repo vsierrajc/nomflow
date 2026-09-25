@@ -28,6 +28,8 @@ const RESULTS: Record<string, string> = {
   EMPLEADO_NO_EXISTE: 'No existe un empleado con esa identificación',
   NO_ES_PDF: 'No es un PDF válido',
   DEMASIADO_GRANDE: 'Supera el tamaño máximo',
+  ALMACENAMIENTO_NO_DISPONIBLE:
+    'El almacén de documentos no respondió: el archivo sigue en la carpeta y se reintenta en el próximo proceso',
   ERROR: 'Error: se reintentará en el próximo proceso',
 };
 
