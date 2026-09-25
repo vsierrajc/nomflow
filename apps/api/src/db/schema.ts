@@ -874,3 +874,40 @@ export const healthAlerts = pgTable(
     index('health_alerts_opened_idx').on(t.openedAt),
   ],
 );
+
+/** Configuración del archivo histórico en la nube (una sola fila, id = 1). Ver ADR-004. */
+export const archiveSettings = pgTable('archive_settings', {
+  id: integer('id').primaryKey().default(1),
+  enabled: boolean('enabled').notNull().default(false),
+  /** API S3 interoperable del almacén en la nube (Google Cloud Storage: https://storage.googleapis.com). */
+  endpoint: text('endpoint').notNull().default('https://storage.googleapis.com'),
+  region: text('region').notNull().default('us-central1'),
+  bucket: text('bucket').notNull().default('nomflow'),
+  accessKeyId: text('access_key_id'),
+  secretEnc: text('secret_enc'),
+  /** Un objeto se archiva cuando tiene más de estos días. */
+  ageDays: integer('age_days').notNull().default(365),
+  /** Días que sigue en local tras verificar la copia en la nube (0 = se borra de local al verificar). */
+  graceDays: integer('grace_days').notNull().default(0),
+  lastRunAt: timestamp('last_run_at', { withTimezone: true }),
+  lastRunStatus: text('last_run_status'),
+  lastRunSummary: text('last_run_summary'),
+  updatedBy: uuid('updated_by').references(() => accounts.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Objetos ya copiados a la nube: BOTH (copia verificada, aún en local) o CLOUD (solo en la nube). */
+export const archivedObjects = pgTable(
+  'archived_objects',
+  {
+    objectKey: text('object_key').primaryKey(),
+    source: text('source').notNull(),
+    status: text('status').notNull(),
+    /** Huella sha256 de los bytes guardados (ya cifrados) que se verificó en la nube. */
+    sha256: text('sha256').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    archivedAt: timestamp('archived_at', { withTimezone: true }).notNull().defaultNow(),
+    localDeletedAt: timestamp('local_deleted_at', { withTimezone: true }),
+  },
+  (t) => [index('archived_objects_status_idx').on(t.status)],
+);

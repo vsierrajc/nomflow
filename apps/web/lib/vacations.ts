@@ -17,6 +17,8 @@ export interface RequestRow {
   businessDays: number | null;
   returnDate: string | null;
   updatedAt: string;
+  /** La constancia solo está en el archivo histórico en la nube: la descarga tarda algo más. */
+  documentArchived?: boolean;
 }
 
 export interface Revision {

@@ -6,6 +6,7 @@ import { DB } from '../db/db.module';
 import { accounts, auditLogs, healthAlerts, healthSettings, roleAssignments } from '../db/schema';
 import { MAILER, type Mailer } from '../mail/mailer';
 import { getSettings as getMailSettings, isEmail } from '../mail/mail-settings.service';
+import { getArchiveSettings } from '../storage/archive-settings.service';
 import { OBJECT_STORE, ObjectStoreError, type ObjectStore } from '../storage/object-store';
 
 export type Level = 'OK' | 'WARN' | 'CRIT' | 'UNKNOWN';
@@ -225,6 +226,7 @@ export class HealthService {
       this.checkStorage(),
       this.checkSpace(s),
       this.checkErrors(s),
+      this.checkArchive(),
       this.checkMail(),
     ]);
   }
@@ -315,6 +317,26 @@ export class HealthService {
       };
     } catch {
       return { ...base, level: 'UNKNOWN', message: 'No se pudo consultar la auditoría.' };
+    }
+  }
+
+  private async checkArchive(): Promise<CheckResult> {
+    const base = { key: 'archive', label: 'Archivo histórico en la nube' };
+    try {
+      const a = await getArchiveSettings(this.db);
+      if (!a.enabled)
+        return { ...base, level: 'OK', message: 'Desactivado (todo se conserva en local).' };
+      if (a.lastRunStatus === 'ERROR')
+        return {
+          ...base,
+          level: 'WARN',
+          message: `La última ejecución tuvo fallos. ${a.lastRunSummary ?? ''}`.trim(),
+        };
+      if (a.lastRunAt && Date.now() - a.lastRunAt.getTime() > 3 * 86_400_000)
+        return { ...base, level: 'WARN', message: 'No se ejecuta desde hace más de 3 días.' };
+      return { ...base, level: 'OK', message: a.lastRunSummary ?? 'Activo; aún sin ejecuciones.' };
+    } catch {
+      return { ...base, level: 'UNKNOWN', message: 'No se pudo leer la configuración.' };
     }
   }
 

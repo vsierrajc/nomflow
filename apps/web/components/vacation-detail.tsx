@@ -48,6 +48,12 @@ export function VacationDetail({ detail }: { detail: RequestDetail }) {
           <a href={`/api/me/vacations/${detail.id}/pdf`} download>
             Descargar constancia (PDF)
           </a>
+          {detail.documentArchived ? (
+            <span className="muted">
+              {' '}
+              Archivo histórico: la descarga puede tardar unos segundos.
+            </span>
+          ) : null}
         </p>
       ) : null}
       {detail.revisions.map((r) => (

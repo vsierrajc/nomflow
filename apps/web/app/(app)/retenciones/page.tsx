@@ -7,6 +7,8 @@ import { NETWORK_ERROR, api } from '@/lib/api';
 
 interface Certificate {
   year: number;
+  /** Solo está en el archivo histórico en la nube: la descarga tarda algo más. */
+  archived?: boolean;
   sizeBytes: number;
   uploadedAt: string;
 }
@@ -56,6 +58,12 @@ export default function TaxCertificatesPage() {
                   <span>
                     <strong>Año {c.year}</strong>
                     <span className="muted"> - PDF, {kb(c.sizeBytes)}</span>
+                    {c.archived ? (
+                      <span className="muted">
+                        {' '}
+                        - Archivo histórico: la descarga puede tardar unos segundos.
+                      </span>
+                    ) : null}
                   </span>
                   <span className="toolbar">
                     <a
