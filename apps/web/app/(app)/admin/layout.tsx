@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { HealthBanner } from '@/components/health-banner';
 import { AdminProvider, isAdmin } from '@/lib/admin';
 import { useReadyProfile } from '@/lib/use-profile';
 
@@ -20,6 +21,7 @@ const NAV = [
   { href: '/admin/festivos', label: 'Festivos' },
   { href: '/admin/tipos-permiso', label: 'Tipos de permiso' },
   { href: '/admin/retenciones', label: 'Certificados de retención' },
+  { href: '/admin/salud', label: 'Salud del sistema' },
   { href: '/admin/auditoria', label: 'Auditoría' },
 ];
 
@@ -57,7 +59,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             })}
           </ul>
         </nav>
-        <section className="admin-content">{children}</section>
+        <section className="admin-content">
+          <HealthBanner />
+          {children}
+        </section>
       </div>
     </AdminProvider>
   );

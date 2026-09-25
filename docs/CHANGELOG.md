@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Salud del sistema (Administración → Salud del sistema, `GET /admin/health`, `POST /admin/health/check`, `GET /admin/health/alerts`, `PUT /admin/health/settings`): vigila espacio libre de Garage (API de administración), Garage accesible, latencia de PostgreSQL, errores de descarga de documentos y estado del correo; alertas de aviso/crítico con historial, correo a los administradores activos (más destinatarios adicionales) solo al cambiar de estado, repetición del crítico y aviso de resolución; umbrales, intervalo y reenvío administrables; aviso visible en toda la administración; migración 0023, `HEALTH_MONITOR=off` para desactivar el ciclo, `GARAGE_ADMIN_ENDPOINT`.
 - Almacenamiento de objetos con Garage (reemplaza a MinIO, ADR-003): certificados de retención y constancias PDF de solicitudes de vacaciones se guardan cifrados (AES-256-GCM en la aplicación) en el bucket S3; permisos siguen en la BD y los volantes se generan al descargar; `npm run storage:migrate` mueve certificados antiguos; migración 0022.
 - Documentación inicial: SSD canónica, STATUS, ADR-001 (stack) y matriz de trazabilidad.
 - Monorepo npm workspaces: apps/api (NestJS 11, /health), apps/web (Next 16), CI (format, lint, tipos, build, tests, audit, gitleaks, CodeQL), docker-compose de desarrollo.

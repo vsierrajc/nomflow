@@ -831,3 +831,46 @@ export const vacationDocuments = pgTable(
   },
   (t) => [uniqueIndex('vacation_documents_request_uq').on(t.requestId)],
 );
+
+/** Umbrales y destinatarios extra del monitoreo de salud (una sola fila, id = 1). */
+export const healthSettings = pgTable('health_settings', {
+  id: integer('id').primaryKey().default(1),
+  /** % libre del almacén de objetos: aviso y crítico (crítico < aviso). */
+  storageWarnFreePct: integer('storage_warn_free_pct').notNull().default(20),
+  storageCritFreePct: integer('storage_crit_free_pct').notNull().default(10),
+  /** Latencia de la base de datos en ms: aviso y crítico. */
+  dbWarnMs: integer('db_warn_ms').notNull().default(500),
+  dbCritMs: integer('db_crit_ms').notNull().default(2000),
+  /** Errores de descarga de documentos dentro de la ventana: aviso y crítico. */
+  objectErrorsWarn: integer('object_errors_warn').notNull().default(3),
+  objectErrorsCrit: integer('object_errors_crit').notNull().default(10),
+  errorWindowMin: integer('error_window_min').notNull().default(60),
+  checkIntervalMin: integer('check_interval_min').notNull().default(5),
+  /** Cada cuántos minutos se repite el correo mientras una alerta crítica siga abierta. */
+  renotifyMin: integer('renotify_min').notNull().default(360),
+  /** Correos adicionales (separados por coma) además de los administradores. */
+  extraRecipients: text('extra_recipients').notNull().default(''),
+  updatedBy: uuid('updated_by').references(() => accounts.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Historial de alertas de salud: una fila abierta por comprobación hasta que se resuelve. */
+export const healthAlerts = pgTable(
+  'health_alerts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    checkKey: text('check_key').notNull(),
+    level: text('level').notNull(),
+    message: text('message').notNull(),
+    openedAt: timestamp('opened_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    lastNotifiedAt: timestamp('last_notified_at', { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex('health_alerts_open_uq')
+      .on(t.checkKey)
+      .where(sql`${t.resolvedAt} is null`),
+    index('health_alerts_opened_idx').on(t.openedAt),
+  ],
+);

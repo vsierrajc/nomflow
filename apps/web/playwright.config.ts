@@ -53,6 +53,7 @@ export default defineConfig({
       env: {
         PORT: String(API_PORT),
         DATABASE_URL: TEST_DB,
+        HEALTH_MONITOR: 'off',
         SESSION_SECRET: 'e2e-secret-e2e-secret-e2e-secret-12345',
         SMTP_HOST: 'localhost',
         SMTP_PORT: '1025',

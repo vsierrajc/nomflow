@@ -27,6 +27,7 @@
 | Correo saliente configurable | DONE | #35 | Habilitar STARTTLS en el servidor interno |
 | Clave asignada por el administrador y doble paso opcional | DONE | #36 | Límite por IP |
 | Almacenamiento de objetos con Garage (ADR-003) | DONE | (este PR) | Rotación de OBJECT_ENCRYPTION_KEY, política de retención |
+| Salud del sistema y alertas (almacenamiento, BD, errores, correo) | DONE | (este PR) | Métricas de CPU/memoria del servidor, alertas por otros canales |
 | Certificados laborales, aviso de baja y ZIP | BACKLOG | — | Fases 3 y 4 de la SSD |
 
 ## Bloqueos
