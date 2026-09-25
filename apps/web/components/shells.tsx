@@ -195,12 +195,16 @@ export function AppShell({
             type="button"
             className="menu-toggle secondary"
             aria-expanded={open}
-            aria-controls="menu-principal"
+            aria-controls="menu-lateral"
             onClick={() => setOpen((v) => !v)}
           >
             {open ? 'Cerrar menú' : 'Menú'}
           </button>
-          <nav id="menu-principal" aria-label="Principal" className={`app-nav${menu}`}>
+        </div>
+      </header>
+      <div className="app-body">
+        <aside id="menu-lateral" className={`app-side${menu}`}>
+          <nav id="menu-principal" aria-label="Principal" className="app-nav">
             {navFor(profile).map((item) => (
               <Link
                 key={item.href}
@@ -212,17 +216,18 @@ export function AppShell({
               </Link>
             ))}
           </nav>
-          <div className={`app-user${menu}`}>
+          <div className="app-user">
+            <span className="app-user-label">Usuario</span>
             <span className="app-user-name">{displayName(profile.name, profile.email)}</span>
             <button type="button" className="secondary small" onClick={onLogout}>
               Cerrar sesión
             </button>
           </div>
-        </div>
-      </header>
-      <main id="contenido" tabIndex={-1} className={`app-main${wide ? ' admin' : ''}`}>
-        {children}
-      </main>
+        </aside>
+        <main id="contenido" tabIndex={-1} className={`app-main${wide ? ' admin' : ''}`}>
+          {children}
+        </main>
+      </div>
       <footer className="app-foot">NOMFLOW - Portal de autogestión del empleado</footer>
     </div>
   );

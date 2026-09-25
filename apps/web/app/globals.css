@@ -329,18 +329,33 @@ table caption {
   font-size: var(--text-lg);
 }
 
-.app-nav,
-.app-user {
-  display: none;
-  width: 100%;
+.app-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
 }
 
-.app-nav.open,
-.app-user.open {
+/* Menú lateral: navegación arriba, usuario y cierre de sesión abajo */
+.app-side {
+  display: none;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-identity);
+  color: var(--color-on-identity);
+}
+
+.app-side.open {
   display: flex;
 }
 
+.app-side a {
+  color: inherit;
+}
+
 .app-nav {
+  display: flex;
+  flex: 1;
   flex-direction: column;
   gap: var(--space-1);
 }
@@ -363,26 +378,37 @@ table caption {
 }
 
 .app-user {
+  display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding-top: var(--space-2);
+  padding-top: var(--space-3);
   border-top: 1px solid rgb(255 255 255 / 0.25);
+}
+
+.app-user-label {
+  font-size: var(--text-sm);
+  opacity: 0.75;
 }
 
 .app-user-name {
   font-size: var(--text-sm);
+  font-weight: 650;
   overflow-wrap: anywhere;
 }
 
 .app-header button,
-.app-header button.secondary {
+.app-header button.secondary,
+.app-side button,
+.app-side button.secondary {
   background: transparent;
   color: var(--color-on-identity);
   border-color: var(--color-on-identity);
 }
 
 .app-header button:hover:not(:disabled),
-.app-header button.secondary:hover:not(:disabled) {
+.app-header button.secondary:hover:not(:disabled),
+.app-side button:hover:not(:disabled),
+.app-side button.secondary:hover:not(:disabled) {
   background: rgb(255 255 255 / 0.16);
   color: var(--color-on-identity);
   border-color: var(--color-on-identity);
@@ -395,6 +421,7 @@ table caption {
 .app-main {
   flex: 1;
   width: 100%;
+  min-width: 0;
   max-width: var(--width-app);
   margin: 0 auto;
   padding: var(--space-6) var(--space-4) var(--space-10);
@@ -413,25 +440,21 @@ table caption {
     display: none;
   }
 
-  .app-nav,
-  .app-user {
+  .app-body {
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  .app-side {
     display: flex;
-    width: auto;
-  }
-
-  .app-nav {
-    flex-direction: row;
-    gap: var(--space-1);
-    margin-left: var(--space-4);
-  }
-
-  .app-user {
-    flex-direction: row;
-    align-items: center;
-    gap: var(--space-3);
-    margin-left: auto;
-    padding-top: 0;
-    border-top: 0;
+    flex: 0 0 15rem;
+    width: 15rem;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    height: calc(100vh - 3.3rem);
+    overflow-y: auto;
+    padding: var(--space-4);
   }
 }
 
