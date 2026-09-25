@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Empleados (alta y corrección): empresa, área, centro de costo, cargo y tipo de contrato se eligen de listas tomadas de las tablas respectivas (las de área, centro de costo y cargo dependen de la empresa elegida y se recargan al cambiarla); un código que ya no está en el catálogo activo se conserva visible al corregir. La API ya validaba estos códigos contra los catálogos.
 - Interfaz: el menú principal pasa a un menú lateral izquierdo (en móvil se despliega con «Menú»); el usuario actual y «Cerrar sesión» quedan en la parte inferior de ese menú y la barra superior solo lleva la marca.
 - Pruebas: las de API y las de navegador se niegan a correr si `DATABASE_URL`/`E2E_DATABASE_URL` no apunta a una base que termine en `_test` (una corrida contra la base de desarrollo vació sus tablas el 2026-09-25).
 - Archivo histórico en la nube (ADR-004, `/admin/archivo`): certificados y constancias con más de un año (configurable) se copian a un bucket de Google Cloud Storage (API S3 interoperable, `us-central1`, bucket `nomflow`), se verifica el sha256 de la copia y solo entonces se liberan de Garage; la descarga de lo histórico es transparente (aviso de demora en la interfaz); archivado diario o manual, prueba de conexión, secreto HMAC cifrado, comprobación en Salud del sistema; migración 0024, `ARCHIVE_SCHEDULER=off`.

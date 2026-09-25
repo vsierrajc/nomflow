@@ -57,6 +57,27 @@ async function setupOrg() {
 }
 
 test.describe('empleados', () => {
+  test('las listas dependen de la empresa: al cambiarla se recargan y se limpia la selección', async ({
+    page,
+  }) => {
+    await asAdmin(page);
+    const one = await setupOrg();
+    const two = `G${uid().toUpperCase()}`;
+    await seedCompany(two);
+    await seedCatalog('AREA', two, '20100', 'LOGISTICA');
+    await page.goto('/admin/empleados');
+    await page.getByRole('button', { name: 'Nuevo empleado' }).click();
+    const d = page.getByRole('dialog');
+    await d.getByLabel('Empresa (C_EMP)').selectOption(one);
+    await d.getByLabel('Área (C_AREA)').selectOption('10300');
+    await d.getByLabel('Empresa (C_EMP)').selectOption(two);
+    await expect(d.getByLabel('Área (C_AREA)').locator('option')).toHaveText([
+      '- Seleccione un área -',
+      '20100 - LOGISTICA',
+    ]);
+    await expect(d.getByLabel('Área (C_AREA)')).toHaveValue('');
+  });
+
   test('alta excepcional, consulta, corrección con historial, baja y reactivación', async ({
     page,
   }) => {
@@ -69,21 +90,35 @@ test.describe('empleados', () => {
 
     await d.getByLabel('Identificación (N_IDE)').fill(u.nIde);
     await d.getByLabel('Contrato (N_CONT)').fill('1');
-    await d.getByLabel('Empresa (C_EMP)').fill(cEmp);
+    await d.getByLabel('Empresa (C_EMP)').selectOption(cEmp);
     await d.getByLabel('Nombre completo').fill(u.name);
     await d.getByLabel('Correo electrónico').fill(u.email);
-    await d.getByLabel('Área (C_AREA)').fill('ZZ');
-    await d.getByLabel('Tipo de contrato').fill('01');
+    // Las listas vienen de los catálogos de la empresa elegida: no se escribe el código.
+    const area = d.getByLabel('Área (C_AREA)');
+    await expect(area.locator('option')).toHaveText([
+      '- Seleccione un área -',
+      '10300 - FINANCIERA',
+      '10400 - COMERCIAL',
+    ]);
+    await expect(d.getByLabel('Centro de costo (C_COS)').locator('option')).toHaveText([
+      '- Sin centro de costo -',
+      'CC1 - Costo Uno',
+    ]);
+    await expect(d.getByLabel('Cargo (C_CAR)').locator('option')).toHaveText([
+      '- Sin cargo -',
+      'CA1 - Analista',
+    ]);
+    await d.getByLabel('Tipo de contrato').selectOption('01');
     await d.getByLabel('Fecha de inicio').fill('2020-01-06');
     await d.getByLabel('Salario actual').fill('1500000.5');
     await d.getByLabel(/Motivo del cambio/).fill('Alta excepcional solicitada por Gestión Humana');
     await d.getByRole('button', { name: 'Guardar' }).click();
-    await expect(d.getByText('Hay datos que no cumplen las reglas')).toBeVisible();
-    await expect(d.getByRole('list', { name: 'Detalle de los errores' })).toContainText(
-      'C_AREA: código inexistente o inactivo en el catálogo',
-    );
+    // sin elegir un área la petición se rechaza: en la lista no hay códigos inexistentes que escribir
+    await expect(d.getByText(/Revise los datos/)).toBeVisible();
 
-    await d.getByLabel('Área (C_AREA)').fill('10300');
+    await d.getByLabel('Área (C_AREA)').selectOption('10300');
+    await d.getByLabel('Centro de costo (C_COS)').selectOption('CC1');
+    await d.getByLabel('Cargo (C_CAR)').selectOption('CA1');
     await d.getByRole('button', { name: 'Guardar' }).click();
     await expect(page.getByText('Empleado creado.')).toBeVisible();
 
@@ -99,7 +134,7 @@ test.describe('empleados', () => {
     await page.getByRole('button', { name: 'Cerrar', exact: true }).click();
 
     await row.getByRole('button', { name: /^Corregir / }).click();
-    await page.getByRole('dialog').getByLabel('Área (C_AREA)').fill('10400');
+    await page.getByRole('dialog').getByLabel('Área (C_AREA)').selectOption('10400');
     await page
       .getByRole('dialog')
       .getByLabel(/Motivo del cambio/)

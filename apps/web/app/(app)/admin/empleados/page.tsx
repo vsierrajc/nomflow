@@ -98,6 +98,40 @@ const FIELD_LABELS: Record<string, string> = {
 
 const ISSUE_HELP = 'Revise los campos marcados.';
 
+interface CatalogOption {
+  value: string;
+  label: string;
+}
+
+interface CatalogPage {
+  items: { code: string; name: string }[];
+  total: number;
+}
+
+/** Trae todas las entradas activas de un catálogo (de 200 en 200) como opciones de lista. */
+async function loadCatalog(
+  call: ReturnType<typeof useAdmin>['call'],
+  kind: 'AREA' | 'CCOSTO' | 'CARGO' | 'TIPO_CONTRATO',
+  cEmp: string,
+): Promise<CatalogOption[] | null> {
+  const out: CatalogOption[] = [];
+  for (let page = 1; page <= 50; page += 1) {
+    const qs = new URLSearchParams({ active: 'true', page: String(page), pageSize: '200' });
+    if (kind !== 'TIPO_CONTRATO') qs.set('cEmp', cEmp);
+    const res = await call<CatalogPage>(`/admin/catalogs/${kind}?${qs.toString()}`);
+    if (res.status !== 200 || !res.data) return null;
+    out.push(...res.data.items.map((i) => ({ value: i.code, label: `${i.code} - ${i.name}` })));
+    if (out.length >= res.data.total) break;
+  }
+  return out;
+}
+
+/** Deja el valor actual como opción aunque ya no esté en el catálogo, para no perderlo al corregir. */
+function withCurrent(options: CatalogOption[], current: string): CatalogOption[] {
+  if (!current || options.some((o) => o.value === current)) return options;
+  return [{ value: current, label: `${current} (no está en el catálogo activo)` }, ...options];
+}
+
 function EmployeeForm({
   employee,
   onDone,
@@ -109,9 +143,60 @@ function EmployeeForm({
 }) {
   const { call } = useAdmin();
   const [est, setEst] = useState<'V' | 'C'>(employee?.est ?? 'V');
+  const [companyList, setCompanyList] = useState<CatalogOption[]>([]);
+  const [cEmp, setCEmp] = useState(employee?.cEmp ?? '');
+  const [cArea, setCArea] = useState(employee?.cArea ?? '');
+  const [cCos, setCCos] = useState(employee?.cCos ?? '');
+  const [cCar, setCCar] = useState(employee?.cCar ?? '');
+  const [tipo, setTipo] = useState(employee?.tipoContrato ?? '');
+  const [areas, setAreas] = useState<CatalogOption[]>([]);
+  const [costs, setCosts] = useState<CatalogOption[]>([]);
+  const [jobs, setJobs] = useState<CatalogOption[]>([]);
+  const [contracts, setContracts] = useState<CatalogOption[]>([]);
+  const [listsError, setListsError] = useState(false);
   const [issues, setIssues] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Empresas activas y tipos de contrato (globales): una sola vez.
+  useEffect(() => {
+    void (async () => {
+      const res =
+        await call<{ cEmp: string; nombre: string; active: boolean }[]>('/admin/companies');
+      const types = await loadCatalog(call, 'TIPO_CONTRATO', '');
+      if (res.status !== 200 || !res.data || !types) return setListsError(true);
+      const active = res.data
+        .filter((c) => c.active)
+        .map((c) => ({ value: c.cEmp, label: `${c.cEmp} - ${c.nombre}` }));
+      setCompanyList(active);
+      setContracts(types);
+      setCEmp((cur) => cur || active[0]?.value || '');
+    })();
+  }, [call]);
+
+  // Áreas, centros de costo y cargos dependen de la empresa elegida.
+  useEffect(() => {
+    if (!cEmp) return;
+    void (async () => {
+      const [a, c, j] = await Promise.all([
+        loadCatalog(call, 'AREA', cEmp),
+        loadCatalog(call, 'CCOSTO', cEmp),
+        loadCatalog(call, 'CARGO', cEmp),
+      ]);
+      if (!a || !c || !j) return setListsError(true);
+      setAreas(a);
+      setCosts(c);
+      setJobs(j);
+    })();
+  }, [call, cEmp]);
+
+  function changeCompany(next: string) {
+    setCEmp(next);
+    // Los códigos de una empresa no valen en otra.
+    setCArea('');
+    setCCos('');
+    setCCar('');
+  }
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -184,6 +269,12 @@ function EmployeeForm({
         cambio queda en el historial con su motivo.
       </p>
       {error ? <Notice kind="error">{error}</Notice> : null}
+      {listsError ? (
+        <Notice kind="error">
+          No se pudieron cargar las listas de empresas, áreas, centros de costo, cargos o tipos de
+          contrato. Cierre y vuelva a abrir el formulario.
+        </Notice>
+      ) : null}
       {issues.length > 0 ? (
         <ul className="alert alert-error" aria-label="Detalle de los errores">
           {issues.map((i) => (
@@ -199,12 +290,13 @@ function EmployeeForm({
           {employee ? null : (
             <Field label="Contrato (N_CONT)" name="nCont" required maxLength={30} />
           )}
-          <Field
+          <SelectField
             label="Empresa (C_EMP)"
             name="cEmp"
-            defaultValue={d?.cEmp ?? ''}
+            value={cEmp}
+            onChange={changeCompany}
+            options={withCurrent(companyList, d?.cEmp ?? '')}
             required
-            maxLength={30}
           />
           <Field
             label="Nombre completo"
@@ -238,26 +330,47 @@ function EmployeeForm({
               { value: 'C', label: 'C - Cancelado' },
             ]}
           />
-          <Field
+          <SelectField
             label="Área (C_AREA)"
             name="cArea"
-            defaultValue={d?.cArea ?? ''}
+            value={cArea}
+            onChange={setCArea}
+            options={[
+              { value: '', label: '- Seleccione un área -' },
+              ...withCurrent(areas, cEmp === d?.cEmp ? (d?.cArea ?? '') : ''),
+            ]}
             required
-            maxLength={30}
           />
-          <Field
+          <SelectField
             label="Centro de costo (C_COS)"
             name="cCos"
-            defaultValue={d?.cCos ?? ''}
-            maxLength={30}
+            value={cCos}
+            onChange={setCCos}
+            options={[
+              { value: '', label: '- Sin centro de costo -' },
+              ...withCurrent(costs, cEmp === d?.cEmp ? (d?.cCos ?? '') : ''),
+            ]}
           />
-          <Field label="Cargo (C_CAR)" name="cCar" defaultValue={d?.cCar ?? ''} maxLength={30} />
-          <Field
+          <SelectField
+            label="Cargo (C_CAR)"
+            name="cCar"
+            value={cCar}
+            onChange={setCCar}
+            options={[
+              { value: '', label: '- Sin cargo -' },
+              ...withCurrent(jobs, cEmp === d?.cEmp ? (d?.cCar ?? '') : ''),
+            ]}
+          />
+          <SelectField
             label="Tipo de contrato"
             name="tipoContrato"
-            defaultValue={d?.tipoContrato ?? ''}
+            value={tipo}
+            onChange={setTipo}
+            options={[
+              { value: '', label: '- Seleccione un tipo de contrato -' },
+              ...withCurrent(contracts, d?.tipoContrato ?? ''),
+            ]}
             required
-            maxLength={30}
           />
           <Field
             label="Fecha de inicio"
