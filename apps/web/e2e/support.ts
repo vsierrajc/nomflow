@@ -6,6 +6,11 @@ import { Client } from 'pg';
 
 export const TEST_DB =
   process.env.E2E_DATABASE_URL ?? 'postgresql://nomflow:nomflow@localhost:5432/nomflow_test';
+if (!/_test$/.test(new URL(TEST_DB).pathname.replace(/^\//, ''))) {
+  throw new Error(
+    'Las pruebas de navegador vacían tablas: E2E_DATABASE_URL debe terminar en _test.',
+  );
+}
 export const MAILPIT = process.env.MAILPIT_URL ?? 'http://localhost:8025';
 export const API = 'http://localhost:4100';
 export const ADMIN = { email: 'admin@e2e.test', password: 'Admin-E2E-Segura-1' };

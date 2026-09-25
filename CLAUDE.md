@@ -15,7 +15,7 @@ DATABASE_URL=postgresql://nomflow:nomflow@localhost:5432/nomflow_test \
   npm run format:check && npm run lint && npm run typecheck && npm run build && npm test && npm run audit:deps
 ```
 
-- Las pruebas vacían las tablas: usar **siempre** la base `nomflow_test`, nunca `nomflow`.
+- Las pruebas vacían las tablas: usar **siempre** la base `nomflow_test`, nunca `nomflow`. Un `DATABASE_URL=… cmd1 && cmd2` solo afecta a `cmd1`: exportar la variable (`export DATABASE_URL=…`) para toda la cadena. Las pruebas se niegan a correr si la base no termina en `_test`.
 - Correr `npx prettier --write .` antes de `format:check` (incluye migraciones generadas).
 
 ## Datos y secretos
