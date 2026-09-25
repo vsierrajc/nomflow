@@ -6,6 +6,7 @@ export default defineConfig({
   test: {
     include: ['src/**/*.spec.ts'],
     fileParallelism: false,
+    setupFiles: ['./vitest.guard.ts'],
     env: { SESSION_SECRET: 'test-secret-test-secret-test-secret-1234' },
   },
 });
