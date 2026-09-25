@@ -22,7 +22,8 @@ const code = async (p: Promise<unknown>) => {
 };
 
 describe.skipIf(!config)('Garage real (API S3)', () => {
-  const raw = new S3ObjectStore(config as NonNullable<typeof config>);
+  // Perezoso: el cuerpo del describe se ejecuta aunque esté omitido y sin config no hay cliente.
+  const raw = config ? new S3ObjectStore(config) : (null as unknown as S3ObjectStore);
   const store = new EncryptedObjectStore(raw, SECRET);
 
   it('guarda y recupera; un objeto inexistente es null', async () => {
