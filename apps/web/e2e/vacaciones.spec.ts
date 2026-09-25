@@ -178,7 +178,8 @@ test.describe('períodos de vacaciones (PROG_VAC) y festivos', () => {
     await page
       .getByRole('button', { name: new RegExp(`Publicar calendario ${year}, versión 1`) })
       .click();
-    await expect(page.getByText('Calendario publicado.')).toBeVisible();
+    // El párrafo de ayuda también termina en «calendario publicado.»: se apunta al aviso, no a ese texto.
+    await expect(page.getByText('Calendario publicado. La versión anterior')).toBeVisible();
     await page
       .getByRole('button', {
         name: new RegExp(`Ver los festivos del calendario ${year}, versión 1`),
