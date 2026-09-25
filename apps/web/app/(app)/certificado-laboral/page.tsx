@@ -21,6 +21,7 @@ interface Item {
   docCode: string;
   docVersion: string;
   createdAt: string;
+  signatureMode?: string | null;
   archived?: boolean;
 }
 
@@ -201,6 +202,7 @@ export default function LaborCertificatePage() {
                   <span className="muted">
                     {' '}
                     - {fmt.format(new Date(c.createdAt))} - {c.docCode} v{c.docVersion}
+                    {c.signatureMode?.includes('DIGITAL') ? ' - Firmado digitalmente' : ''}
                     {c.archived
                       ? ' - Archivo histórico: la descarga puede tardar unos segundos.'
                       : ''}

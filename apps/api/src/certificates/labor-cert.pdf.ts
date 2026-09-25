@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit';
+import { addSignaturePlaceholder } from './digital-signature';
 
 export interface LaborCertPdfData {
   /** Referencia corta para rastrear la emisión en el historial. */
@@ -16,6 +17,8 @@ export interface LaborCertPdfData {
   signer: { name: string; title: string; signature: Buffer | null } | null;
   footerLines: string[];
   issuedAt: Date;
+  /** Si se firma digitalmente, el PDF lleva un espacio reservado para la firma criptográfica. */
+  digital?: { reason: string; name: string; location: string; contact: string } | undefined;
   /** Marca de agua «VISTA PREVIA» para el ensayo del administrador. */
   preview?: boolean;
 }
@@ -128,6 +131,17 @@ export function renderLaborCertificatePdf(
         .fillColor('#111111')
         .text(d.signer.name, LEFT, lineY + 4, { width: 300 });
       doc.font('Helvetica').fontSize(9).text(d.signer.title, LEFT, doc.y, { width: 300 });
+      if (d.digital)
+        doc
+          .font('Helvetica-Oblique')
+          .fontSize(7.5)
+          .fillColor('#555555')
+          .text(
+            'Documento firmado digitalmente. Verifique la firma en su lector de PDF.',
+            LEFT,
+            doc.y + 2,
+            { width: 320 },
+          );
     }
 
     // Pie: datos de la empresa y referencia. Se escribe dentro del margen inferior sin abrir otra página.
@@ -160,6 +174,7 @@ export function renderLaborCertificatePdf(
       doc.text('VISTA PREVIA', 90, 400, { lineBreak: false });
       doc.restore();
     }
+    if (d.digital) addSignaturePlaceholder(doc, d.digital);
     doc.end();
   });
 }

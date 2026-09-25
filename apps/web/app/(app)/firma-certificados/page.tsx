@@ -14,6 +14,12 @@ interface Mine {
   active: boolean;
   enrolled: boolean;
   consentAt: string | null;
+  digital: boolean;
+  digitalExpired: boolean;
+  digitalSubject: string | null;
+  digitalFingerprint: string | null;
+  digitalNotAfter: string | null;
+  digitalOrigin: 'AUTOFIRMADO' | 'CARGADO' | null;
 }
 
 const ERRORS: Record<string, string> = {
@@ -22,6 +28,10 @@ const ERRORS: Record<string, string> = {
   TOO_LARGE: 'La imagen supera los 300 KB.',
   CONSENT_REQUIRED: 'Debe marcar la autorización para cargar su firma.',
   NOT_A_SIGNER: 'No está designado como firmante de esa empresa.',
+  INVALID_P12: 'El archivo no es un certificado .p12/.pfx válido con su clave privada.',
+  WRONG_PASSPHRASE: 'La clave del archivo es incorrecta.',
+  EXPIRED_CERT: 'Ese certificado ya está vencido.',
+  WEAK_KEY: 'La clave del certificado es débil (se exigen 2048 bits o más).',
 };
 
 export default function SignerPage() {
@@ -40,6 +50,35 @@ export default function SignerPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function digitalUpload(id: string, e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    setOk(null);
+    const form = e.currentTarget;
+    const f = new FormData(form);
+    if (!(f.get('file') instanceof File) || (f.get('file') as File).size === 0)
+      return setError('Elija su certificado (.p12 o .pfx).');
+    f.set('consent', f.get('consent') === 'on' ? 'true' : 'false');
+    const res = await send(`/me/certificate-signer/${id}/digital`, f);
+    if (res.status === 200) {
+      setOk('Su firma digital quedó cargada y autorizada.');
+      form.reset();
+      await load();
+    } else if (res.status === 403) setError('Se canceló la confirmación de identidad.');
+    else setError(ERRORS[(res.data as { code?: string } | null)?.code ?? ''] ?? NETWORK_ERROR);
+  }
+
+  async function digitalAction(id: string, path: string, body: object, done: string) {
+    setError(null);
+    setOk(null);
+    const res = await call(`/me/certificate-signer/${id}/${path}`, { method: 'POST', body });
+    if (res.status === 200) {
+      setOk(done);
+      await load();
+    } else if (res.status === 403) setError('Se canceló la confirmación de identidad.');
+    else setError(ERRORS[(res.data as { code?: string } | null)?.code ?? ''] ?? NETWORK_ERROR);
+  }
 
   async function upload(id: string, e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -82,8 +121,8 @@ export default function SignerPage() {
         <section className="panel" key={s.id} aria-label={`Firma como ${s.title}`}>
           <h2>
             {s.title}{' '}
-            <Badge kind={s.enrolled && s.active ? 'ok' : 'warn'}>
-              {!s.active ? 'Inactivo' : s.enrolled ? 'Firma cargada' : 'Falta su firma'}
+            <Badge kind={(s.enrolled || s.digital) && s.active ? 'ok' : 'warn'}>
+              {!s.active ? 'Inactivo' : s.enrolled || s.digital ? 'Puede firmar' : 'Falta su firma'}
             </Badge>
           </h2>
           <p className="muted">
@@ -124,6 +163,94 @@ export default function SignerPage() {
               </span>
             </label>
             <button type="submit">{s.enrolled ? 'Reemplazar mi firma' : 'Cargar mi firma'}</button>
+          </form>
+          <h3>Firma digital criptográfica (opcional)</h3>
+          <p className="muted">
+            Además de la imagen, el PDF puede llevar una firma digital que permite comprobar quién
+            lo firmó y que no fue alterado después. Puede subir su certificado personal (.p12 o
+            .pfx, de una entidad de certificación) o generar un certificado autofirmado de NOMFLOW,
+            útil para pruebas o uso interno: no lo respalda una entidad de certificación acreditada.
+          </p>
+          {s.digital ? (
+            <p>
+              <Badge kind="ok">Firma digital vigente</Badge>{' '}
+              {s.digitalOrigin === 'AUTOFIRMADO'
+                ? 'Certificado autofirmado (pruebas). '
+                : 'Certificado cargado. '}
+              {s.digitalSubject} - vence el{' '}
+              {s.digitalNotAfter ? new Date(s.digitalNotAfter).toLocaleDateString('es-CO') : ''}.{' '}
+              <span className="muted">Huella {s.digitalFingerprint?.slice(0, 16)}…</span>
+            </p>
+          ) : s.digitalExpired ? (
+            <p>
+              <Badge kind="off">Certificado vencido</Badge> Cargue o genere uno nuevo.
+            </p>
+          ) : (
+            <p>
+              <Badge kind="warn">Sin firma digital</Badge>
+            </p>
+          )}
+          <div className="toolbar">
+            <button
+              type="button"
+              className="secondary"
+              onClick={() =>
+                void digitalAction(
+                  s.id,
+                  'digital/generate',
+                  { consent: true },
+                  'Se generó su certificado autofirmado y quedó autorizado.',
+                )
+              }
+            >
+              Generar certificado autofirmado (pruebas)
+            </button>
+            {s.digital ? (
+              <>
+                <a
+                  className="button secondary"
+                  href={`/api/me/certificate-signer/${s.id}/digital/certificate`}
+                  download
+                >
+                  Descargar mi certificado público
+                </a>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() =>
+                    void digitalAction(s.id, 'digital/remove', {}, 'Se retiró su firma digital.')
+                  }
+                >
+                  Retirar firma digital
+                </button>
+              </>
+            ) : null}
+          </div>
+          <form onSubmit={(e) => void digitalUpload(s.id, e)} noValidate>
+            <div className="grid-2">
+              <div className="field">
+                <label htmlFor={`p12-${s.id}`}>Certificado personal (.p12 o .pfx)</label>
+                <input
+                  id={`p12-${s.id}`}
+                  name="file"
+                  type="file"
+                  accept=".p12,.pfx,application/x-pkcs12"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor={`pass-${s.id}`}>Clave del certificado</label>
+                <input id={`pass-${s.id}`} name="passphrase" type="password" autoComplete="off" />
+                <p className="hint">Se guarda cifrada en el servidor y no se vuelve a mostrar.</p>
+              </div>
+            </div>
+            <label className="choice">
+              <input type="checkbox" name="consent" />
+              <span>
+                Autorizo que NOMFLOW firme digitalmente con este certificado los certificados
+                laborales que se emitan mientras yo sea firmante.
+              </span>
+            </label>
+            <button type="submit">Cargar mi certificado digital</button>
           </form>
         </section>
       ))}

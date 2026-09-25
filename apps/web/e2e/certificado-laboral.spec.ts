@@ -121,6 +121,14 @@ test.describe('certificado laboral', () => {
     await expect(pf.getByText('Su firma quedó cargada y autorizada.')).toBeVisible();
     await expect(mine.getByAltText('Su firma actual')).toBeVisible();
 
+    // Firma digital criptográfica en paralelo a la imagen (certificado autofirmado de pruebas).
+    await mine.getByRole('button', { name: 'Generar certificado autofirmado (pruebas)' }).click();
+    await expect(pf.getByText(/Se generó su certificado autofirmado/)).toBeVisible();
+    await expect(mine.getByText('Firma digital vigente')).toBeVisible();
+    await expect(
+      mine.getByRole('link', { name: 'Descargar mi certificado público' }),
+    ).toBeVisible();
+
     // Empleado: elige la modalidad dirigida y genera.
     const pe = pe0;
     await pe
@@ -143,6 +151,7 @@ test.describe('certificado laboral', () => {
     await expect(pe.getByText(/Su certificado se generó/)).toBeVisible();
     const item = pe.getByRole('list').filter({ hasText: 'Dirigido a BANCO EJEMPLO S.A.' });
     await expect(item).toContainText('GH-FO-777 v05');
+    await expect(item).toContainText('Firmado digitalmente');
     const href = await item.getByRole('link', { name: /^Descargar/ }).getAttribute('href');
     const pdf = await pe.request.get(`http://localhost:3100${href}`);
     expect(pdf.status()).toBe(200);
@@ -159,6 +168,10 @@ test.describe('certificado laboral', () => {
     await expect(table).toContainText('BANCO EJEMPLO S.A.');
     await expect(table).toContainText('GH-FO-777 v05');
     await expect(table).toContainText('DIRECTORA DE PRUEBA E2E');
+    await expect(table).toContainText('Imagen y digital');
+    await table.getByRole('button', { name: /Verificar la firma del certificado de/ }).click();
+    await expect(pa.getByText(/Firma digital válida de/)).toBeVisible();
+    await expect(pa.getByText(/certificado es autofirmado/)).toBeVisible();
     await pa.getByLabel(/Buscar por nombre/).fill('no-existe-zzz');
     await pa.getByRole('button', { name: 'Filtrar' }).click();
     await expect(pa.getByText('No hay solicitudes con esos filtros.')).toBeVisible();

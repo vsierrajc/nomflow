@@ -21,6 +21,7 @@ import {
 } from '../db/schema';
 import { MemoryObjectStore } from '../storage/memory-object-store';
 import { OBJECT_STORE } from '../storage/object-store';
+import { generateSelfSigned, verifyPdfSignature } from './digital-signature';
 
 const url = process.env.DATABASE_URL;
 const PASSWORD = 'Clave-Definitiva-1';
@@ -194,6 +195,7 @@ describe.skipIf(!url)('certificado laboral (HTTP + PostgreSQL)', () => {
     city: 'Barranquilla',
     footerText: 'NIT 800.000.000-1\nTel. 605 000 0000',
     maxPerDay: 10,
+    requireDigital: false,
     ...over,
   });
 
@@ -647,5 +649,212 @@ describe.skipIf(!url)('certificado laboral (HTTP + PostgreSQL)', () => {
       signerName: 'PERSONA DIRGH',
       signerTitle: 'Directora de Gestión Humana',
     });
+  });
+
+  /** Firma digital de un firmante: la genera NOMFLOW (autofirmada) con su autorización. */
+  const digitalGenerate = (key: string, id: string, consent = true) =>
+    call(key, 'post', `/me/certificate-signer/${id}/digital/generate`, { consent });
+  const digitalUpload = (
+    key: string,
+    id: string,
+    p12: Buffer,
+    passphrase: string,
+    consent = 'true',
+  ) =>
+    request(srv())
+      .post(`/me/certificate-signer/${id}/digital`)
+      .set('Cookie', sess[key]?.cookie ?? '')
+      .set('X-CSRF-Token', sess[key]?.csrf ?? '')
+      .field('passphrase', passphrase)
+      .field('consent', consent)
+      .attach('file', p12, { filename: 'firma.p12', contentType: 'application/x-pkcs12' });
+  const signerId = async (key: string) =>
+    (await call(key, 'get', '/me/certificate-signer').expect(200)).body[0].id as string;
+  const pdfOf = async (id: string) =>
+    bin(await call('EMP', 'get', `/me/labor-certificates/${id}/pdf`).buffer(true).expect(200));
+
+  it('firma digital criptográfica en paralelo a la imagen: el PDF sale firmado y la firma se verifica', async () => {
+    const sid = await signerId('DIRGH');
+    const gen = await digitalGenerate('DIRGH', sid).expect(200);
+    expect(gen.body).toMatchObject({ selfSigned: true });
+    expect(gen.body.subject).toContain('PERSONA DIRGH');
+    const mine = (await call('DIRGH', 'get', '/me/certificate-signer').expect(200)).body[0];
+    expect(mine).toMatchObject({ enrolled: true, digital: true, digitalOrigin: 'AUTOFIRMADO' });
+    expect(JSON.stringify(mine)).not.toMatch(/PRIVATE|passphrase|digitalEnc/);
+
+    const opts = (await call('EMP', 'get', '/me/labor-certificates/options').expect(200)).body;
+    expect(opts.signers[0]).toMatchObject({ title: 'Directora de Gestión Humana', digital: true });
+    const made = await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL' }).expect(
+      201,
+    );
+    const pdf = await pdfOf(made.body.id);
+    const report = verifyPdfSignature(pdf);
+    expect(report).toMatchObject({
+      signed: true,
+      valid: true,
+      coversWholeFile: true,
+      selfSigned: true,
+    });
+    expect(report.fingerprint).toBe(gen.body.fingerprint);
+    expect(await pdfText(pdf)).toContain('firmado digitalmente');
+    const [row] = await db.select().from(certificateRequests);
+    expect(row).toMatchObject({
+      signatureMode: 'IMAGEN+DIGITAL',
+      signerCertFingerprint: gen.body.fingerprint,
+    });
+    const { createHash } = await import('node:crypto');
+    expect(createHash('sha256').update(pdf).digest('hex')).toBe(row?.sha256); // la huella es la del PDF ya firmado
+
+    for (const r of [
+      (await call('EMP', 'get', `/me/labor-certificates/${made.body.id}/verify`).expect(200)).body,
+      (
+        await call('ADM', 'get', `/admin/labor-certificates/history/${made.body.id}/verify`).expect(
+          200,
+        )
+      ).body,
+    ]) {
+      expect(r).toMatchObject({
+        fileIntact: true,
+        signatureMode: 'IMAGEN+DIGITAL',
+        certificateMatchesRecord: true,
+      });
+      expect(r.digital).toMatchObject({ signed: true, valid: true });
+    }
+    const hist = (await call('ADM', 'get', '/admin/labor-certificates/history').expect(200)).body;
+    expect(hist.items[0].signatureMode).toBe('IMAGEN+DIGITAL');
+    const logs = JSON.stringify(
+      await db.select().from(auditLogs).where(eq(auditLogs.resource, 'certificate_signer')),
+    );
+    expect(logs).toContain('CERT_DIGITAL_ENROLL');
+    expect(logs).not.toMatch(/PRIVATE|passphrase/);
+  });
+
+  it('un archivo alterado en el almacén se detecta: no se entrega y la verificación falla', async () => {
+    await digitalGenerate('DIRGH', await signerId('DIRGH')).expect(200);
+    const made = await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL' }).expect(
+      201,
+    );
+    const [row] = await db.select().from(certificateRequests);
+    const stored = store.objects.get(row?.objectKey ?? '');
+    if (!stored) throw new Error('objeto no guardado');
+    stored.data[stored.data.length - 20] = (stored.data[stored.data.length - 20] ?? 0) ^ 0xff;
+    await call('EMP', 'get', `/me/labor-certificates/${made.body.id}/pdf`).expect(500);
+    await call('EMP', 'get', `/me/labor-certificates/${made.body.id}/verify`).expect(500);
+  });
+
+  it('solo firma digital (sin imagen): sigue siendo un firmante válido', async () => {
+    await db
+      .update(certificateSigners)
+      .set({ signature: null, signatureSha256: null, consentAt: null });
+    expect(
+      (await call('EMP', 'get', '/me/labor-certificates/options').expect(200)).body.signers,
+    ).toEqual([]);
+    await digitalGenerate('DIRGH', await signerId('DIRGH')).expect(200);
+    const made = await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL' }).expect(
+      201,
+    );
+    expect(verifyPdfSignature(await pdfOf(made.body.id))).toMatchObject({
+      signed: true,
+      valid: true,
+    });
+    const [row] = await db.select().from(certificateRequests);
+    expect(row?.signatureMode).toBe('DIGITAL');
+  });
+
+  it('la política «exigir firma digital» deja fuera a quien solo tiene imagen', async () => {
+    await call(
+      'ADM',
+      'put',
+      '/admin/labor-certificates/config/GA/settings',
+      settings({ requireDigital: true }),
+    ).expect(200);
+    expect(
+      (await call('EMP', 'get', '/me/labor-certificates/options').expect(200)).body.signers,
+    ).toEqual([]);
+    await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL' }).expect(409);
+    await digitalGenerate('DIRGH', await signerId('DIRGH')).expect(200);
+    await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL' }).expect(201);
+    // certificado vencido: deja de valer
+    await db.update(certificateSigners).set({ digitalNotAfter: new Date(Date.now() - 86_400_000) });
+    await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL' }).expect(409);
+    await call(
+      'ADM',
+      'put',
+      '/admin/labor-certificates/config/GA/settings',
+      settings({ requireDigital: false }),
+    ).expect(200);
+    const ok = await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL' }).expect(201); // firma con la imagen
+    const [last] = await db
+      .select()
+      .from(certificateRequests)
+      .where(eq(certificateRequests.id, ok.body.id));
+    expect(last?.signatureMode).toBe('IMAGEN');
+  });
+
+  it('carga de un certificado propio (.p12): valida clave, vigencia y autorización', async () => {
+    const sid = await signerId('DIRGH');
+    const pass = 'clave-p12-de-prueba';
+    const mine = generateSelfSigned({
+      name: 'PERSONA DIRGH',
+      organization: 'ENTIDAD',
+      email: 'dirgh@x.co',
+      passphrase: pass,
+    });
+    const expired = generateSelfSigned({
+      name: 'X',
+      organization: 'Y',
+      email: 'x@x.co',
+      passphrase: pass,
+      validity: {
+        from: new Date(Date.now() - 400 * 86_400_000),
+        to: new Date(Date.now() - 86_400_000),
+      },
+    });
+    const up = (p12: Buffer, p: string, consent?: string) =>
+      digitalUpload('DIRGH', sid, p12, p, consent);
+    expect((await up(mine.p12, pass, 'false')).status).toBe(400); // sin autorización
+    expect((await up(mine.p12, 'otra')).body.code).toBe('WRONG_PASSPHRASE');
+    expect((await up(Buffer.from('no es un p12'), pass)).body.code).toBe('INVALID_P12');
+    expect((await up(expired.p12, pass)).body.code).toBe('EXPIRED_CERT');
+    const ok = await up(mine.p12, pass);
+    expect(ok.status).toBe(200);
+    expect(ok.body.fingerprint).toBe(mine.info.fingerprint);
+    expect(
+      (await call('DIRGH', 'get', '/me/certificate-signer').expect(200)).body[0],
+    ).toMatchObject({
+      digital: true,
+      digitalOrigin: 'CARGADO',
+      digitalFingerprint: mine.info.fingerprint,
+    });
+    expect((await digitalUpload('EMP', sid, mine.p12, pass)).status).toBe(404);
+    await call('EMP', 'get', `/me/certificate-signer/${sid}/digital/certificate`).expect(404);
+    await call('ADM', 'get', `/me/certificate-signer/${sid}/digital/certificate`).expect(404);
+    const pem = await call(
+      'DIRGH',
+      'get',
+      `/me/certificate-signer/${sid}/digital/certificate`,
+    ).expect(200);
+    expect(pem.text).toContain('BEGIN CERTIFICATE');
+    expect(pem.text).not.toContain('PRIVATE KEY');
+    const made = await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL' }).expect(
+      201,
+    );
+    expect(verifyPdfSignature(await pdfOf(made.body.id)).fingerprint).toBe(mine.info.fingerprint);
+    await call('DIRGH', 'post', `/me/certificate-signer/${sid}/digital/remove`, {}).expect(200);
+    await call('DIRGH', 'get', `/me/certificate-signer/${sid}/digital/certificate`).expect(404);
+    const again = await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL' }).expect(
+      201,
+    );
+    expect(verifyPdfSignature(await pdfOf(again.body.id)).signed).toBe(false);
+  });
+
+  it('la autorización de la firma digital es obligatoria', async () => {
+    const sid = await signerId('DIRGH');
+    await digitalGenerate('DIRGH', sid, false).expect(400);
+    await call('DIRGH', 'post', `/me/certificate-signer/${sid}/digital/generate`, {}).expect(400);
+    await call('EMP', 'post', `/me/certificate-signer/${sid}/digital/generate`, {
+      consent: true,
+    }).expect(404);
+    expect((await db.select().from(certificateSigners))[0]?.digitalEnc).toBeNull();
   });
 });

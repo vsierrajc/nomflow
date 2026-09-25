@@ -45,15 +45,20 @@ import {
   preview,
   saveSettings,
   saveTemplate,
+  verifyIssued,
 } from './labor-cert.service';
 import {
   MAX_SIGNATURE_BYTES,
   SignerError,
   addSigner,
+  enrollDigitalGenerate,
+  enrollDigitalUpload,
   enrollSignature,
   listSigners,
   mySigners,
+  ownCertificatePem,
   ownSignatureImage,
+  removeDigital,
   updateSigner,
 } from './signers.service';
 import { VARIABLES } from './template-engine';
@@ -76,6 +81,7 @@ function map(e: unknown): never {
     )
       throw new NotFoundException(b);
     if (e.code === 'ALREADY_SIGNER') throw new ConflictException(b);
+    if (e.code === 'NO_DIGITAL') throw new NotFoundException(b);
     throw new BadRequestException(b);
   }
   if (!(e instanceof CertError)) throw e;
@@ -147,6 +153,17 @@ export class MeLaborCertController {
     }
   }
 
+  /** Estado de la firma del certificado: huella del archivo y validez de la firma digital si la lleva. */
+  @Get(':id/verify')
+  @Header('Cache-Control', 'no-store')
+  async verify(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
+    try {
+      return await verifyIssued(this.db, this.store, req.auth.accountId, id, false);
+    } catch (e) {
+      return map(e);
+    }
+  }
+
   @Get(':id/pdf')
   @Header('Cache-Control', 'no-store')
   @Header('X-Content-Type-Options', 'nosniff')
@@ -197,6 +214,77 @@ export class MeCertificateSignerController {
     }
   }
 
+  /** Sube el propio certificado digital (.p12/.pfx) con su clave. */
+  @Post(':id/digital')
+  @HttpCode(200)
+  @UseGuards(RecentAuthGuard)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 64 * 1024 + 1, files: 1 } }))
+  async digitalUpload(
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() body: { passphrase?: string; consent?: string },
+    @Req() req: AuthedRequest,
+  ) {
+    if (!file) throw new BadRequestException({ code: 'INVALID_P12' });
+    try {
+      return await enrollDigitalUpload(
+        this.db,
+        req.auth.accountId,
+        id,
+        file.buffer,
+        body?.passphrase ?? '',
+        body?.consent === 'true',
+      );
+    } catch (e) {
+      return map(e);
+    }
+  }
+
+  /** NOMFLOW genera un certificado autofirmado para pruebas o uso interno. */
+  @Post(':id/digital/generate')
+  @HttpCode(200)
+  @UseGuards(RecentAuthGuard)
+  async digitalGenerate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+    @Req() req: AuthedRequest,
+  ) {
+    const dto = z.object({ consent: z.boolean() }).safeParse(body);
+    if (!dto.success) throw new BadRequestException({ code: 'CONSENT_REQUIRED' });
+    try {
+      return await enrollDigitalGenerate(this.db, req.auth.accountId, id, dto.data.consent);
+    } catch (e) {
+      return map(e);
+    }
+  }
+
+  @Post(':id/digital/remove')
+  @HttpCode(200)
+  @UseGuards(RecentAuthGuard)
+  async digitalRemove(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
+    try {
+      await removeDigital(this.db, req.auth.accountId, id);
+      return { ok: true };
+    } catch (e) {
+      return map(e);
+    }
+  }
+
+  /** Solo el certificado público (.pem), nunca la clave privada. */
+  @Get(':id/digital/certificate')
+  @Header('Cache-Control', 'no-store')
+  async digitalCertificate(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
+    try {
+      const pem = await ownCertificatePem(this.db, req.auth.accountId, id);
+      return new StreamableFile(Buffer.from(pem), {
+        type: 'application/x-pem-file',
+        disposition: 'attachment; filename="certificado-firmante.pem"',
+      });
+    } catch (e) {
+      return map(e);
+    }
+  }
+
   @Get(':id/signature')
   @Header('Cache-Control', 'no-store')
   @Header('X-Content-Type-Options', 'nosniff')
@@ -218,6 +306,7 @@ const SettingsDto = z.object({
   city: z.string().max(80),
   footerText: z.string().max(500),
   maxPerDay: z.number().int(),
+  requireDigital: z.boolean().default(false),
 });
 const TemplateDto = z.object({ title: z.string().max(200), body: z.string().max(8000) });
 const HistoryQuery = z.object({
@@ -268,6 +357,16 @@ export class AdminLaborCertController {
     try {
       const f = await getPdf(this.db, this.store, req.auth.accountId, id, true);
       return pdfResponse(f.data, f.fileName, false);
+    } catch (e) {
+      return map(e);
+    }
+  }
+
+  @Get('history/:id/verify')
+  @Header('Cache-Control', 'no-store')
+  async historyVerify(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
+    try {
+      return await verifyIssued(this.db, this.store, req.auth.accountId, id, true);
     } catch (e) {
       return map(e);
     }

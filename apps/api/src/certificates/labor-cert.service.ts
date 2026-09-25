@@ -13,6 +13,7 @@ import {
 } from '../db/schema';
 import { logoForCompanyCode } from '../org/logos.service';
 import { archivedKeys } from '../storage/archive.service';
+import { signPdf, verifyPdfSignature, type SignatureReport } from './digital-signature';
 import { availableSigners, type AvailableSigner } from './signers.service';
 import { ObjectStoreError, type ObjectStore } from '../storage/object-store';
 import { renderLaborCertificatePdf } from './labor-cert.pdf';
@@ -60,6 +61,8 @@ export interface CertSettingsValues {
   city: string;
   footerText: string;
   maxPerDay: number;
+  /** Solo firman quienes tienen firma digital criptográfica vigente. */
+  requireDigital: boolean;
 }
 
 const FIELD_LABEL: Partial<Record<VariableName, string>> = {
@@ -153,6 +156,7 @@ export async function getSettings(db: Db, cEmp: string): Promise<CertSettingsVal
     city: s.city,
     footerText: s.footerText,
     maxPerDay: s.maxPerDay,
+    requireDigital: s.requireDigital,
   };
 }
 
@@ -329,13 +333,18 @@ export async function optionsFor(db: Db, accountId: string) {
   const s = await getSettings(db, e.cEmp ?? '');
   const company = await companyOf(db, e.cEmp ?? '');
   const kinds: CertKind[] = s.mode === 'AMBOS' ? ['GENERAL', 'DIRIGIDO'] : [s.mode];
-  const signers = await availableSigners(db, e.cEmp ?? '');
+  const signers = await availableSigners(db, e.cEmp ?? '', { requireDigital: s.requireDigital });
   return {
     kinds,
     company: company.nombre,
     maxPerDay: s.maxPerDay,
     /** Quiénes pueden firmar hoy; con más de uno el empleado elige. Sin ninguno no se puede generar. */
-    signers: signers.map((x) => ({ id: x.id, name: x.name, title: x.title })),
+    signers: signers.map((x) => ({
+      id: x.id,
+      name: x.name,
+      title: x.title,
+      digital: x.digital !== null,
+    })),
   };
 }
 
@@ -414,7 +423,7 @@ export async function issue(
   if (n >= s.maxPerDay) throw new CertError('LIMIT_REACHED');
 
   // Firma quien esté disponible; con varios, la persona que eligió el empleado.
-  const candidates = await availableSigners(db, cEmp);
+  const candidates = await availableSigners(db, cEmp, { requireDigital: s.requireDigital });
   if (candidates.length === 0) throw new CertError('NO_SIGNER');
   const signer: AvailableSigner | undefined = input.signerId
     ? candidates.find((c) => c.id === input.signerId)
@@ -431,7 +440,7 @@ export async function issue(
 
   const id = randomUUID();
   const issuedAt = new Date();
-  const pdf = await renderLaborCertificatePdf({
+  const unsigned = await renderLaborCertificatePdf({
     ref: id.slice(0, 8).toUpperCase(),
     title: t.title,
     body,
@@ -441,9 +450,26 @@ export async function issue(
     docVersion: s.docVersion,
     docDate: s.docDate,
     signer: { name: signer.name, title: signer.title, signature: signer.signature },
+    digital: signer.digital
+      ? {
+          reason: 'Certificado laboral',
+          name: signer.name,
+          location: s.city,
+          contact: company.nombre,
+        }
+      : undefined,
     footerLines: footerOf(s),
     issuedAt,
   });
+  // Con firma digital, el PDF definitivo es el firmado: la huella guardada es la de estos bytes.
+  const pdf = signer.digital
+    ? await signPdf(unsigned, signer.digital.p12, signer.digital.passphrase)
+    : unsigned;
+  const signatureMode = signer.digital
+    ? signer.signature
+      ? 'IMAGEN+DIGITAL'
+      : 'DIGITAL'
+    : 'IMAGEN';
   const objectKey = `labor-certificates/${id}.pdf`;
   await store.put(objectKey, pdf, 'application/pdf');
   // Copia de lo que dice el documento: nombre e identificación siempre, más las variables que usó la plantilla.
@@ -469,6 +495,8 @@ export async function issue(
     signerName: signer.name,
     signerTitle: signer.title,
     signatureSha256: signer.signatureSha256,
+    signatureMode,
+    signerCertFingerprint: signer.digital?.fingerprint ?? null,
     snapshot: used,
     objectKey,
     sha256: createHash('sha256').update(pdf).digest('hex'),
@@ -480,6 +508,7 @@ export async function issue(
     templateVersion: t.version,
     docCode: s.docCode,
     signer: signer.accountId,
+    signatureMode,
   });
   return { id, kind, createdAt: issuedAt, docCode: s.docCode, docVersion: s.docVersion };
 }
@@ -550,6 +579,7 @@ export async function listMine(db: Db, accountId: string) {
       docVersion: certificateRequests.docVersion,
       createdAt: certificateRequests.createdAt,
       sizeBytes: certificateRequests.sizeBytes,
+      signatureMode: certificateRequests.signatureMode,
       objectKey: certificateRequests.objectKey,
     })
     .from(certificateRequests)
@@ -610,6 +640,7 @@ export async function adminHistory(db: Db, q: HistoryQuery) {
       templateVersion: certificateRequests.templateVersion,
       signerName: certificateRequests.signerName,
       signerTitle: certificateRequests.signerTitle,
+      signatureMode: certificateRequests.signatureMode,
       sizeBytes: certificateRequests.sizeBytes,
     })
     .from(certificateRequests)
@@ -656,5 +687,34 @@ export async function getPdf(
   return {
     data,
     fileName: `certificado-laboral-${r.nIde}-${r.createdAt.toISOString().slice(0, 10)}.pdf`,
+  };
+}
+
+/** Verifica un certificado emitido: huella del archivo guardado y, si lleva firma digital, su validez criptográfica. */
+export async function verifyIssued(
+  db: Db,
+  store: ObjectStore,
+  viewerId: string,
+  id: string,
+  asAdmin: boolean,
+) {
+  const f = await getPdf(db, store, viewerId, id, asAdmin); // comprueba dueño/administrador y la huella del archivo
+  const [r] = await db
+    .select({
+      mode: certificateRequests.signatureMode,
+      fingerprint: certificateRequests.signerCertFingerprint,
+      signerName: certificateRequests.signerName,
+    })
+    .from(certificateRequests)
+    .where(eq(certificateRequests.id, id));
+  const report: SignatureReport = verifyPdfSignature(f.data);
+  return {
+    fileIntact: true,
+    signatureMode: r?.mode ?? null,
+    signerName: r?.signerName ?? null,
+    digital: report,
+    /** El certificado que firmó es el que se registró al emitir. */
+    certificateMatchesRecord:
+      report.signed && r?.fingerprint ? report.fingerprint === r.fingerprint : null,
   };
 }

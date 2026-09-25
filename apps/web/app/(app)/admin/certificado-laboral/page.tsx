@@ -16,6 +16,7 @@ interface Settings {
   city: string;
   footerText: string;
   maxPerDay: number;
+  requireDigital: boolean;
 }
 
 interface Template {
@@ -46,6 +47,9 @@ interface Signer {
   tier: 'PRINCIPAL' | 'RESPALDO';
   active: boolean;
   enrolled: boolean;
+  hasImage: boolean;
+  hasDigital: boolean;
+  digitalOrigin: 'AUTOFIRMADO' | 'CARGADO' | null;
   email: string;
   status: string;
 }
@@ -165,7 +169,14 @@ function SignersSection({ cEmp }: { cEmp: string }) {
                     ) : s.status !== 'ACTIVA' ? (
                       <Badge kind="warn">Cuenta sin activar</Badge>
                     ) : s.enrolled ? (
-                      <Badge kind="ok">Firma cargada</Badge>
+                      <>
+                        {s.hasImage ? <Badge kind="ok">Imagen</Badge> : null}{' '}
+                        {s.hasDigital ? (
+                          <Badge kind="ok">
+                            Digital{s.digitalOrigin === 'AUTOFIRMADO' ? ' (autofirmada)' : ''}
+                          </Badge>
+                        ) : null}
+                      </>
                     ) : (
                       <Badge kind="warn">Falta su firma</Badge>
                     )}
@@ -411,6 +422,7 @@ export default function LaborCertificateAdminPage() {
           city: v('city'),
           footerText: String(f.get('footerText') ?? '').trim(),
           maxPerDay: Number(f.get('maxPerDay')),
+          requireDigital: f.get('requireDigital') === 'on',
         },
       },
     );
@@ -508,6 +520,14 @@ export default function LaborCertificateAdminPage() {
                   required
                 />
               </div>
+              <label className="choice">
+                <input type="checkbox" name="requireDigital" defaultChecked={s.requireDigital} />
+                <span>
+                  Exigir firma digital criptográfica: solo firman quienes tengan un certificado
+                  digital vigente (recomendado en producción con certificados de una entidad de
+                  certificación).
+                </span>
+              </label>
               <div className="field">
                 <label htmlFor="footerText">Datos de la empresa para el pie de página</label>
                 <textarea

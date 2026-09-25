@@ -18,6 +18,7 @@ interface Row {
   templateVersion: number;
   signerName: string | null;
   signerTitle: string | null;
+  signatureMode: string | null;
 }
 
 interface Page {
@@ -25,6 +26,43 @@ interface Page {
   page: number;
   pageSize: number;
   items: Row[];
+}
+
+const MODE: Record<string, string> = {
+  IMAGEN: 'Imagen',
+  DIGITAL: 'Digital',
+  'IMAGEN+DIGITAL': 'Imagen y digital',
+};
+
+interface Check {
+  fileIntact: boolean;
+  signatureMode: string | null;
+  certificateMatchesRecord: boolean | null;
+  digital: {
+    signed: boolean;
+    valid: boolean;
+    coversWholeFile: boolean;
+    signer?: string;
+    selfSigned?: boolean;
+    reason?: string;
+  };
+}
+
+function summary(c: Check): { kind: 'ok' | 'warn' | 'error'; text: string } {
+  if (!c.digital.signed)
+    return {
+      kind: 'warn',
+      text: 'Archivo íntegro. Este certificado lleva la firma como imagen, sin firma digital criptográfica.',
+    };
+  if (!c.digital.valid)
+    return {
+      kind: 'error',
+      text: `La firma digital NO es válida: ${c.digital.reason ?? 'el documento cambió después de firmar'}.`,
+    };
+  return {
+    kind: c.digital.selfSigned ? 'warn' : 'ok',
+    text: `Firma digital válida de ${c.digital.signer}. El documento no cambió desde que se firmó${c.digital.coversWholeFile ? '' : ' (hay contenido añadido después de la firma)'}.${c.digital.selfSigned ? ' El certificado es autofirmado: no lo respalda una entidad de certificación.' : ''}${c.certificateMatchesRecord === false ? ' ATENCIÓN: el certificado no es el registrado al emitir.' : ''}`,
+  };
 }
 
 export default function IssuedCertificatesPage() {
@@ -36,6 +74,9 @@ export default function IssuedCertificatesPage() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [page, setPage] = useState(1);
+  const [checked, setChecked] = useState<{ kind: 'ok' | 'warn' | 'error'; text: string } | null>(
+    null,
+  );
 
   const load = useCallback(async () => {
     const qs = new URLSearchParams({ page: String(page), pageSize: '25' });
@@ -63,6 +104,19 @@ export default function IssuedCertificatesPage() {
     setPage(1);
   }
 
+  async function check(row: Row) {
+    setError(null);
+    setChecked(null);
+    const res = await call<Check>(`/admin/labor-certificates/history/${row.id}/verify`);
+    if (res.status === 200 && res.data) setChecked(summary(res.data));
+    else if (res.status === 500)
+      setChecked({
+        kind: 'error',
+        text: 'El archivo guardado no coincide con su huella: fue alterado o se perdió. No se entrega.',
+      });
+    else setError('No se pudo verificar.');
+  }
+
   async function open(row: Row) {
     setError(null);
     const res = await download(`/admin/labor-certificates/history/${row.id}/pdf`);
@@ -82,6 +136,7 @@ export default function IssuedCertificatesPage() {
         descarga queda en la auditoría.
       </p>
       {error ? <Notice kind="error">{error}</Notice> : null}
+      {checked ? <Notice kind={checked.kind}>{checked.text}</Notice> : null}
       <form className="filters" onSubmit={filter} noValidate>
         <Field
           label="Buscar por nombre, identificación o destinatario"
@@ -132,6 +187,7 @@ export default function IssuedCertificatesPage() {
                   <th scope="col">Dirigido a</th>
                   <th scope="col">Formato</th>
                   <th scope="col">Firmó</th>
+                  <th scope="col">Firma</th>
                   <th scope="col">Acciones</th>
                 </tr>
               </thead>
@@ -151,6 +207,7 @@ export default function IssuedCertificatesPage() {
                       {r.signerName ?? '-'}
                       {r.signerTitle ? <span className="muted"> ({r.signerTitle})</span> : null}
                     </td>
+                    <td>{MODE[r.signatureMode ?? ''] ?? '-'}</td>
                     <td>
                       <button
                         type="button"
@@ -159,6 +216,14 @@ export default function IssuedCertificatesPage() {
                         aria-label={`Abrir el certificado de ${r.nombre ?? r.nIde} del ${formatDate(r.createdAt)}`}
                       >
                         Abrir PDF
+                      </button>{' '}
+                      <button
+                        type="button"
+                        className="secondary small"
+                        onClick={() => void check(r)}
+                        aria-label={`Verificar la firma del certificado de ${r.nombre ?? r.nIde}`}
+                      >
+                        Verificar firma
                       </button>
                     </td>
                   </tr>

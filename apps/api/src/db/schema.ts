@@ -965,6 +965,8 @@ export const certificateSettings = pgTable('certificate_settings', {
   footerText: text('footer_text').notNull().default(''),
   /** Máximo de certificados que un empleado puede generar por día. */
   maxPerDay: integer('max_per_day').notNull().default(10),
+  /** Si es verdadero, solo pueden firmar quienes tengan firma digital criptográfica vigente. */
+  requireDigital: boolean('require_digital').notNull().default(false),
   updatedBy: uuid('updated_by').references(() => accounts.id),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -1017,6 +1019,14 @@ export const certificateSigners = pgTable(
     signatureSha256: text('signature_sha256'),
     /** Cuándo la persona cargó su firma y autorizó su uso en los certificados. */
     consentAt: timestamp('consent_at', { withTimezone: true }),
+    /** Firma digital criptográfica: PKCS#12 y clave, cifrados con la clave de ajustes del sistema. */
+    digitalEnc: text('digital_enc'),
+    digitalSubject: text('digital_subject'),
+    digitalFingerprint: text('digital_fingerprint'),
+    digitalNotAfter: timestamp('digital_not_after', { withTimezone: true }),
+    /** AUTOFIRMADO (generado por NOMFLOW, para pruebas) o CARGADO (de una entidad de certificación). */
+    digitalOrigin: text('digital_origin'),
+    digitalConsentAt: timestamp('digital_consent_at', { withTimezone: true }),
     createdBy: uuid('created_by').references(() => accounts.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -1048,6 +1058,9 @@ export const certificateRequests = pgTable(
     signerName: text('signer_name'),
     signerTitle: text('signer_title'),
     signatureSha256: text('signature_sha256'),
+    /** IMAGEN, DIGITAL o IMAGEN+DIGITAL, y la huella del certificado con que se firmó digitalmente. */
+    signatureMode: text('signature_mode'),
+    signerCertFingerprint: text('signer_cert_fingerprint'),
     /** Valores con los que se generó el documento (copia: un cambio posterior no lo altera). */
     snapshot: jsonb('snapshot').notNull(),
     objectKey: text('object_key').notNull(),

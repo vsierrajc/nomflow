@@ -106,6 +106,8 @@ Interfaz de módulos futuros (solicitudes, aprobaciones, documentos): ver `docs/
 17. **`docker compose down` y los volúmenes**: PostgreSQL debe tener un volumen con nombre (`pgdata`). Con uno anónimo, `down` deja los datos huérfanos y `up` crea una base vacía. Y `npm run build` con la aplicación en marcha rompe las páginas («This page couldn't load»): reiniciar con `./iniciar_app.sh`.
 18. Integrar PR sin revisión de otra persona lo bloquea el clasificador de permisos salvo instrucción explícita del usuario y regla de permisos.
 
+- **Firma digital de certificados laborales**: los `.p12` de los firmantes se guardan cifrados con `SETTINGS_ENCRYPTION_KEY` (o `SESSION_SECRET`); cambiar esa clave los deja inservibles. `@signpdf/placeholder-plain` NO se usa (arrastra un pdfkit antiguo con `crypto-js` vulnerable): el espacio de firma lo reserva `apps/api/src/certificates/digital-signature.ts`. El campo `/Contents` lleva relleno de ceros: se recorta por el largo del DER, nunca quitando ceros del final.
+
 ## 9. Cierre de una tarea (definición de terminado)
 
 Criterios de aceptación cumplidos, pruebas para los riesgos reales, la verificación de §1 en verde, PR integrado, `docs/CHANGELOG.md`, `docs/traceability.md`, `docs/STATUS.md` y una bitácora nueva en `docs/sessions/`, y **este archivo actualizado**.
