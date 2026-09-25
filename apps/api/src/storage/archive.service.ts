@@ -17,7 +17,7 @@ import {
   type ArchiveSettingsInput,
   type DbColdStoreProvider,
 } from './archive-settings.service';
-import type { DeletableObjectStore } from './object-store';
+import { ObjectStoreError, type DeletableObjectStore } from './object-store';
 import { COLD_PROVIDER, RAW_HOT_STORE } from './storage.module';
 
 const BATCH = 200;
@@ -29,6 +29,34 @@ export interface ArchiveRunResult {
   deletedLocal: number;
   failed: number;
   errors: string[];
+}
+
+export type ArchiveTestCode =
+  | 'OK'
+  | 'NOT_CONFIGURED'
+  | 'MISMATCH'
+  | 'UNAVAILABLE'
+  /** El servicio reconoce las claves pero no permite operar en el bucket (faltan permisos). */
+  | 'ACCESS_DENIED'
+  /** Las claves no coinciden o no existen. */
+  | 'INVALID_KEYS'
+  | 'NO_SUCH_BUCKET'
+  /** No se llegó al servicio: dirección, DNS, red o salida a internet. */
+  | 'UNREACHABLE';
+
+/** Traduce el error del servicio de objetos a un motivo que el administrador pueda corregir. */
+export function explain(e: unknown): ArchiveTestCode {
+  const d = e instanceof ObjectStoreError ? e.detail : undefined;
+  if (!d) return 'UNAVAILABLE';
+  if (d.name === 'NoSuchBucket' || d.status === 404) return 'NO_SUCH_BUCKET';
+  if (
+    ['SignatureDoesNotMatch', 'InvalidAccessKeyId', 'InvalidSecurity'].includes(d.name) ||
+    d.status === 401
+  )
+    return 'INVALID_KEYS';
+  if (d.name === 'AccessDenied' || d.status === 403) return 'ACCESS_DENIED';
+  if (d.status === undefined) return 'UNREACHABLE';
+  return 'UNAVAILABLE';
 }
 
 export class ArchiveError extends Error {
@@ -147,8 +175,8 @@ export class ArchiveService {
     };
   }
 
-  /** Prueba la conexión: escribe, lee, compara y borra un objeto de prueba. Devuelve un código de error. */
-  async test(): Promise<'OK' | 'NOT_CONFIGURED' | 'UNAVAILABLE' | 'MISMATCH'> {
+  /** Prueba la conexión: escribe, lee, compara y borra un objeto de prueba. Devuelve un código que explica el fallo. */
+  async test(): Promise<ArchiveTestCode> {
     this.cold.invalidate();
     const cold = await this.cold.get();
     if (!cold) return 'NOT_CONFIGURED';
@@ -159,8 +187,8 @@ export class ArchiveService {
       const back = await cold.get(key);
       await cold.delete(key);
       return back && back.equals(data) ? 'OK' : 'MISMATCH';
-    } catch {
-      return 'UNAVAILABLE';
+    } catch (e) {
+      return explain(e);
     }
   }
 
@@ -246,7 +274,9 @@ export class ArchiveService {
         out.copied += 1;
       } catch (e) {
         out.failed += 1;
-        out.errors.push(`${c.key}: ${(e as Error).message}`);
+        out.errors.push(
+          `${c.key}: ${e instanceof ObjectStoreError ? explain(e) : (e as Error).message}`,
+        );
       }
     }
   }
@@ -294,7 +324,9 @@ export class ArchiveService {
         out.deletedLocal += 1;
       } catch (e) {
         out.failed += 1;
-        out.errors.push(`${r.objectKey}: ${(e as Error).message}`);
+        out.errors.push(
+          `${r.objectKey}: ${e instanceof ObjectStoreError ? explain(e) : (e as Error).message}`,
+        );
       }
     }
   }

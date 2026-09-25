@@ -10,7 +10,11 @@ export type ObjectStoreErrorCode =
   | 'INTEGRITY';
 
 export class ObjectStoreError extends Error {
-  constructor(readonly code: ObjectStoreErrorCode) {
+  constructor(
+    readonly code: ObjectStoreErrorCode,
+    /** Motivo que dio el servicio (nombre y estado HTTP), sin datos sensibles: sirve para explicar el fallo. */
+    readonly detail?: { name: string; status: number | undefined },
+  ) {
     super(code);
   }
 }

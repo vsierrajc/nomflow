@@ -46,7 +46,7 @@ test.describe('archivo histórico en la nube', () => {
 
     await page.getByRole('button', { name: 'Probar conexión' }).click();
     await expect(
-      page.locator('p[role="alert"]', { hasText: 'No se pudo conectar con el bucket' }),
+      page.locator('p[role="alert"]', { hasText: 'No se pudo llegar al servicio' }),
     ).toBeVisible({ timeout: 30_000 });
   });
 

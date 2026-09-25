@@ -19,7 +19,7 @@ import {
 } from '../db/schema';
 import { COLD_STORE_FACTORY } from './archive-settings.service';
 import { MemoryObjectStore } from './memory-object-store';
-import { OBJECT_STORE, type ObjectStore } from './object-store';
+import { OBJECT_STORE, ObjectStoreError, type ObjectStore } from './object-store';
 import { RAW_HOT_STORE } from './storage.module';
 
 const url = process.env.DATABASE_URL;
@@ -31,7 +31,14 @@ const DAY = 86_400_000;
 /** «Nube» de pruebas que puede corromper lo que recibe. */
 class FakeCloud extends MemoryObjectStore {
   corrupt = false;
+  /** Simula la respuesta de error del servicio (nombre y estado HTTP), como Google. */
+  fail: { name: string; status: number | undefined } | null = null;
+  override get(key: string) {
+    if (this.fail) return Promise.reject(new ObjectStoreError('UNAVAILABLE', this.fail));
+    return super.get(key);
+  }
   override put(key: string, data: Buffer, contentType?: string) {
+    if (this.fail) return Promise.reject(new ObjectStoreError('UNAVAILABLE', this.fail));
     const d = Buffer.from(data);
     if (this.corrupt && d.length > 0) d[d.length - 1] = (d[d.length - 1] ?? 0) ^ 0xff;
     return super.put(key, d, contentType);
@@ -133,6 +140,7 @@ describe.skipIf(!url)('archivo histórico en la nube (HTTP + PostgreSQL)', () =>
     cloud.objects.clear();
     cloud.down = false;
     cloud.corrupt = false;
+    cloud.fail = null;
     await db.execute(
       sql`TRUNCATE archived_objects, archive_settings, tax_certificates, audit_logs, sessions, role_assignments, accounts, employee_snapshots CASCADE`,
     );
@@ -261,5 +269,30 @@ describe.skipIf(!url)('archivo histórico en la nube (HTTP + PostgreSQL)', () =>
     const r = await call(adm, 'post', '/admin/archive/test').expect(502);
     expect(r.body.code).toBe('UNAVAILABLE');
     expect(hot.objects.size).toBe(1);
+  });
+
+  it('la prueba de conexión explica el motivo: permisos, claves, bucket o red', async () => {
+    await call(adm, 'put', '/admin/archive/settings', settings()).expect(200);
+    const cases: [{ name: string; status: number | undefined }, number, string][] = [
+      [{ name: 'AccessDenied', status: 403 }, 502, 'ACCESS_DENIED'],
+      [{ name: 'SignatureDoesNotMatch', status: 403 }, 502, 'INVALID_KEYS'],
+      [{ name: 'InvalidAccessKeyId', status: 403 }, 502, 'INVALID_KEYS'],
+      [{ name: 'NoSuchBucket', status: 404 }, 502, 'NO_SUCH_BUCKET'],
+      [{ name: 'TimeoutError', status: undefined }, 502, 'UNREACHABLE'],
+      [{ name: 'InternalError', status: 500 }, 502, 'UNAVAILABLE'],
+    ];
+    for (const [detail, status, code] of cases) {
+      cloud.fail = detail;
+      const r = await call(adm, 'post', '/admin/archive/test').expect(status);
+      expect(r.body.code, detail.name).toBe(code);
+    }
+    cloud.fail = null;
+    await call(adm, 'post', '/admin/archive/test').expect(200);
+    // en el archivado, el fallo por permisos se cuenta y se explica
+    await certificate(2023, 400);
+    cloud.fail = { name: 'AccessDenied', status: 403 };
+    const run1 = await run().expect(200);
+    expect(run1.body).toMatchObject({ copied: 0, failed: 1 });
+    expect(run1.body.errors[0]).toContain('ACCESS_DENIED');
   });
 });
