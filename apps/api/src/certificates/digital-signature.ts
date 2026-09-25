@@ -167,10 +167,10 @@ export async function inspectP12(
       /password|mac/i.test((e as Error).message) ? 'WRONG_PASSPHRASE' : 'INVALID_P12',
     );
   }
-  const SHROUDED_KEY_BAG = forge.pki.oids.pkcs8ShroudedKeyBag ?? '';
-  const CERT_OID = forge.pki.oids.certBag ?? '';
-  const keyBags = parsed.getBags({ bagType: SHROUDED_KEY_BAG })[SHROUDED_KEY_BAG] ?? [];
-  const certBags = parsed.getBags({ bagType: CERT_OID })[CERT_OID] ?? [];
+  const bagsOf = (oid: string | undefined) =>
+    oid ? (parsed.getBags({ bagType: oid })[oid] ?? []) : [];
+  const keyBags = bagsOf(forge.pki.oids.pkcs8ShroudedKeyBag);
+  const certBags = bagsOf(forge.pki.oids.certBag);
   const key = keyBags[0]?.key as forge.pki.rsa.PrivateKey | undefined;
   const cert = certBags
     .map((b: forge.pkcs12.Bag) => b.cert)

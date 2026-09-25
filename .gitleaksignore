@@ -2,3 +2,4 @@
 a0a9f7fce2331882a1545f85e916950ae891335e:README.md:generic-api-key:109
 # Identificador OID de una bolsa PKCS#12 (constante pública de la librería), no un secreto: falso positivo
 6a8ff67e35c0213a79520e86bd35cea5f7517def:apps/api/src/certificates/digital-signature.ts:generic-api-key:170
+09d26d6c15a3189adba92882ffa0adeaf2082a12:apps/api/src/certificates/digital-signature.ts:generic-api-key:170
