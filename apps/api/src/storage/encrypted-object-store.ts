@@ -50,7 +50,7 @@ export class EncryptedObjectStore implements ObjectStore {
   }
 }
 
-/** Clave de cifrado: OBJECT_ENCRYPTION_KEY o, si falta, derivada de SESSION_SECRET. */
+/** Clave de cifrado: solo OBJECT_ENCRYPTION_KEY (nunca SESSION_SECRET: rotar una no debe inutilizar la otra). */
 export function objectEncryptionSecret(env: NodeJS.ProcessEnv = process.env): string {
-  return env.OBJECT_ENCRYPTION_KEY || env.SESSION_SECRET || '';
+  return env.OBJECT_ENCRYPTION_KEY || '';
 }

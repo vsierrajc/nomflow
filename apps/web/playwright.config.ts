@@ -20,6 +20,8 @@ function objectStoreEnv(): Record<string, string> {
     const v = pick(k);
     if (v) out[k] = v;
   }
+  out.OBJECT_ENCRYPTION_KEY =
+    pick('OBJECT_ENCRYPTION_KEY') || 'e2e-object-key-e2e-object-key-12345';
   out.S3_BUCKET = pick('S3_TEST_BUCKET') || 'nomflow-test'; // nunca el bucket de desarrollo
   return out;
 }

@@ -117,6 +117,23 @@ describe('configuración del almacén', () => {
     expect(await code(store.get('k'))).toBe('NOT_CONFIGURED');
   });
 
+  it('sin OBJECT_ENCRYPTION_KEY (aunque haya SESSION_SECRET) el almacén queda sin configurar', () => {
+    const base = {
+      S3_ENDPOINT: 'http://localhost:3900',
+      S3_BUCKET: 'nomflow-private',
+      S3_ACCESS_KEY_ID: 'GKabc',
+      S3_SECRET_ACCESS_KEY: 'secreto',
+      SESSION_SECRET: 'x'.repeat(48),
+    };
+    expect(createObjectStore(base)).toBeInstanceOf(UnconfiguredObjectStore);
+    expect(createObjectStore({ ...base, OBJECT_ENCRYPTION_KEY: 'corta' })).toBeInstanceOf(
+      UnconfiguredObjectStore,
+    );
+    expect(
+      createObjectStore({ ...base, OBJECT_ENCRYPTION_KEY: 'k'.repeat(40) }),
+    ).not.toBeInstanceOf(UnconfiguredObjectStore);
+  });
+
   it('con las variables, usa la región garage por omisión', () => {
     const cfg = s3ConfigFromEnv({
       S3_ENDPOINT: 'http://localhost:3900',
