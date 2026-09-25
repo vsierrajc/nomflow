@@ -85,6 +85,8 @@ Interfaz de módulos futuros (solicitudes, aprobaciones, documentos): ver `docs/
 
 ## 8. Trampas conocidas (ya costaron tiempo)
 
+- **Salud del sistema**: el ciclo de verificación corre dentro de la API (cada `checkIntervalMin`, primera a los 30 s); se desactiva con `HEALTH_MONITOR=off` (las pruebas e2e lo hacen) y no corre en `NODE_ENV=test`. Sin `GARAGE_ADMIN_TOKEN` el espacio se reporta como aviso «no se pudo medir». Si el correo no está configurado, las alertas solo quedan en pantalla e historial.
+
 1. **Las pruebas vacían las tablas.** Nunca apuntar `DATABASE_URL` a `nomflow`.
 2. Ejecutar `npx prettier --write .` antes de `format:check`: los metadatos de migraciones generados no cumplen el formato. Prettier también reajusta líneas y rompe reemplazos automáticos de texto.
 3. Drizzle: dentro de una subconsulta escrita con `sql`, las columnas de la tabla externa salen sin calificar y se comparan consigo mismas. Usar alias explícitos.

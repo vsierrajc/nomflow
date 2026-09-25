@@ -32,9 +32,10 @@ import {
   MePermitsController,
 } from './leave/permit.controller';
 import { HealthController } from './health.controller';
+import { SystemHealthModule } from './health/health.module';
 
 @Module({
-  imports: [DbModule, MailModule, StorageModule],
+  imports: [DbModule, MailModule, StorageModule, SystemHealthModule],
   controllers: [
     HealthController,
     AuthController,
