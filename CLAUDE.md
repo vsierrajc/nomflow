@@ -22,3 +22,8 @@ DATABASE_URL=postgresql://nomflow:nomflow@localhost:5432/nomflow_test \
 
 - Nunca versionar ni imprimir datos reales de empleados, salarios, claves ni archivos Excel de origen (`*.xlsx` está ignorado).
 - No pegar claves en logs, bitácoras ni conversaciones.
+
+## Borrar datos: aprobación previa
+
+- Antes de borrar o de ejecutar algo que pueda borrar datos (TRUNCATE, DROP, DELETE, `docker volume/system prune`, `rm -rf`, pruebas contra una base equivocada), revisar las consecuencias, informarlas y esperar la aprobación explícita del usuario.
+- Respaldar (`pg_dump`) antes de tocar datos reales de desarrollo. Ya ocurrieron dos pérdidas por no hacerlo.
