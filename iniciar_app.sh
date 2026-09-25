@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Inicia NOMFLOW en local: levanta PostgreSQL, Redis, MinIO y Mailpit en Docker, compila,
+# Inicia NOMFLOW en local: levanta PostgreSQL, Redis, Garage (S3) y Mailpit en Docker, compila,
 # aplica las migraciones y arranca la API y la web. Equivale a: docker compose up + arranque.
 #
 #   ./iniciar_app.sh

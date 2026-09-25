@@ -117,6 +117,26 @@ test.describe('solicitud de vacaciones: empleado, jefe y aprobador final', () =>
     ]);
     await e.goto('/vacaciones');
     await expect(e.getByText('Aprobada').first()).toBeVisible();
+    // La constancia queda guardada en el almacén de objetos y el empleado la descarga
+    const [approvedRow] = await query<{ id: string }>(
+      `select r.id from vacation_requests r where r.n_ide = $1 and r.status = 'APROBADA'`,
+      [emp.nIde],
+    );
+    await expect(
+      e.getByRole('link', { name: /Descargar la constancia de la solicitud/ }),
+    ).toBeVisible();
+    const constancia = await e.request.get(`/api/me/vacations/${approvedRow?.id}/pdf`);
+    expect(constancia.status()).toBe(200);
+    expect(constancia.headers()['content-type']).toContain('application/pdf');
+    expect((await constancia.body()).subarray(0, 5).toString()).toBe('%PDF-');
+    expect(
+      await query(`select object_key from vacation_documents where request_id = $1`, [
+        approvedRow?.id,
+      ]),
+    ).toEqual([{ object_key: `vacation-requests/${approvedRow?.id}/rev-2.pdf` }]);
+    // el jefe (quien propuso el cambio) y el aprobador final la ven en el detalle
+    expect((await f.request.get(`/api/me/vacations/${approvedRow?.id}/pdf`)).status()).toBe(200);
+    expect((await m.request.get(`/api/me/vacations/${approvedRow?.id}/pdf`)).status()).toBe(200);
     await e.getByRole('button', { name: /Ver detalle de la solicitud/ }).click();
     await expect(e.getByRole('heading', { name: 'Revisión 2 (vigente)' })).toBeVisible();
     await expect(e.getByText('Cierre contable en la segunda semana').first()).toBeVisible();

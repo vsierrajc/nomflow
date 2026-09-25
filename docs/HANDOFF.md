@@ -7,7 +7,7 @@ Actualizado: 24 de septiembre de 2026. Estado del código: `main` (PR #1 a #20 i
 ```bash
 git switch main && git pull --ff-only origin main && git status --short   # árbol limpio
 npm ci
-npm run stack:up          # PostgreSQL, Redis, MinIO, Mailpit + API y web (crea .env local la primera vez)
+npm run stack:up          # PostgreSQL, Redis, Garage (S3), Mailpit + API y web (crea .env local la primera vez)
 npm run graph             # mapa del código (docs/graphify.md)
 ```
 
@@ -80,7 +80,7 @@ Interfaz de módulos futuros (solicitudes, aprobaciones, documentos): ver `docs/
 - Contenedores Docker `nomflow-*` con datos en volúmenes: base `nomflow` (desarrollo) y `nomflow_test` (pruebas y e2e).
 - Base de desarrollo: empresa `GA` registrada, catálogos `AREA` y `TIPO_CONTRATO` cargados, sin `CCOSTO`, `CARGO`, conceptos ni empleados reales, y un par de cuentas de prueba. **Las claves no se registran aquí**: recrear un administrador con `BOOTSTRAP_ADMIN_EMAIL=… BOOTSTRAP_ADMIN_PASSWORD="$CLAVE" npm run admin:bootstrap -w @nomflow/api`.
 - Archivos Excel de origen en la raíz del repositorio: ignorados por Git; **no subirlos**.
-- Puertos: web 3000, API 4000, Mailpit 8025, MinIO 9100/9101 (9000/9001 los usa otro proyecto local, no tocarlo). Las pruebas e2e usan 3100 y 4100.
+- Puertos: web 3000, API 4000, Mailpit 8025, Garage S3 3900 y admin 3903. Las pruebas e2e usan 3100 y 4100.
 
 ## 8. Trampas conocidas (ya costaron tiempo)
 

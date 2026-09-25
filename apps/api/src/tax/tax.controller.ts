@@ -5,6 +5,8 @@ import {
   Header,
   HttpCode,
   Inject,
+  InternalServerErrorException,
+  ServiceUnavailableException,
   NotFoundException,
   Param,
   Post,
@@ -18,12 +20,16 @@ import { ADMIN_ROLES } from '../auth/roles';
 import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
 import type { Db } from '../db/client';
 import { DB } from '../db/db.module';
+import { OBJECT_STORE, ObjectStoreError, type ObjectStore } from '../storage/object-store';
 import { getMine, listAll, listMine, processInbox } from './tax.service';
 
 @Controller('me/tax-certificates')
 @UseGuards(SessionGuard)
 export class MeTaxController {
-  constructor(@Inject(DB) private readonly db: Db) {}
+  constructor(
+    @Inject(DB) private readonly db: Db,
+    @Inject(OBJECT_STORE) private readonly store: ObjectStore,
+  ) {}
 
   @Get()
   @Header('Cache-Control', 'no-store')
@@ -40,7 +46,16 @@ export class MeTaxController {
     @Req() req: AuthedRequest,
   ): Promise<StreamableFile> {
     if (!/^\d{4}$/.test(raw)) throw new BadRequestException();
-    const cert = await getMine(this.db, req.auth.accountId, Number(raw));
+    let cert;
+    try {
+      cert = await getMine(this.db, this.store, req.auth.accountId, Number(raw));
+    } catch (e) {
+      if (!(e instanceof ObjectStoreError)) throw e;
+      // Sin almacén: reintentable (503). Alterado o perdido: no se entrega nada y se avisa al operador.
+      if (e.code === 'INTEGRITY')
+        throw new InternalServerErrorException({ code: 'STORAGE_INTEGRITY' });
+      throw new ServiceUnavailableException({ code: 'STORAGE_UNAVAILABLE' });
+    }
     if (!cert) throw new NotFoundException();
     return new StreamableFile(cert.data, {
       type: 'application/pdf',
@@ -53,7 +68,10 @@ export class MeTaxController {
 @UseGuards(SessionGuard, RolesGuard)
 @Roles(...ADMIN_ROLES)
 export class AdminTaxController {
-  constructor(@Inject(DB) private readonly db: Db) {}
+  constructor(
+    @Inject(DB) private readonly db: Db,
+    @Inject(OBJECT_STORE) private readonly store: ObjectStore,
+  ) {}
 
   @Get()
   @Header('Cache-Control', 'no-store')
@@ -65,6 +83,6 @@ export class AdminTaxController {
   @HttpCode(200)
   @UseGuards(RecentAuthGuard)
   async process(@Req() req: AuthedRequest) {
-    return { results: await processInbox(this.db, req.auth.accountId) };
+    return { results: await processInbox(this.db, this.store, req.auth.accountId) };
   }
 }

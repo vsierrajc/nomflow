@@ -9,9 +9,11 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node dist/db/migrate.js",
+    "storage:migrate": "node dist/storage/migrate-legacy.js",
     "admin:bootstrap": "node dist/db/bootstrap-admin.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1140.0",
     "@nestjs/common": "^11.2.6",
     "@nestjs/core": "^11.2.6",
     "@nestjs/platform-express": "^11.2.6",

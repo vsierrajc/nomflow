@@ -54,7 +54,7 @@ Monorepo TypeScript con `npm workspaces` (decisiones en [`docs/decisions`](docs/
 Navegador ──► Web (Next.js 16, React 19) ──/api/*──► API (NestJS 11) ──► PostgreSQL 16
                                                            ├──► SMTP (códigos de verificación y de doble paso)
                                                            ├──► Servicio de festivos (HTTPS, solo desde el servidor)
-                                                           └──► (Redis y MinIO/S3 reservados, aún sin uso)
+                                                           └──► (Garage S3: certificados y constancias de vacaciones, cifrados)
 ```
 
 - **La API es la única que autoriza.** La web habla con la API solo a través del proxy `/api` (mismo origen, sin CORS) y nunca consulta la base de datos.
@@ -100,20 +100,20 @@ scripts/stack.sh            levanta y detiene el stack local
 
 ```bash
 npm ci
-./iniciar_app.sh        # PostgreSQL, Redis, MinIO y Mailpit en Docker; compila, migra y arranca API y web
+./iniciar_app.sh        # PostgreSQL, Redis, Garage (S3) y Mailpit en Docker; compila, migra y arranca API y web
 ./detener_app.sh        # detiene la API y la web y elimina los contenedores (docker compose down); los datos se conservan
 npm run stack:status    # URLs y estado
 ```
 
 `./iniciar_app.sh` (equivale a `npm run stack:up`) crea un `.env` local (ignorado por Git) con un `SESSION_SECRET` aleatorio. Servicios:
 
-| Servicio           | Dirección                                                | Notas                                                       |
-| ------------------ | -------------------------------------------------------- | ----------------------------------------------------------- |
-| Web                | http://localhost:3000                                    | Ingreso en `/login`                                         |
-| API                | http://localhost:4000/health                             |                                                             |
-| Mailpit            | http://localhost:8025                                    | Bandeja de desarrollo: ningún correo sale a personas reales |
-| MinIO              | consola http://localhost:9101 · S3 http://localhost:9100 | Puertos 9100/9101 para no chocar con otros proyectos        |
-| PostgreSQL / Redis | localhost:5432 / localhost:6379                          | Bases `nomflow` (desarrollo) y `nomflow_test` (pruebas)     |
+| Servicio           | Dirección                                           | Notas                                                       |
+| ------------------ | --------------------------------------------------- | ----------------------------------------------------------- |
+| Web                | http://localhost:3000                               | Ingreso en `/login`                                         |
+| API                | http://localhost:4000/health                        |                                                             |
+| Mailpit            | http://localhost:8025                               | Bandeja de desarrollo: ningún correo sale a personas reales |
+| Garage (S3)        | S3 http://localhost:3900 · admin :3903 (solo local) | Bucket `nomflow-private`; pruebas usan `nomflow-test`       |
+| PostgreSQL / Redis | localhost:5432 / localhost:6379                     | Bases `nomflow` (desarrollo) y `nomflow_test` (pruebas)     |
 
 **Primer administrador** (con el stack en marcha):
 
@@ -126,28 +126,29 @@ BOOTSTRAP_ADMIN_EMAIL=admin@nomflow.local BOOTSTRAP_ADMIN_PASSWORD="$CLAVE_INICI
 
 Después, entre en http://localhost:3000/login con ese correo, cree la empresa y cargue los archivos desde **Administración** (ver [Cómo se cargan los datos](#cómo-se-cargan-los-datos)).
 
-`./detener_app.sh --borrar-datos` además elimina los volúmenes (la base de desarrollo, MinIO): pide escribir `BORRAR` y no hace nada si se cancela. Más detalles (SMTP real, puertos, Chromium en WSL) en [`docs/local-stack.md`](docs/local-stack.md).
+`./detener_app.sh --borrar-datos` además elimina los volúmenes (la base de desarrollo, Garage): pide escribir `BORRAR` y no hace nada si se cancela. Más detalles (SMTP real, puertos, Chromium en WSL) en [`docs/local-stack.md`](docs/local-stack.md).
 
 ## Configuración
 
 Variables de entorno (plantilla en [`.env.example`](.env.example)):
 
-| Variable                                                                                           | Descripción                                                                                                                                               |
-| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                                                                                     | Conexión a PostgreSQL. Obligatoria.                                                                                                                       |
-| `SESSION_SECRET`                                                                                   | Secreto de sesión y CSRF, **mínimo 32 caracteres**. Obligatorio; la API no arranca sin él.                                                                |
-| `PORT`                                                                                             | Puerto de la API (4000).                                                                                                                                  |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_REQUIRE_TLS`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Correo saliente de respaldo: se usa solo si nadie guardó una configuración en `/admin/correo`. En desarrollo apunta a Mailpit (`SMTP_REQUIRE_TLS=false`). |
-| `API_URL`                                                                                          | Destino del proxy `/api` de la web (por defecto `http://localhost:4000`); se lee al compilar.                                                             |
-| `IMPORT_MAX_BYTES`, `IMPORT_MAX_ROWS`                                                              | Límites de las importaciones (10 MB y 20 000 filas).                                                                                                      |
-| `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD`, `BOOTSTRAP_ADMIN_ID`                          | Solo para `admin:bootstrap`.                                                                                                                              |
-| `SETTINGS_ENCRYPTION_KEY`                                                                          | Clave para cifrar los secretos guardados desde la administración (API KEY de festivos, clave SMTP). Si se omite, se deriva de `SESSION_SECRET`.           |
-| `TAX_CERT_INBOX_DIR`, `TAX_CERT_MAX_BYTES`                                                         | Carpeta de procesamiento de certificados de retención (`./data/certificados-retencion`) y tamaño máximo por PDF (5 MB). La carpeta está ignorada por Git. |
-| `HOLIDAY_API_TIMEOUT_MS`, `HOLIDAY_API_ALLOW_PRIVATE`                                              | Tiempo límite de la consulta de festivos (10 s) y, solo si hace falta, permitir direcciones privadas en producción.                                       |
-| `SMTP_TIMEOUT_MS`                                                                                  | Tiempo límite de conexión al servidor de correo (10 s).                                                                                                   |
-| `PERMIT_SUPPORT_MAX_BYTES`                                                                         | Tamaño máximo del soporte de un permiso (2 MB).                                                                                                           |
-| `REDIS_URL`, `S3_*`, `MINIO_*`                                                                     | Reservadas para funcionalidades futuras; hoy ningún módulo las usa.                                                                                       |
-| `E2E_DATABASE_URL`, `MAILPIT_URL`                                                                  | Solo para las pruebas de navegador.                                                                                                                       |
+| Variable                                                                                           | Descripción                                                                                                                                                                |
+| -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                                                                     | Conexión a PostgreSQL. Obligatoria.                                                                                                                                        |
+| `SESSION_SECRET`                                                                                   | Secreto de sesión y CSRF, **mínimo 32 caracteres**. Obligatorio; la API no arranca sin él.                                                                                 |
+| `PORT`                                                                                             | Puerto de la API (4000).                                                                                                                                                   |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_REQUIRE_TLS`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Correo saliente de respaldo: se usa solo si nadie guardó una configuración en `/admin/correo`. En desarrollo apunta a Mailpit (`SMTP_REQUIRE_TLS=false`).                  |
+| `API_URL`                                                                                          | Destino del proxy `/api` de la web (por defecto `http://localhost:4000`); se lee al compilar.                                                                              |
+| `IMPORT_MAX_BYTES`, `IMPORT_MAX_ROWS`                                                              | Límites de las importaciones (10 MB y 20 000 filas).                                                                                                                       |
+| `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD`, `BOOTSTRAP_ADMIN_ID`                          | Solo para `admin:bootstrap`.                                                                                                                                               |
+| `SETTINGS_ENCRYPTION_KEY`                                                                          | Clave para cifrar los secretos guardados desde la administración (API KEY de festivos, clave SMTP). Si se omite, se deriva de `SESSION_SECRET`.                            |
+| `TAX_CERT_INBOX_DIR`, `TAX_CERT_MAX_BYTES`                                                         | Carpeta de procesamiento de certificados de retención (`./data/certificados-retencion`) y tamaño máximo por PDF (5 MB). La carpeta está ignorada por Git.                  |
+| `HOLIDAY_API_TIMEOUT_MS`, `HOLIDAY_API_ALLOW_PRIVATE`                                              | Tiempo límite de la consulta de festivos (10 s) y, solo si hace falta, permitir direcciones privadas en producción.                                                        |
+| `SMTP_TIMEOUT_MS`                                                                                  | Tiempo límite de conexión al servidor de correo (10 s).                                                                                                                    |
+| `PERMIT_SUPPORT_MAX_BYTES`                                                                         | Tamaño máximo del soporte de un permiso (2 MB).                                                                                                                            |
+| `S3_*`, `GARAGE_*`, `OBJECT_ENCRYPTION_KEY`                                                        | Almacén de objetos (Garage) y clave de cifrado en aplicación; sin `S3_*` los documentos responden 503. `npm run storage:migrate` mueve certificados antiguos. Ver ADR-003. |
+| `REDIS_URL`                                                                                        | Reservada; hoy ningún módulo la usa.                                                                                                                                       |
+| `E2E_DATABASE_URL`, `MAILPIT_URL`                                                                  | Solo para las pruebas de navegador.                                                                                                                                        |
 
 La URL y la clave del servicio de festivos, y los datos del correo saliente, se configuran **desde la aplicación** (`/admin/festivos`, `/admin/correo`), no con variables.
 

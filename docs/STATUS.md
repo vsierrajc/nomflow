@@ -21,11 +21,12 @@
 | Volantes de pago PDF (ESS-PAY-001) | DONE (código); sin datos reales | #16 | Muestra anonimizada de NOMINA |
 | Módulo administrativo, API e interfaz (ESS-ADM-001/002) | DONE | #17, #18 | Cargar los archivos reales por la interfaz |
 | Rediseño de la interfaz (ESS-UX-001) | DONE | #19 | Conmutador de tema, lectores de pantalla reales |
-| Certificados de retención (ESS-TAX-001) | DONE | #22 | Política de retención de los PDF; mover a S3 |
+| Certificados de retención (ESS-TAX-001) | DONE | #22 | Política de retención de los PDF |
 | Vacaciones: `PROG_VAC`, festivos, solicitud y aprobaciones (ESS-LEAVE-001/002/003, ESS-HOL-001) | DONE (sin PDF con firmas) | #26, #28, #29, #33, #34 | PDF con firmas, suplencias, corrección de disfrutes, reintento de la API de festivos |
 | Permisos (ESS-PERM-001) | DONE (decide solo el jefe de área) | #30 | Reglas por tipo si Gestión Humana las define |
 | Correo saliente configurable | DONE | #35 | Habilitar STARTTLS en el servidor interno |
 | Clave asignada por el administrador y doble paso opcional | DONE | #36 | Límite por IP |
+| Almacenamiento de objetos con Garage (ADR-003) | DONE | (este PR) | Rotación de OBJECT_ENCRYPTION_KEY, política de retención |
 | Certificados laborales, aviso de baja y ZIP | BACKLOG | — | Fases 3 y 4 de la SSD |
 
 ## Bloqueos

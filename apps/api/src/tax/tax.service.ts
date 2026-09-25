@@ -1,9 +1,10 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile, rename, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { accounts, auditLogs, employeeSnapshots, taxCertificates } from '../db/schema';
+import { ObjectStoreError, type ObjectStore } from '../storage/object-store';
 
 export const FILE_RE = /^([A-Za-z0-9]{1,30})_(\d{4})\.pdf$/i;
 export const MAX_PDF_BYTES = Number(process.env.TAX_CERT_MAX_BYTES ?? 5 * 1024 * 1024);
@@ -17,6 +18,7 @@ export type ProcessResult =
   | 'EMPLEADO_NO_EXISTE'
   | 'NO_ES_PDF'
   | 'DEMASIADO_GRANDE'
+  | 'ALMACENAMIENTO_NO_DISPONIBLE'
   | 'ERROR';
 
 export interface ProcessedFile {
@@ -44,8 +46,20 @@ async function moveTo(dir: string, name: string, base: string): Promise<void> {
   await rename(join(base, name), join(target, `${Date.now()}-${name}`));
 }
 
+const activeOf = (nIde: string, year: number) =>
+  and(
+    eq(taxCertificates.nIde, nIde),
+    eq(taxCertificates.year, year),
+    eq(taxCertificates.active, true),
+  );
+
+/**
+ * Guarda el PDF en el almacén de objetos (cifrado) y registra su nombre y su huella en la base.
+ * Si el contenido no cambió, no sube nada. Si el almacén no responde, el archivo queda por procesar.
+ */
 async function storeOne(
   db: Db,
+  store: ObjectStore,
   actor: string,
   nIde: string,
   year: number,
@@ -53,6 +67,20 @@ async function storeOne(
   buf: Buffer,
 ): Promise<ProcessResult> {
   const sha256 = createHash('sha256').update(buf).digest('hex');
+  const [before] = await db
+    .select({ sha256: taxCertificates.sha256 })
+    .from(taxCertificates)
+    .where(activeOf(nIde, year));
+  if (before?.sha256 === sha256) return 'SIN_CAMBIOS';
+
+  const id = randomUUID();
+  const objectKey = `tax-certificates/${id}.pdf`;
+  try {
+    await store.put(objectKey, buf, 'application/pdf');
+  } catch (e) {
+    if (e instanceof ObjectStoreError) return 'ALMACENAMIENTO_NO_DISPONIBLE';
+    throw e;
+  }
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`tax:${nIde}:${year}`}))`);
     const [current] = await tx
@@ -62,13 +90,7 @@ async function storeOne(
         version: taxCertificates.version,
       })
       .from(taxCertificates)
-      .where(
-        and(
-          eq(taxCertificates.nIde, nIde),
-          eq(taxCertificates.year, year),
-          eq(taxCertificates.active, true),
-        ),
-      );
+      .where(activeOf(nIde, year));
     if (current?.sha256 === sha256) return 'SIN_CAMBIOS';
     if (current)
       await tx
@@ -76,10 +98,11 @@ async function storeOne(
         .set({ active: false })
         .where(eq(taxCertificates.id, current.id));
     await tx.insert(taxCertificates).values({
+      id,
       nIde,
       year,
       version: (current?.version ?? 0) + 1,
-      data: buf,
+      objectKey,
       sha256,
       sizeBytes: buf.length,
       fileName,
@@ -89,7 +112,13 @@ async function storeOne(
   });
 }
 
-async function classify(db: Db, actor: string, base: string, name: string): Promise<ProcessResult> {
+async function classify(
+  db: Db,
+  store: ObjectStore,
+  actor: string,
+  base: string,
+  name: string,
+): Promise<ProcessResult> {
   const parsed = parseFileName(name);
   if (!parsed) return 'NOMBRE_INVALIDO';
   if (parsed.year < MIN_YEAR || parsed.year > new Date().getFullYear()) return 'ANIO_INVALIDO';
@@ -102,11 +131,15 @@ async function classify(db: Db, actor: string, base: string, name: string): Prom
     .where(eq(employeeSnapshots.nIde, parsed.nIde))
     .limit(1);
   if (!emp) return 'EMPLEADO_NO_EXISTE';
-  return storeOne(db, actor, parsed.nIde, parsed.year, name, buf);
+  return storeOne(db, store, actor, parsed.nIde, parsed.year, name, buf);
 }
 
 /** Procesa los PDF de la carpeta de entrada: los válidos van a procesados/ y los demás a rechazados/. */
-export async function processInbox(db: Db, actor: string): Promise<ProcessedFile[]> {
+export async function processInbox(
+  db: Db,
+  store: ObjectStore,
+  actor: string,
+): Promise<ProcessedFile[]> {
   const base = inboxDir();
   await mkdir(base, { recursive: true });
   const out: ProcessedFile[] = [];
@@ -114,14 +147,14 @@ export async function processInbox(db: Db, actor: string): Promise<ProcessedFile
     if (!entry.isFile()) continue;
     let result: ProcessResult;
     try {
-      result = await classify(db, actor, base, entry.name);
+      result = await classify(db, store, actor, base, entry.name);
     } catch {
       result = 'ERROR';
     }
-    if (result !== 'ERROR') {
+    if (result !== 'ERROR' && result !== 'ALMACENAMIENTO_NO_DISPONIBLE') {
       const ok = result === 'CARGADO' || result === 'SIN_CAMBIOS';
       await moveTo(ok ? 'procesados' : 'rechazados', entry.name, base);
-    } // ERROR: se deja en la carpeta para reintentar
+    } // ERROR o almacén caído: se deja en la carpeta para reintentar
     out.push({ file: entry.name, result });
   }
   await db.insert(auditLogs).values({
@@ -132,7 +165,12 @@ export async function processInbox(db: Db, actor: string): Promise<ProcessedFile
     context: {
       total: out.length,
       cargados: out.filter((r) => r.result === 'CARGADO').length,
-      rechazados: out.filter((r) => !['CARGADO', 'SIN_CAMBIOS', 'ERROR'].includes(r.result)).length,
+      rechazados: out.filter(
+        (r) =>
+          !['CARGADO', 'SIN_CAMBIOS', 'ERROR', 'ALMACENAMIENTO_NO_DISPONIBLE'].includes(r.result),
+      ).length,
+      pendientes: out.filter((r) => ['ERROR', 'ALMACENAMIENTO_NO_DISPONIBLE'].includes(r.result))
+        .length,
     },
   });
   return out;
@@ -178,26 +216,78 @@ export async function listMine(db: Db, accountId: string) {
     .orderBy(desc(taxCertificates.year));
 }
 
-export async function getMine(db: Db, accountId: string, year: number) {
+/**
+ * Descarga del propio empleado. El PDF sale del almacén de objetos (descifrado) y se comprueba contra
+ * la huella guardada; los certificados anteriores a ADR-003 siguen saliendo de la base.
+ */
+export async function getMine(db: Db, store: ObjectStore, accountId: string, year: number) {
   const nIde = await myNIde(db, accountId);
   const [row] = nIde
     ? await db
-        .select({ data: taxCertificates.data })
+        .select({
+          data: taxCertificates.data,
+          objectKey: taxCertificates.objectKey,
+          sha256: taxCertificates.sha256,
+        })
         .from(taxCertificates)
-        .where(
-          and(
-            eq(taxCertificates.nIde, nIde),
-            eq(taxCertificates.year, year),
-            eq(taxCertificates.active, true),
-          ),
-        )
+        .where(activeOf(nIde, year))
     : [];
-  await db.insert(auditLogs).values({
-    actorAccountId: accountId,
-    action: 'TAX_CERT_DOWNLOAD',
-    resource: 'tax_certificates',
-    resourceId: String(year),
-    result: row ? 'OK' : 'NOT_FOUND',
-  });
-  return row ? { data: row.data, fileName: `certificado-retencion-${year}.pdf` } : null;
+  const audit = (result: string) =>
+    db.insert(auditLogs).values({
+      actorAccountId: accountId,
+      action: 'TAX_CERT_DOWNLOAD',
+      resource: 'tax_certificates',
+      resourceId: String(year),
+      result,
+    });
+  if (!row) {
+    await audit('NOT_FOUND');
+    return null;
+  }
+  let data = row.data;
+  if (row.objectKey) {
+    try {
+      data = await store.get(row.objectKey);
+    } catch (e) {
+      await audit(e instanceof ObjectStoreError ? e.code : 'ERROR');
+      throw e;
+    }
+    if (!data) {
+      await audit('OBJECT_MISSING');
+      throw new ObjectStoreError('INTEGRITY');
+    }
+    if (createHash('sha256').update(data).digest('hex') !== row.sha256) {
+      await audit('HASH_MISMATCH');
+      throw new ObjectStoreError('INTEGRITY');
+    }
+  }
+  if (!data) throw new ObjectStoreError('INTEGRITY');
+  await audit('OK');
+  return { data, fileName: `certificado-retencion-${year}.pdf` };
+}
+
+/**
+ * Pasa al almacén de objetos los certificados que aún viven en la base (anteriores a ADR-003). Cada
+ * uno se sube, se lee de vuelta para comprobar la huella y solo entonces se borra de la base.
+ */
+export async function migrateTaxCertificatesToStore(db: Db, store: ObjectStore) {
+  const rows = await db
+    .select({ id: taxCertificates.id, data: taxCertificates.data, sha256: taxCertificates.sha256 })
+    .from(taxCertificates)
+    .where(sql`${taxCertificates.objectKey} is null and ${taxCertificates.data} is not null`);
+  let migrated = 0;
+  for (const r of rows) {
+    if (!r.data) continue;
+    const objectKey = `tax-certificates/${r.id}.pdf`;
+    await store.put(objectKey, r.data, 'application/pdf');
+    const back = await store.get(objectKey);
+    if (!back || createHash('sha256').update(back).digest('hex') !== r.sha256)
+      throw new ObjectStoreError('INTEGRITY');
+    await db
+      .update(taxCertificates)
+      .set({ objectKey, data: null })
+      .where(eq(taxCertificates.id, r.id));
+    migrated++;
+  }
+  return { found: rows.length, migrated };
 }

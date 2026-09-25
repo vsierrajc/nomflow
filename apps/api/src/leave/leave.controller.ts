@@ -10,6 +10,7 @@ import {
   Header,
   HttpCode,
   Inject,
+  InternalServerErrorException,
   NotFoundException,
   Param,
   ParseUUIDPipe,
@@ -17,6 +18,8 @@ import {
   Put,
   Query,
   Req,
+  ServiceUnavailableException,
+  StreamableFile,
   UnprocessableEntityException,
   UseGuards,
 } from '@nestjs/common';
@@ -45,6 +48,8 @@ import {
   myOpenPeriods,
 } from './prog-vac.service';
 import { HolidayApiError, getSettings, saveSettings, syncYear } from './holiday-api.service';
+import { OBJECT_STORE, ObjectStoreError, type ObjectStore } from '../storage/object-store';
+import { getVacationDocument, tryEnsureVacationDocument } from './vacation-document.service';
 import { PlanError, type Allocation } from './leave-plan';
 import { planLeave, prepareCalendars } from './leave-plan';
 import {
@@ -315,13 +320,22 @@ function mapLeave(e: unknown): never {
         throw new ConflictException({ code: e.code });
     }
   }
+  if (e instanceof ObjectStoreError) {
+    // Sin almacén: reintentable (503). Alterado o perdido: no se entrega nada.
+    if (e.code === 'INTEGRITY')
+      throw new InternalServerErrorException({ code: 'STORAGE_INTEGRITY' });
+    throw new ServiceUnavailableException({ code: 'STORAGE_UNAVAILABLE' });
+  }
   throw e;
 }
 
 @Controller('me/vacations')
 @UseGuards(SessionGuard)
 export class MeVacationsController {
-  constructor(@Inject(DB) private readonly db: Db) {}
+  constructor(
+    @Inject(DB) private readonly db: Db,
+    @Inject(OBJECT_STORE) private readonly store: ObjectStore,
+  ) {}
 
   @Get('periods')
   @Header('Cache-Control', 'no-store')
@@ -369,6 +383,22 @@ export class MeVacationsController {
   async one(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
     try {
       return await detail(this.db, req.auth.accountId, id);
+    } catch (e) {
+      return mapLeave(e);
+    }
+  }
+
+  /** Constancia PDF de una solicitud aprobada (dueño, jefe asignado y aprobador final de la empresa). */
+  @Get(':id/pdf')
+  @Header('Cache-Control', 'no-store')
+  @Header('X-Content-Type-Options', 'nosniff')
+  async pdf(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
+    try {
+      const doc = await getVacationDocument(this.db, this.store, req.auth.accountId, id);
+      return new StreamableFile(doc.data, {
+        type: 'application/pdf',
+        disposition: `attachment; filename="${doc.fileName}"`,
+      });
     } catch (e) {
       return mapLeave(e);
     }
@@ -466,7 +496,10 @@ export class ManagerVacationsController {
 @UseGuards(SessionGuard, RolesGuard)
 @Roles('VACATION_FINAL_APPROVER')
 export class FinalVacationsController {
-  constructor(@Inject(DB) private readonly db: Db) {}
+  constructor(
+    @Inject(DB) private readonly db: Db,
+    @Inject(OBJECT_STORE) private readonly store: ObjectStore,
+  ) {}
 
   @Get()
   @Header('Cache-Control', 'no-store')
@@ -480,6 +513,8 @@ export class FinalVacationsController {
   async approve(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
     try {
       await finalApprove(this.db, req.auth.accountId, id);
+      // La aprobación ya quedó confirmada: si el almacén falla, la constancia se genera al descargarla.
+      await tryEnsureVacationDocument(this.db, this.store, id);
       return { ok: true };
     } catch (e) {
       return mapLeave(e);
