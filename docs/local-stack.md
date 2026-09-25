@@ -31,3 +31,15 @@ Son 57 pruebas (acceso, volantes y el área administrativa completa: empresas y 
 - Primera vez: `cd apps/web && npx playwright install chromium`.
 - En WSL sin `sudo`, si Chromium no arranca por bibliotecas faltantes (`libnspr4`, `libnss3`, `libasound2`), descargar los `.deb` con `apt-get download`, extraerlos con `dpkg -x` en `~/.cache/nomflow-libs/root` y exportar `LD_LIBRARY_PATH=$HOME/.cache/nomflow-libs/root/usr/lib/x86_64-linux-gnu`.
 - El job `e2e` del CI es informativo (`continue-on-error`) y sube las trazas si falla.
+
+## Iniciar y detener
+
+```bash
+./iniciar_app.sh                  # levanta Docker, compila, migra y arranca API y web
+./detener_app.sh                  # para API y web y ejecuta `docker compose down` (conserva los datos)
+./detener_app.sh --borrar-datos   # además borra los volúmenes; exige escribir BORRAR
+```
+
+Son envoltorios de `scripts/stack.sh` (`npm run stack:up|down|status`). Los datos de PostgreSQL viven en el volumen con nombre `nomflow_pgdata` y los de MinIO en `nomflow_minio-data`; sobreviven a `down`. Antes de que existiera `nomflow_pgdata`, PostgreSQL usaba un volumen anónimo que **se perdía de vista** al eliminar el contenedor (los datos quedaban huérfanos en un volumen sin nombre): si eso pasó, se recuperan copiando ese volumen a `nomflow_pgdata`.
+
+No ejecute `npm run build` mientras la aplicación está en marcha: sustituye los archivos que la web está sirviendo y las páginas fallan con «This page couldn't load» hasta reiniciarla con `./iniciar_app.sh`.
