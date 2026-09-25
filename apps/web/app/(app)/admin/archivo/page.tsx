@@ -37,7 +37,15 @@ const ERRORS: Record<string, string> = {
   NOT_CONFIGURED: 'Guarde primero la clave de acceso y el secreto del bucket.',
   NOT_ENABLED: 'Active el archivado y guarde antes de ejecutarlo.',
   UNAVAILABLE:
-    'No se pudo conectar con el bucket. Revise la dirección, el nombre del bucket, las claves y que el servidor tenga salida a internet.',
+    'El bucket respondió con un error que no se pudo identificar. Revise la dirección, el nombre del bucket y las claves.',
+  UNREACHABLE:
+    'No se pudo llegar al servicio. Revise la dirección (https://storage.googleapis.com) y que el servidor tenga salida a internet.',
+  ACCESS_DENIED:
+    'Google reconoce las claves, pero la cuenta no tiene permiso sobre el bucket. En Google Cloud, otorgue a la cuenta de servicio el rol «Storage Object Admin» (roles/storage.objectAdmin) sobre este bucket: hacen falta crear, leer, listar y borrar objetos.',
+  INVALID_KEYS:
+    'Google no acepta las claves: la clave de acceso y el secreto HMAC no coinciden o no existen. Genere una clave HMAC nueva para la cuenta de servicio y vuelva a pegar ambos valores.',
+  NO_SUCH_BUCKET:
+    'El bucket no existe con ese nombre. Revise el nombre exacto del bucket en Google Cloud (distingue el proyecto y no admite mayúsculas).',
   MISMATCH: 'El bucket respondió, pero lo leído no coincide con lo escrito. Revise los permisos.',
   BUSY: 'Ya hay un archivado en curso. Espere a que termine.',
 };

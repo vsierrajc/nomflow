@@ -6,6 +6,14 @@ import {
 } from '@aws-sdk/client-s3';
 import { ObjectStoreError, type DeletableObjectStore } from './object-store';
 
+const why = (e: unknown): ObjectStoreError => {
+  const x = e as { name?: string; $metadata?: { httpStatusCode?: number } };
+  return new ObjectStoreError('UNAVAILABLE', {
+    name: x.name ?? 'Error',
+    status: x.$metadata?.httpStatusCode,
+  });
+};
+
 export interface S3Config {
   endpoint: string;
   region: string;
@@ -56,8 +64,8 @@ export class S3ObjectStore implements DeletableObjectStore {
           ContentType: contentType,
         }),
       );
-    } catch {
-      throw new ObjectStoreError('UNAVAILABLE');
+    } catch (e) {
+      throw why(e);
     }
   }
 
@@ -70,15 +78,15 @@ export class S3ObjectStore implements DeletableObjectStore {
       return Buffer.from(await res.Body.transformToByteArray());
     } catch (e) {
       if ((e as { name?: string }).name === 'NoSuchKey') return null;
-      throw new ObjectStoreError('UNAVAILABLE');
+      throw why(e);
     }
   }
 
   async delete(key: string): Promise<void> {
     try {
       await this.client.send(new DeleteObjectCommand({ Bucket: this.config.bucket, Key: key }));
-    } catch {
-      throw new ObjectStoreError('UNAVAILABLE');
+    } catch (e) {
+      throw why(e);
     }
   }
 }
