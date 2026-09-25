@@ -34,6 +34,13 @@ migrate_env() {
   add_var S3_TEST_BUCKET "nomflow-test"
   add_var S3_ACCESS_KEY_ID "GK$(openssl rand -hex 12)"
   add_var S3_SECRET_ACCESS_KEY "$(openssl rand -hex 32)"
+  # Clave de objetos propia. Si el .env es anterior, se fija al valor de SESSION_SECRET que ya usaba
+  # (así lo ya guardado sigue legible) y desde aquí las dos claves son independientes.
+  if ! grep -q '^OBJECT_ENCRYPTION_KEY=.\+' .env; then
+    sed -i '/^OBJECT_ENCRYPTION_KEY=/d' .env
+    legacy="$(sed -n 's/^SESSION_SECRET=//p' .env | head -1)"
+    printf 'OBJECT_ENCRYPTION_KEY=%s\n' "${legacy:-$(openssl rand -base64 48)}" >> .env
+  fi
   add_var GARAGE_RPC_SECRET "$(openssl rand -hex 32)"
   add_var GARAGE_ADMIN_TOKEN "$(openssl rand -hex 24)"
 }

@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Almacén de objetos: `OBJECT_ENCRYPTION_KEY` es obligatoria y ya no se deriva de `SESSION_SECRET` (sin ella, «sin configurar»); `stack.sh` fija la clave de un `.env` anterior al valor que ya se usaba para no perder lo guardado; procedimiento de respaldo y verificación en docs/backup-clave-objetos.md.
 - Almacenamiento de objetos con Garage (reemplaza a MinIO, ADR-003): certificados de retención y constancias PDF de solicitudes de vacaciones se guardan cifrados (AES-256-GCM en la aplicación) en el bucket S3; permisos siguen en la BD y los volantes se generan al descargar; `npm run storage:migrate` mueve certificados antiguos; migración 0022.
 - Documentación inicial: SSD canónica, STATUS, ADR-001 (stack) y matriz de trazabilidad.
 - Monorepo npm workspaces: apps/api (NestJS 11, /health), apps/web (Next 16), CI (format, lint, tipos, build, tests, audit, gitleaks, CodeQL), docker-compose de desarrollo.

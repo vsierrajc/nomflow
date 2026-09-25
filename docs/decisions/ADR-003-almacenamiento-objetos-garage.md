@@ -18,7 +18,7 @@ MinIO está deprecado y se decidió reemplazarlo por **Garage** (GarageHQ), un a
 ## Decisión
 1. **Garage v2** (imagen fijada) como servicio del stack local, en un nodo con `replication_factor = 1`. Datos y metadatos en **volúmenes con nombre** (`garage-meta`, `garage-data`). Los secretos (`rpc_secret`, token de administración) viajan por variables de entorno, no en el archivo de configuración.
 2. **Cliente:** `@aws-sdk/client-s3` con `forcePathStyle` y región `garage`; la aplicación no depende de Garage en concreto, sino de la API S3.
-3. **Cifrado en la aplicación.** Garage acepta el encabezado de cifrado `SSE-S3` pero **no cifra** (se verificó: responde «aceptado» y guarda en claro). Por eso cada objeto se cifra con AES-256-GCM antes de subirlo, con la clave de objeto ligada a su nombre (AAD) para que no se pueda intercambiar un objeto por otro. La clave sale de `OBJECT_ENCRYPTION_KEY` o, si falta, de `SESSION_SECRET`.
+3. **Cifrado en la aplicación.** Garage acepta el encabezado de cifrado `SSE-S3` pero **no cifra** (se verificó: responde «aceptado» y guarda en claro). Por eso cada objeto se cifra con AES-256-GCM antes de subirlo, con la clave de objeto ligada a su nombre (AAD) para que no se pueda intercambiar un objeto por otro. La clave sale solo de `OBJECT_ENCRYPTION_KEY` (mínimo 32 caracteres); sin ella el almacén queda «sin configurar». No se usa `SESSION_SECRET` para que rotar una no inutilice la otra.
 4. **Integridad:** la base guarda el `sha256` del documento en claro y se comprueba en cada descarga.
 5. **Acceso siempre por la API:** no hay URLs públicas ni prefirmadas; la API autoriza y entrega el archivo.
 6. **Nombres de objeto sin datos personales:** `tax-certificates/<uuid>.pdf`, `vacation-requests/<uuid>/rev-<n>.pdf`.
