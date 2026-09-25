@@ -153,6 +153,11 @@ function navFor(profile: Profile): NavItem[] {
     { href: '/vacaciones', label: 'Mis vacaciones', match: (p) => p.startsWith('/vacaciones') },
     { href: '/permisos', label: 'Mis permisos', match: (p) => p.startsWith('/permisos') },
     {
+      href: '/certificado-laboral',
+      label: 'Certificado laboral',
+      match: (p) => p.startsWith('/certificado-laboral'),
+    },
+    {
       href: '/retenciones',
       label: 'Certificados de retención',
       match: (p) => p.startsWith('/retenciones'),

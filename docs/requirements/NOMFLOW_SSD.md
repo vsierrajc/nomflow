@@ -64,6 +64,8 @@ Esta sección es el modelo canónico; la elección de ORM y migraciones se fija 
 
 ### 6.1 Emisión de certificados laborales
 
+> **Decisión del 2026-09-25 (ADR-005):** el certificado laboral se emite en autoservicio, sin aprobador ni firma; el contenido está en plantillas editables y cada documento lleva el código del formato de calidad. Lo que sigue describe el flujo con aprobación y firma, que queda como mejora futura.
+
 El certificado laboral usa la última instantánea validada de `EMPLEADOS` (sección 9). La cuenta está vinculada a `N_IDE`; el empleado no puede suministrar otra identificación para obtener certificados ajenos.
 
 1. El empleado solicita el certificado. La API autentica la sesión, resuelve `N_IDE`, exige `EST = V` y selecciona el único contrato vigente. Los contratos anteriores no se presentan como relación laboral vigente.

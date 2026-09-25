@@ -948,3 +948,82 @@ export const notificationLog = pgTable(
     index('notification_log_sent_idx').on(t.sentAt),
   ],
 );
+
+/** Parámetros del certificado laboral por empresa (ADR-005). Sin fila se usan los valores por omisión. */
+export const certificateSettings = pgTable('certificate_settings', {
+  cEmp: text('c_emp').primaryKey(),
+  /** Modalidades que se ofrecen al empleado: GENERAL, DIRIGIDO o AMBOS. */
+  mode: text('mode').notNull().default('AMBOS'),
+  /** Control del sistema de gestión de la calidad: código, versión y fecha del formato. */
+  docCode: text('doc_code').notNull().default('GH-FO-001'),
+  docVersion: text('doc_version').notNull().default('01'),
+  docDate: text('doc_date').notNull().default(''),
+  city: text('city').notNull().default('Barranquilla'),
+  signerName: text('signer_name').notNull().default(''),
+  signerTitle: text('signer_title').notNull().default(''),
+  /** Datos de la empresa para el pie de página (NIT, teléfonos, correo...), una línea por renglón. */
+  footerText: text('footer_text').notNull().default(''),
+  /** Máximo de certificados que un empleado puede generar por día. */
+  maxPerDay: integer('max_per_day').notNull().default(10),
+  updatedBy: uuid('updated_by').references(() => accounts.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Contenido editable del certificado. Cada cambio crea una versión nueva; solo una está vigente. */
+export const certificateTemplates = pgTable(
+  'certificate_templates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    cEmp: text('c_emp').notNull(),
+    /** GENERAL (sin destinatario) o DIRIGIDO (con destinatario). */
+    kind: text('kind').notNull(),
+    version: integer('version').notNull(),
+    title: text('title').notNull(),
+    bodyTemplate: text('body_template').notNull(),
+    /** VIGENTE o RETIRADA (las versiones usadas para emitir se conservan). */
+    status: text('status').notNull().default('VIGENTE'),
+    contentHash: text('content_hash').notNull(),
+    createdBy: uuid('created_by').references(() => accounts.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('certificate_templates_version_uq').on(t.cEmp, t.kind, t.version),
+    uniqueIndex('certificate_templates_current_uq')
+      .on(t.cEmp, t.kind)
+      .where(sql`${t.status} = 'VIGENTE'`),
+  ],
+);
+
+/** Historial de certificados laborales emitidos: uno por solicitud del empleado. */
+export const certificateRequests = pgTable(
+  'certificate_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id),
+    nIde: text('n_ide').notNull(),
+    nCont: text('n_cont').notNull(),
+    cEmp: text('c_emp').notNull(),
+    kind: text('kind').notNull(),
+    addressee: text('addressee'),
+    templateId: uuid('template_id')
+      .notNull()
+      .references(() => certificateTemplates.id),
+    templateVersion: integer('template_version').notNull(),
+    /** Datos de control del formato vigentes al emitir. */
+    docCode: text('doc_code').notNull(),
+    docVersion: text('doc_version').notNull(),
+    /** Valores con los que se generó el documento (copia: un cambio posterior no lo altera). */
+    snapshot: jsonb('snapshot').notNull(),
+    objectKey: text('object_key').notNull(),
+    sha256: text('sha256').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('certificate_requests_account_idx').on(t.accountId, t.createdAt),
+    index('certificate_requests_created_idx').on(t.createdAt),
+    index('certificate_requests_nide_idx').on(t.nIde),
+  ],
+);

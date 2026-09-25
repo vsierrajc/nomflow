@@ -183,6 +183,13 @@
       "when": 1790358985436,
       "tag": "0025_notificaciones_flujo",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790364876550,
+      "tag": "0026_certificado_laboral",
+      "breakpoints": true
     }
   ]
 }
