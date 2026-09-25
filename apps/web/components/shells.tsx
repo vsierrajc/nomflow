@@ -170,6 +170,12 @@ function navFor(profile: Profile): NavItem[] {
       label: 'Aprobaciones',
       match: (p) => p.startsWith('/aprobaciones'),
     });
+  if (profile.roles.some((r) => r.role === 'CERTIFICATE_APPROVER'))
+    items.push({
+      href: '/firma-certificados',
+      label: 'Mi firma de certificados',
+      match: (p) => p.startsWith('/firma-certificados'),
+    });
   if (isAdmin(profile))
     items.push({ href: '/admin', label: 'Administración', match: (p) => p.startsWith('/admin') });
   return items;

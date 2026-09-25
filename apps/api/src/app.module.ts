@@ -34,6 +34,7 @@ import {
 } from './leave/permit.controller';
 import {
   AdminLaborCertController,
+  MeCertificateSignerController,
   MeLaborCertController,
 } from './certificates/labor-cert.controller';
 import { HealthController } from './health.controller';
@@ -73,6 +74,7 @@ import { SystemHealthModule } from './health/health.module';
     InboxController,
     AdminNotificationsController,
     MeLaborCertController,
+    MeCertificateSignerController,
     AdminLaborCertController,
   ],
   providers: [

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
   newUser,
+  pngBuffer,
   query,
   seedActiveAccount,
   seedAdminUser,
@@ -20,6 +21,7 @@ async function login(page: Page, u: SeedUser) {
 test.describe('certificado laboral', () => {
   test.beforeEach(async () => {
     await query(`delete from certificate_requests`);
+    await query(`delete from certificate_signers`);
     await query(`delete from certificate_templates`);
     await query(`delete from certificate_settings`);
   });
@@ -39,6 +41,12 @@ test.describe('certificado laboral', () => {
       [emp.nIde],
     );
     const admin = await seedAdminUser('HR_ADMIN');
+    const firmante = newUser('firmante');
+    await seedActiveAccount(firmante);
+    await query(
+      `update employee_snapshots set nombre = 'DIRECTORA DE PRUEBA E2E' where n_ide = $1`,
+      [firmante.nIde],
+    );
 
     const pa = await (await browser.newContext()).newPage();
     await pa.goto('http://localhost:3100/login');
@@ -71,16 +79,60 @@ test.describe('certificado laboral', () => {
     await general.getByRole('button', { name: 'Guardar nueva versión' }).click();
     await expect(pa.getByText(/Guardado como versión 2/)).toBeVisible();
 
+    // Sin firmante no se puede generar: el administrador designa a la directora.
+    const pf = await (await browser.newContext()).newPage();
+    await pf.goto('http://localhost:3100/login');
+    await login(pf, firmante);
+    const pe0 = await (await browser.newContext()).newPage();
+    await pe0.goto('http://localhost:3100/login');
+    await login(pe0, emp);
+    await pe0.goto('/certificado-laboral');
+    await expect(pe0.getByText(/no hay una persona disponible para firmar/i).first()).toBeVisible();
+    await expect(pe0.getByRole('button', { name: 'Generar certificado' })).toBeDisabled();
+
+    const signers = pa.getByRole('region', { name: 'Firmantes' });
+    await signers.getByLabel('Identificación del empleado (N_IDE)').fill(firmante.nIde);
+    await signers.getByLabel('Cargo que aparece bajo la firma').fill('Directora de Gestión Humana');
+    await signers.getByRole('button', { name: 'Designar firmante' }).click();
+    await expect(pa.getByText(/Firmante designado/)).toBeVisible();
+    await expect(signers.getByRole('row', { name: /DIRECTORA DE PRUEBA E2E/ })).toContainText(
+      'Falta su firma',
+    );
+
+    // La directora carga su propia firma, con su autorización.
+    await pf.reload(); // el rol de firmante se le acaba de dar: recarga su perfil
+    await pf
+      .getByRole('navigation', { name: 'Principal' })
+      .getByRole('link', { name: 'Mi firma de certificados' })
+      .click();
+    await expect(
+      pf.getByRole('heading', { level: 1, name: 'Mi firma de certificados' }),
+    ).toBeVisible();
+    const mine = pf.getByRole('region', { name: /Firma como Directora/ });
+    await mine.getByLabel(/Imagen de su firma/).setInputFiles({
+      name: 'firma.png',
+      mimeType: 'image/png',
+      buffer: pngBuffer(200, 100),
+    });
+    await mine.getByRole('button', { name: 'Cargar mi firma' }).click();
+    await expect(pf.getByText('Debe marcar la autorización para cargar su firma.')).toBeVisible();
+    await mine.getByLabel(/Autorizo que NOMFLOW inserte esta firma/).check();
+    await mine.getByRole('button', { name: 'Cargar mi firma' }).click();
+    await expect(pf.getByText('Su firma quedó cargada y autorizada.')).toBeVisible();
+    await expect(mine.getByAltText('Su firma actual')).toBeVisible();
+
     // Empleado: elige la modalidad dirigida y genera.
-    const pe = await (await browser.newContext()).newPage();
-    await pe.goto('http://localhost:3100/login');
-    await login(pe, emp);
+    const pe = pe0;
     await pe
       .getByRole('navigation', { name: 'Principal' })
       .getByRole('link', { name: 'Certificado laboral' })
       .click();
     await expect(pe.getByRole('heading', { level: 1, name: 'Certificado laboral' })).toBeVisible();
+    await pe.reload();
     await expect(pe.getByText('Aún no ha generado certificados.')).toBeVisible();
+    await expect(
+      pe.getByText(/Firma: DIRECTORA DE PRUEBA E2E - Directora de Gestión Humana/),
+    ).toBeVisible();
     await pe.getByLabel('Dirigido a una persona o entidad').check();
     await pe.getByRole('button', { name: 'Generar certificado' }).click();
     await expect(
@@ -106,6 +158,7 @@ test.describe('certificado laboral', () => {
     await expect(table).toContainText(emp.name);
     await expect(table).toContainText('BANCO EJEMPLO S.A.');
     await expect(table).toContainText('GH-FO-777 v05');
+    await expect(table).toContainText('DIRECTORA DE PRUEBA E2E');
     await pa.getByLabel(/Buscar por nombre/).fill('no-existe-zzz');
     await pa.getByRole('button', { name: 'Filtrar' }).click();
     await expect(pa.getByText('No hay solicitudes con esos filtros.')).toBeVisible();

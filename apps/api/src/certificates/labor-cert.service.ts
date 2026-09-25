@@ -13,6 +13,7 @@ import {
 } from '../db/schema';
 import { logoForCompanyCode } from '../org/logos.service';
 import { archivedKeys } from '../storage/archive.service';
+import { availableSigners, type AvailableSigner } from './signers.service';
 import { ObjectStoreError, type ObjectStore } from '../storage/object-store';
 import { renderLaborCertificatePdf } from './labor-cert.pdf';
 import {
@@ -35,6 +36,8 @@ export type CertErrorCode =
   | 'ADDRESSEE_REQUIRED'
   | 'MISSING_DATA'
   | 'LIMIT_REACHED'
+  | 'NO_SIGNER'
+  | 'SIGNER_NOT_ALLOWED'
   | 'INVALID_TEMPLATE'
   | 'INVALID_SETTINGS'
   | 'INTEGRITY';
@@ -55,8 +58,6 @@ export interface CertSettingsValues {
   docVersion: string;
   docDate: string;
   city: string;
-  signerName: string;
-  signerTitle: string;
   footerText: string;
   maxPerDay: number;
 }
@@ -107,8 +108,6 @@ export function validSettings(i: CertSettingsValues): boolean {
     i.docDate.length <= 40 &&
     i.city.trim().length >= 1 &&
     i.city.length <= 80 &&
-    i.signerName.length <= 100 &&
-    i.signerTitle.length <= 100 &&
     i.footerText.length <= 500 &&
     i.footerText.split('\n').length <= 4 &&
     Number.isInteger(i.maxPerDay) &&
@@ -152,8 +151,6 @@ export async function getSettings(db: Db, cEmp: string): Promise<CertSettingsVal
     docVersion: s.docVersion,
     docDate: s.docDate,
     city: s.city,
-    signerName: s.signerName,
-    signerTitle: s.signerTitle,
     footerText: s.footerText,
     maxPerDay: s.maxPerDay,
   };
@@ -285,7 +282,7 @@ async function valuesFor(
   e: Snapshot,
   company: Company,
   s: CertSettingsValues,
-  extra: { addressee?: string | null },
+  extra: { addressee?: string | null; signer?: { name: string; title: string } | null },
 ) {
   const cEmp = e.cEmp ?? '';
   const [area, cargo, ccosto, tipo] = await Promise.all([
@@ -314,8 +311,8 @@ async function valuesFor(
     CIUDAD_EMISION: s.city,
     FECHA_EMISION: longDateEs(today()),
     DESTINATARIO: extra.addressee ?? null,
-    FIRMANTE_NOMBRE: s.signerName || null,
-    FIRMANTE_CARGO: s.signerTitle || null,
+    FIRMANTE_NOMBRE: extra.signer?.name ?? null,
+    FIRMANTE_CARGO: extra.signer?.title ?? null,
   };
   return v;
 }
@@ -332,7 +329,14 @@ export async function optionsFor(db: Db, accountId: string) {
   const s = await getSettings(db, e.cEmp ?? '');
   const company = await companyOf(db, e.cEmp ?? '');
   const kinds: CertKind[] = s.mode === 'AMBOS' ? ['GENERAL', 'DIRIGIDO'] : [s.mode];
-  return { kinds, company: company.nombre, maxPerDay: s.maxPerDay };
+  const signers = await availableSigners(db, e.cEmp ?? '');
+  return {
+    kinds,
+    company: company.nombre,
+    maxPerDay: s.maxPerDay,
+    /** Quiénes pueden firmar hoy; con más de uno el empleado elige. Sin ninguno no se puede generar. */
+    signers: signers.map((x) => ({ id: x.id, name: x.name, title: x.title })),
+  };
 }
 
 async function activeContract(db: Db, accountId: string): Promise<Snapshot> {
@@ -385,7 +389,11 @@ export async function issue(
   db: Db,
   store: ObjectStore,
   accountId: string,
-  input: { kind?: CertKind | undefined; addressee?: string | undefined },
+  input: {
+    kind?: CertKind | undefined;
+    addressee?: string | undefined;
+    signerId?: string | undefined;
+  },
 ) {
   const e = await activeContract(db, accountId);
   const cEmp = e.cEmp ?? '';
@@ -405,9 +413,20 @@ export async function issue(
     );
   if (n >= s.maxPerDay) throw new CertError('LIMIT_REACHED');
 
+  // Firma quien esté disponible; con varios, la persona que eligió el empleado.
+  const candidates = await availableSigners(db, cEmp);
+  if (candidates.length === 0) throw new CertError('NO_SIGNER');
+  const signer: AvailableSigner | undefined = input.signerId
+    ? candidates.find((c) => c.id === input.signerId)
+    : candidates[0];
+  if (!signer) throw new CertError('SIGNER_NOT_ALLOWED');
+
   const t = await currentTemplate(db, cEmp, kind);
   const company = await companyOf(db, cEmp);
-  const values = await valuesFor(db, e, company, s, { addressee });
+  const values = await valuesFor(db, e, company, s, {
+    addressee,
+    signer: { name: signer.name, title: signer.title },
+  });
   const body = build(t, values);
 
   const id = randomUUID();
@@ -421,8 +440,7 @@ export async function issue(
     docCode: s.docCode,
     docVersion: s.docVersion,
     docDate: s.docDate,
-    signerName: s.signerName,
-    signerTitle: s.signerTitle,
+    signer: { name: signer.name, title: signer.title, signature: signer.signature },
     footerLines: footerOf(s),
     issuedAt,
   });
@@ -447,6 +465,10 @@ export async function issue(
     templateVersion: t.version,
     docCode: s.docCode,
     docVersion: s.docVersion,
+    signerAccountId: signer.accountId,
+    signerName: signer.name,
+    signerTitle: signer.title,
+    signatureSha256: signer.signatureSha256,
     snapshot: used,
     objectKey,
     sha256: createHash('sha256').update(pdf).digest('hex'),
@@ -457,6 +479,7 @@ export async function issue(
     kind,
     templateVersion: t.version,
     docCode: s.docCode,
+    signer: signer.accountId,
   });
   return { id, kind, createdAt: issuedAt, docCode: s.docCode, docVersion: s.docVersion };
 }
@@ -496,6 +519,7 @@ export async function preview(
   } as unknown as Snapshot;
   const values = await valuesFor(db, fake, company, s, {
     addressee: kind === 'DIRIGIDO' ? 'QUIEN CORRESPONDA (EJEMPLO)' : null,
+    signer: { name: 'NOMBRE DEL FIRMANTE (EJEMPLO)', title: 'Cargo del firmante' },
   });
   values.TIPO_CONTRATO = values.TIPO_CONTRATO ?? 'Contrato de ejemplo';
   values.CARGO = values.CARGO ?? 'ANALISTA DE EJEMPLO';
@@ -509,8 +533,7 @@ export async function preview(
     docCode: s.docCode,
     docVersion: s.docVersion,
     docDate: s.docDate,
-    signerName: s.signerName,
-    signerTitle: s.signerTitle,
+    signer: { name: 'NOMBRE DEL FIRMANTE (EJEMPLO)', title: 'Cargo del firmante', signature: null },
     footerLines: footerOf(s),
     issuedAt: new Date(),
     preview: true,
@@ -585,6 +608,8 @@ export async function adminHistory(db: Db, q: HistoryQuery) {
       docCode: certificateRequests.docCode,
       docVersion: certificateRequests.docVersion,
       templateVersion: certificateRequests.templateVersion,
+      signerName: certificateRequests.signerName,
+      signerTitle: certificateRequests.signerTitle,
       sizeBytes: certificateRequests.sizeBytes,
     })
     .from(certificateRequests)

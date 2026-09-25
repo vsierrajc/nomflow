@@ -18,9 +18,12 @@ import {
   Req,
   ServiceUnavailableException,
   StreamableFile,
+  UploadedFile,
+  UseInterceptors,
   UnprocessableEntityException,
   UseGuards,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { RecentAuthGuard, Roles, RolesGuard } from '../auth/guards';
@@ -43,6 +46,16 @@ import {
   saveSettings,
   saveTemplate,
 } from './labor-cert.service';
+import {
+  MAX_SIGNATURE_BYTES,
+  SignerError,
+  addSigner,
+  enrollSignature,
+  listSigners,
+  mySigners,
+  ownSignatureImage,
+  updateSigner,
+} from './signers.service';
 import { VARIABLES } from './template-engine';
 
 const Kind = z.enum(['GENERAL', 'DIRIGIDO']);
@@ -53,12 +66,25 @@ function map(e: unknown): never {
       throw new InternalServerErrorException({ code: 'STORAGE_INTEGRITY' });
     throw new ServiceUnavailableException({ code: 'STORAGE_UNAVAILABLE' });
   }
+  if (e instanceof SignerError) {
+    const b = { code: e.code };
+    if (
+      e.code === 'NOT_FOUND' ||
+      e.code === 'NOT_A_SIGNER' ||
+      e.code === 'ACCOUNT_NOT_FOUND' ||
+      e.code === 'COMPANY_NOT_FOUND'
+    )
+      throw new NotFoundException(b);
+    if (e.code === 'ALREADY_SIGNER') throw new ConflictException(b);
+    throw new BadRequestException(b);
+  }
   if (!(e instanceof CertError)) throw e;
   const body = { code: e.code, details: e.details };
   switch (e.code) {
     case 'NOT_FOUND':
       throw new NotFoundException(body);
     case 'NO_ACTIVE_CONTRACT':
+    case 'NO_SIGNER':
       throw new ConflictException(body);
     case 'MISSING_DATA':
     case 'INVALID_TEMPLATE':
@@ -107,7 +133,11 @@ export class MeLaborCertController {
   @HttpCode(201)
   async create(@Body() body: unknown, @Req() req: AuthedRequest) {
     const dto = z
-      .object({ kind: Kind.optional(), addressee: z.string().max(400).optional() })
+      .object({
+        kind: Kind.optional(),
+        addressee: z.string().max(400).optional(),
+        signerId: z.string().uuid().optional(),
+      })
       .safeParse(body);
     if (!dto.success) throw new BadRequestException({ code: 'INVALID_REQUEST' });
     try {
@@ -134,14 +164,58 @@ export class MeLaborCertController {
   }
 }
 
+/** La persona designada como firmante carga su firma y autoriza su uso. */
+@Controller('me/certificate-signer')
+@UseGuards(SessionGuard)
+export class MeCertificateSignerController {
+  constructor(@Inject(DB) private readonly db: Db) {}
+
+  @Get()
+  @Header('Cache-Control', 'no-store')
+  list(@Req() req: AuthedRequest) {
+    return mySigners(this.db, req.auth.accountId);
+  }
+
+  @Post(':id/signature')
+  @HttpCode(200)
+  @UseGuards(RecentAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: MAX_SIGNATURE_BYTES + 1, files: 1 } }),
+  )
+  async enroll(
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() body: { consent?: string },
+    @Req() req: AuthedRequest,
+  ) {
+    if (!file) throw new BadRequestException({ code: 'INVALID_IMAGE' });
+    try {
+      await enrollSignature(this.db, req.auth.accountId, id, file.buffer, body?.consent === 'true');
+      return { ok: true };
+    } catch (e) {
+      return map(e);
+    }
+  }
+
+  @Get(':id/signature')
+  @Header('Cache-Control', 'no-store')
+  @Header('X-Content-Type-Options', 'nosniff')
+  async image(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
+    try {
+      const f = await ownSignatureImage(this.db, req.auth.accountId, id);
+      return new StreamableFile(f.data, { type: f.contentType, disposition: 'inline' });
+    } catch (e) {
+      return map(e);
+    }
+  }
+}
+
 const SettingsDto = z.object({
   mode: z.enum(['GENERAL', 'DIRIGIDO', 'AMBOS']),
   docCode: z.string().max(40),
   docVersion: z.string().max(20),
   docDate: z.string().max(40),
   city: z.string().max(80),
-  signerName: z.string().max(100),
-  signerTitle: z.string().max(100),
   footerText: z.string().max(500),
   maxPerDay: z.number().int(),
 });
@@ -241,6 +315,57 @@ export class AdminLaborCertController {
     if (!k.success || !dto.success) throw new BadRequestException({ code: 'INVALID_TEMPLATE' });
     try {
       return await saveTemplate(this.db, req.auth.accountId, cEmp, k.data, dto.data);
+    } catch (e) {
+      return map(e);
+    }
+  }
+
+  @Get('signers/:cEmp')
+  @Header('Cache-Control', 'no-store')
+  async signers(@Param('cEmp') cEmp: string) {
+    await this.company(cEmp);
+    return listSigners(this.db, cEmp);
+  }
+
+  @Post('signers/:cEmp')
+  @HttpCode(201)
+  @UseGuards(RecentAuthGuard)
+  async addSigner(@Param('cEmp') cEmp: string, @Body() body: unknown, @Req() req: AuthedRequest) {
+    const dto = z
+      .object({
+        nIde: z.string().trim().min(1).max(30),
+        title: z.string().max(100),
+        tier: z.enum(['PRINCIPAL', 'RESPALDO']),
+      })
+      .safeParse(body);
+    if (!dto.success) throw new BadRequestException({ code: 'INVALID_SIGNER' });
+    try {
+      return await addSigner(this.db, req.auth.accountId, { cEmp, ...dto.data });
+    } catch (e) {
+      return map(e);
+    }
+  }
+
+  @Put('signers/:cEmp/:id')
+  @UseGuards(RecentAuthGuard)
+  async updateSigner(
+    @Param('cEmp') cEmp: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+    @Req() req: AuthedRequest,
+  ) {
+    await this.company(cEmp);
+    const dto = z
+      .object({
+        title: z.string().max(100).optional(),
+        tier: z.enum(['PRINCIPAL', 'RESPALDO']).optional(),
+        active: z.boolean().optional(),
+      })
+      .safeParse(body);
+    if (!dto.success) throw new BadRequestException({ code: 'INVALID_SIGNER' });
+    try {
+      await updateSigner(this.db, req.auth.accountId, id, dto.data);
+      return listSigners(this.db, cEmp);
     } catch (e) {
       return map(e);
     }

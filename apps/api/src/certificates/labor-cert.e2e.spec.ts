@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { deflateSync } from 'node:zlib';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { eq, sql } from 'drizzle-orm';
@@ -13,6 +14,7 @@ import {
   auditLogs,
   catalogEntries,
   certificateRequests,
+  certificateSigners,
   companies,
   employeeSnapshots,
   roleAssignments,
@@ -48,6 +50,40 @@ async function pdfPages(buf: Buffer): Promise<number> {
     await pdfjs.getDocument({ data: new Uint8Array(buf), standardFontDataUrl: fonts, verbosity: 0 })
       .promise
   ).numPages;
+}
+/** PNG sólido válido de w x h, suficiente para probar la carga de la firma. */
+function png(w: number, h: number): Buffer {
+  const crcTable = Array.from({ length: 256 }, (_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    return c >>> 0;
+  });
+  const crc = (b: Buffer) => {
+    let c = 0xffffffff;
+    for (const x of b) c = (crcTable[(c ^ x) & 0xff] as number) ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  };
+  const chunk = (type: string, data: Buffer) => {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    const td = Buffer.concat([Buffer.from(type), data]);
+    const c = Buffer.alloc(4);
+    c.writeUInt32BE(crc(td));
+    return Buffer.concat([len, td, c]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0);
+  ihdr.writeUInt32BE(h, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 2;
+  const row = Buffer.concat([Buffer.from([0]), Buffer.alloc(w * 3, 0x22)]);
+  const raw = Buffer.concat(Array.from({ length: h }, () => row));
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', deflateSync(raw)),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
 }
 const bin = (res: request.Response) => Buffer.from(res.body as Buffer);
 
@@ -122,14 +158,40 @@ describe.skipIf(!url)('certificado laboral (HTTP + PostgreSQL)', () => {
     const r = agent[method](path).set('Cookie', sess[k]?.cookie ?? '');
     return method === 'get' ? r : r.set('X-CSRF-Token', sess[k]?.csrf ?? '').send(body ?? {});
   };
+  const enrollSig = (
+    key: string,
+    id: string,
+    o: { consent?: string; file?: Buffer; name?: string } = {},
+  ) =>
+    request(srv())
+      .post(`/me/certificate-signer/${id}/signature`)
+      .set('Cookie', sess[key]?.cookie ?? '')
+      .set('X-CSRF-Token', sess[key]?.csrf ?? '')
+      .field('consent', o.consent ?? 'true')
+      .attach('file', o.file ?? png(200, 100), {
+        filename: o.name ?? 'firma.png',
+        contentType: 'image/png',
+      });
+  /** Designa a una persona como firmante (lo hace el administrador); ella carga su firma. */
+  async function makeSigner(
+    key: string,
+    o: { title: string; tier?: 'PRINCIPAL' | 'RESPALDO'; enroll?: boolean },
+  ) {
+    await person(key);
+    const res = await call('ADM', 'post', '/admin/labor-certificates/signers/GA', {
+      nIde: key,
+      title: o.title,
+      tier: o.tier ?? 'PRINCIPAL',
+    }).expect(201);
+    if (o.enroll !== false) await enrollSig(key, res.body.id as string).expect(200);
+    return res.body.id as string;
+  }
   const settings = (over: object = {}) => ({
     mode: 'AMBOS',
     docCode: 'GH-FO-012',
     docVersion: '03',
     docDate: '2026-01-15',
     city: 'Barranquilla',
-    signerName: 'ALEXANDRA CARRILLO',
-    signerTitle: 'Directora de Gestión Humana',
     footerText: 'NIT 800.000.000-1\nTel. 605 000 0000',
     maxPerDay: 10,
     ...over,
@@ -138,7 +200,7 @@ describe.skipIf(!url)('certificado laboral (HTTP + PostgreSQL)', () => {
   beforeEach(async () => {
     store.objects.clear();
     await db.execute(
-      sql`TRUNCATE certificate_requests, certificate_templates, certificate_settings, catalog_entries, companies, sessions, role_assignments, accounts, employee_snapshots, audit_logs CASCADE`,
+      sql`TRUNCATE certificate_requests, certificate_signers, certificate_templates, certificate_settings, catalog_entries, companies, sessions, role_assignments, accounts, employee_snapshots, audit_logs CASCADE`,
     );
     await db.insert(companies).values({
       cEmp: 'GA',
@@ -160,6 +222,7 @@ describe.skipIf(!url)('certificado laboral (HTTP + PostgreSQL)', () => {
     await call('ADM', 'put', '/admin/labor-certificates/config/GA/settings', settings()).expect(
       200,
     );
+    await makeSigner('DIRGH', { title: 'Directora de Gestión Humana' });
   });
 
   it('el empleado genera el certificado general con sus datos, logo, código del documento y pie', async () => {
@@ -189,13 +252,18 @@ describe.skipIf(!url)('certificado laboral (HTTP + PostgreSQL)', () => {
     expect(text).toContain('Versión: 03');
     expect(text).toContain('NIT 800.000.000-1');
     expect(text).toContain('CL 1 38-121');
-    expect(text).toContain('ALEXANDRA CARRILLO');
+    // firma: nombre y cargo de quien firma, y la evidencia queda en el historial
+    expect(text).toContain('PERSONA DIRGH');
+    expect(text).toContain('Directora de Gestión Humana');
     expect(text).not.toContain('{{');
     expect(text).not.toContain('2.500.000'); // el salario solo sale si la plantilla lo incluye
     expect(text).not.toContain('A QUIEN'); // general: sin destinatario
     // el PDF queda guardado en el almacén de objetos, con su huella
     const [row] = await db.select().from(certificateRequests);
     expect(store.objects.has(row?.objectKey ?? '')).toBe(true);
+    expect(row?.signerName).toBe('PERSONA DIRGH');
+    expect(row?.signerTitle).toBe('Directora de Gestión Humana');
+    expect(row?.signatureSha256).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it('el certificado dirigido exige y muestra el destinatario', async () => {
@@ -442,5 +510,142 @@ describe.skipIf(!url)('certificado laboral (HTTP + PostgreSQL)', () => {
     await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL' }).expect(503);
     store.down = false;
     expect(await db.select().from(certificateRequests)).toHaveLength(0);
+  });
+
+  it('firma quien esté disponible: con dos principales el empleado elige; el de respaldo solo entra en su defecto', async () => {
+    const fin = await makeSigner('DIRFIN', { title: 'Director Financiero' });
+    const gg = await makeSigner('GERGEN', { title: 'Gerente General', tier: 'RESPALDO' });
+    const opts = (await call('EMP', 'get', '/me/labor-certificates/options').expect(200)).body;
+    expect(opts.signers.map((x: { title: string }) => x.title)).toEqual([
+      'Directora de Gestión Humana',
+      'Director Financiero',
+    ]);
+    // sin elegir: el primero; eligiendo: el elegido
+    const a = await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL' }).expect(201);
+    const b = await call('EMP', 'post', '/me/labor-certificates', {
+      kind: 'GENERAL',
+      signerId: fin,
+    }).expect(201);
+    const textOf = async (id: string) =>
+      pdfText(
+        bin(await call('EMP', 'get', `/me/labor-certificates/${id}/pdf`).buffer(true).expect(200)),
+      );
+    expect(await textOf(a.body.id)).toContain('Directora de Gestión Humana');
+    const tb = await textOf(b.body.id);
+    expect(tb).toContain('Director Financiero');
+    expect(tb).not.toContain('Gerente General');
+    // el gerente general (respaldo) no se puede elegir mientras haya principales
+    await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL', signerId: gg }).expect(
+      400,
+    );
+    await call('EMP', 'post', '/me/labor-certificates', {
+      kind: 'GENERAL',
+      signerId: '00000000-0000-4000-8000-000000000000',
+    }).expect(400);
+    // si ningún principal está disponible, firma el gerente general
+    const list = (await call('ADM', 'get', '/admin/labor-certificates/signers/GA').expect(200))
+      .body;
+    for (const p of list.filter((x: { tier: string }) => x.tier === 'PRINCIPAL'))
+      await call('ADM', 'put', `/admin/labor-certificates/signers/GA/${p.id}`, {
+        active: false,
+      }).expect(200);
+    const opts2 = (await call('EMP', 'get', '/me/labor-certificates/options').expect(200)).body;
+    expect(opts2.signers.map((x: { title: string }) => x.title)).toEqual(['Gerente General']);
+    const c = await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL' }).expect(201);
+    expect(await textOf(c.body.id)).toContain('Gerente General');
+  });
+
+  it('sin firmante disponible no se genera: falta la firma cargada, cuenta activa o rol vigente', async () => {
+    await db.delete(certificateSigners);
+    await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL' }).expect(409);
+    // designado pero sin firma cargada: no cuenta
+    const id = await makeSigner('SINFIRMA', { title: 'Director Financiero', enroll: false });
+    expect(
+      (await call('EMP', 'get', '/me/labor-certificates/options').expect(200)).body.signers,
+    ).toEqual([]);
+    const r = await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL' }).expect(409);
+    expect(r.body.code).toBe('NO_SIGNER');
+    await enrollSig('SINFIRMA', id).expect(200);
+    await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL' }).expect(201);
+    // cuenta bloqueada o rol vencido: deja de poder firmar
+    await db.update(accounts).set({ status: 'BLOQUEADA' }).where(eq(accounts.nIde, 'SINFIRMA'));
+    await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL' }).expect(409);
+    await db.update(accounts).set({ status: 'ACTIVA' }).where(eq(accounts.nIde, 'SINFIRMA'));
+    await db
+      .update(roleAssignments)
+      .set({ validTo: '2020-12-31' })
+      .where(eq(roleAssignments.role, 'CERTIFICATE_APPROVER'));
+    await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL' }).expect(409);
+  });
+
+  it('la firma la carga solo su titular, con consentimiento e imagen válida; nadie más la ve', async () => {
+    const id = await makeSigner('DIRFIN', { title: 'Director Financiero', enroll: false });
+    const mine = (await call('DIRFIN', 'get', '/me/certificate-signer').expect(200)).body;
+    expect(mine).toHaveLength(1);
+    expect(mine[0]).toMatchObject({
+      id,
+      title: 'Director Financiero',
+      tier: 'PRINCIPAL',
+      enrolled: false,
+    });
+    await enrollSig('DIRFIN', id, { consent: 'false' }).expect(400); // sin consentimiento
+    await enrollSig('DIRFIN', id, { file: Buffer.from('no es una imagen') }).expect(400);
+    await enrollSig('DIRFIN', id, { file: png(20, 20) }).expect(400); // demasiado pequeña
+    await enrollSig('EMP', id).expect(404); // otra persona no puede cargar la firma ajena
+    await enrollSig('DIRFIN', id).expect(200);
+    expect(
+      (await call('DIRFIN', 'get', '/me/certificate-signer').expect(200)).body[0].enrolled,
+    ).toBe(true);
+    const img = await call('DIRFIN', 'get', `/me/certificate-signer/${id}/signature`)
+      .buffer(true)
+      .expect(200);
+    expect(img.headers['content-type']).toContain('image/png');
+    await call('EMP', 'get', `/me/certificate-signer/${id}/signature`).expect(404);
+    await call('ADM', 'get', `/me/certificate-signer/${id}/signature`).expect(404); // ni siquiera el administrador
+    const logs = (
+      await db.select().from(auditLogs).where(eq(auditLogs.resource, 'certificate_signer'))
+    ).map((l) => `${l.action}:${l.result}`);
+    expect(logs).toContain('CERT_SIGNATURE_ENROLL:SUCCESS');
+    expect(logs).toContain('CERT_SIGNATURE_ENROLL:CONSENT_REQUIRED');
+    expect(logs).toContain('CERT_SIGNER_ADD:SUCCESS');
+    // el listado del administrador no trae la imagen
+    const adminList = JSON.stringify(
+      (await call('ADM', 'get', '/admin/labor-certificates/signers/GA').expect(200)).body,
+    );
+    expect(adminList).not.toContain('signature"');
+    expect(adminList).toContain('"enrolled":true');
+  });
+
+  it('el administrador designa firmantes: valida, evita duplicados, da el rol y exige sesión de administrador', async () => {
+    const add = (body: object) => call('ADM', 'post', '/admin/labor-certificates/signers/GA', body);
+    await person('NUEVO');
+    await add({ nIde: 'NUEVO', title: 'ab', tier: 'PRINCIPAL' }).expect(400);
+    await add({ nIde: 'NUEVO', title: 'Director Financiero', tier: 'OTRO' }).expect(400);
+    await add({ nIde: 'NO-EXISTE', title: 'Director Financiero', tier: 'PRINCIPAL' }).expect(404);
+    await add({ nIde: 'NUEVO', title: 'Director Financiero', tier: 'PRINCIPAL' }).expect(201);
+    await add({ nIde: 'NUEVO', title: 'Director Financiero', tier: 'PRINCIPAL' }).expect(409);
+    const [role] = await db
+      .select()
+      .from(roleAssignments)
+      .where(eq(roleAssignments.role, 'CERTIFICATE_APPROVER'));
+    expect(role?.companyCode).toBe('GA');
+    await call('ADM', 'post', '/admin/labor-certificates/signers/ZZ', {
+      nIde: 'NUEVO',
+      title: 'Director',
+      tier: 'PRINCIPAL',
+    }).expect(404);
+    await call('EMP', 'get', '/admin/labor-certificates/signers/GA').expect(403);
+    await call('EMP', 'post', '/admin/labor-certificates/signers/GA', {
+      nIde: 'NUEVO',
+      title: 'Director',
+      tier: 'PRINCIPAL',
+    }).expect(403);
+    // el historial muestra quién firmó
+    await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL' }).expect(201);
+    const hist = (await call('ADM', 'get', '/admin/labor-certificates/history').expect(200)).body;
+    expect(hist.items[0]).toMatchObject({
+      signerName: 'PERSONA DIRGH',
+      signerTitle: 'Directora de Gestión Humana',
+    });
   });
 });

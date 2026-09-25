@@ -994,6 +994,35 @@ export const certificateTemplates = pgTable(
   ],
 );
 
+/**
+ * Personas que firman los certificados laborales (director financiero, directora de Gestión Humana,
+ * gerente general...). Firma quien esté disponible: primero los PRINCIPAL y, si no hay ninguno, los RESPALDO.
+ * La imagen de la firma la carga la propia persona, con su consentimiento; nunca otro usuario.
+ */
+export const certificateSigners = pgTable(
+  'certificate_signers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    cEmp: text('c_emp').notNull(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id),
+    /** Cargo que aparece bajo la firma. */
+    title: text('title').notNull(),
+    /** PRINCIPAL o RESPALDO (por ejemplo el gerente general, «en su defecto»). */
+    tier: text('tier').notNull().default('PRINCIPAL'),
+    active: boolean('active').notNull().default(true),
+    signature: bytea('signature'),
+    signatureContentType: text('signature_content_type'),
+    signatureSha256: text('signature_sha256'),
+    /** Cuándo la persona cargó su firma y autorizó su uso en los certificados. */
+    consentAt: timestamp('consent_at', { withTimezone: true }),
+    createdBy: uuid('created_by').references(() => accounts.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('certificate_signers_uq').on(t.cEmp, t.accountId)],
+);
+
 /** Historial de certificados laborales emitidos: uno por solicitud del empleado. */
 export const certificateRequests = pgTable(
   'certificate_requests',
@@ -1014,6 +1043,11 @@ export const certificateRequests = pgTable(
     /** Datos de control del formato vigentes al emitir. */
     docCode: text('doc_code').notNull(),
     docVersion: text('doc_version').notNull(),
+    /** Quién firmó y evidencia de la firma aplicada (nulos en certificados anteriores). */
+    signerAccountId: uuid('signer_account_id').references(() => accounts.id),
+    signerName: text('signer_name'),
+    signerTitle: text('signer_title'),
+    signatureSha256: text('signature_sha256'),
     /** Valores con los que se generó el documento (copia: un cambio posterior no lo altera). */
     snapshot: jsonb('snapshot').notNull(),
     objectKey: text('object_key').notNull(),

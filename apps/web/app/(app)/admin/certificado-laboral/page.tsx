@@ -14,8 +14,6 @@ interface Settings {
   docVersion: string;
   docDate: string;
   city: string;
-  signerName: string;
-  signerTitle: string;
   footerText: string;
   maxPerDay: number;
 }
@@ -40,6 +38,188 @@ const KIND_TITLE: Record<Kind, string> = {
   GENERAL: 'Certificado general (sin destinatario)',
   DIRIGIDO: 'Certificado dirigido (con destinatario)',
 };
+
+interface Signer {
+  id: string;
+  name: string;
+  title: string;
+  tier: 'PRINCIPAL' | 'RESPALDO';
+  active: boolean;
+  enrolled: boolean;
+  email: string;
+  status: string;
+}
+
+const SIGNER_ERRORS: Record<string, string> = {
+  INVALID_SIGNER: 'Revise los datos: el cargo va de 3 a 100 caracteres.',
+  ACCOUNT_NOT_FOUND:
+    'No hay una cuenta con esa identificación. Cree primero la cuenta del empleado.',
+  ALREADY_SIGNER: 'Esa persona ya está designada como firmante de esta empresa.',
+};
+
+/** Personas que firman los certificados: la imagen de la firma la carga cada una desde su cuenta. */
+function SignersSection({ cEmp }: { cEmp: string }) {
+  const { call } = useAdmin();
+  const [signers, setSigners] = useState<Signer[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const res = await call<Signer[]>(
+      `/admin/labor-certificates/signers/${encodeURIComponent(cEmp)}`,
+    );
+    if (res.status === 200 && res.data) setSigners(res.data);
+    else setError(NETWORK_ERROR);
+  }, [call, cEmp]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  function fail(res: { status: number; data?: unknown }) {
+    const code = (res.data as { code?: string } | undefined)?.code ?? '';
+    if (res.status === 403 && !code) setError('Se canceló la confirmación de identidad.');
+    else setError(SIGNER_ERRORS[code] ?? NETWORK_ERROR);
+  }
+
+  async function add(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    setOk(null);
+    const form = e.currentTarget;
+    const f = new FormData(form);
+    const res = await call(`/admin/labor-certificates/signers/${encodeURIComponent(cEmp)}`, {
+      method: 'POST',
+      body: {
+        nIde: String(f.get('nIde') ?? '').trim(),
+        title: String(f.get('title') ?? '').trim(),
+        tier: String(f.get('tier') ?? 'PRINCIPAL'),
+      },
+    });
+    if (res.status === 201) {
+      setOk('Firmante designado. Debe entrar a «Mi firma de certificados» para cargar su firma.');
+      form.reset();
+      await load();
+    } else fail(res);
+  }
+
+  async function change(id: string, body: object) {
+    setError(null);
+    setOk(null);
+    const res = await call<Signer[]>(
+      `/admin/labor-certificates/signers/${encodeURIComponent(cEmp)}/${id}`,
+      {
+        method: 'PUT',
+        body,
+      },
+    );
+    if (res.status === 200 && res.data) setSigners(res.data);
+    else fail(res);
+  }
+
+  return (
+    <section className="import-panel" aria-label="Firmantes">
+      <h2>Firmantes del certificado</h2>
+      <p className="muted">
+        Cada certificado lleva la firma de una persona designada: firman los principales (por
+        ejemplo el director financiero o la directora de Gestión Humana) y, si ninguno está
+        disponible, el de respaldo (por ejemplo el gerente general). Si hay más de un principal, el
+        empleado elige. Una persona solo queda disponible cuando su cuenta está activa, su rol
+        vigente y ella misma ha cargado su firma y autorizado su uso.
+      </p>
+      {error ? <Notice kind="error">{error}</Notice> : null}
+      {ok ? <Notice kind="ok">{ok}</Notice> : null}
+      {signers === null ? (
+        error ? null : (
+          <p className="muted">Cargando…</p>
+        )
+      ) : signers.length === 0 ? (
+        <p className="muted">
+          Todavía no hay firmantes: los empleados no podrán generar certificados.
+        </p>
+      ) : (
+        <div className="table-wrap" tabIndex={0} role="region" aria-label="Lista de firmantes">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Persona</th>
+                <th scope="col">Cargo que se muestra</th>
+                <th scope="col">Nivel</th>
+                <th scope="col">Estado</th>
+                <th scope="col">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {signers.map((s) => (
+                <tr key={s.id}>
+                  <th scope="row">
+                    {s.name}
+                    <br />
+                    <span className="muted">{s.email}</span>
+                  </th>
+                  <td>{s.title}</td>
+                  <td>{s.tier === 'PRINCIPAL' ? 'Principal' : 'Respaldo'}</td>
+                  <td>
+                    {!s.active ? (
+                      <Badge kind="off">Inactivo</Badge>
+                    ) : s.status !== 'ACTIVA' ? (
+                      <Badge kind="warn">Cuenta sin activar</Badge>
+                    ) : s.enrolled ? (
+                      <Badge kind="ok">Firma cargada</Badge>
+                    ) : (
+                      <Badge kind="warn">Falta su firma</Badge>
+                    )}
+                  </td>
+                  <td className="toolbar">
+                    <button
+                      type="button"
+                      className="secondary small"
+                      onClick={() => void change(s.id, { active: !s.active })}
+                    >
+                      {s.active ? 'Desactivar' : 'Activar'}
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary small"
+                      onClick={() =>
+                        void change(s.id, {
+                          tier: s.tier === 'PRINCIPAL' ? 'RESPALDO' : 'PRINCIPAL',
+                        })
+                      }
+                    >
+                      {s.tier === 'PRINCIPAL' ? 'Pasar a respaldo' : 'Pasar a principal'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <form onSubmit={add} noValidate>
+        <h3>Designar un firmante</h3>
+        <div className="grid-2">
+          <Field label="Identificación del empleado (N_IDE)" name="nIde" required maxLength={30} />
+          <Field
+            label="Cargo que aparece bajo la firma"
+            name="title"
+            required
+            maxLength={100}
+            hint="Por ejemplo: Directora de Gestión Humana."
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="tier">Nivel</label>
+          <select id="tier" name="tier" defaultValue="PRINCIPAL">
+            <option value="PRINCIPAL">Principal (firma normalmente)</option>
+            <option value="RESPALDO">Respaldo (firma si no hay ningún principal disponible)</option>
+          </select>
+        </div>
+        <button type="submit">Designar firmante</button>
+      </form>
+    </section>
+  );
+}
 
 function TemplateEditor({
   cEmp,
@@ -229,8 +409,6 @@ export default function LaborCertificateAdminPage() {
           docVersion: v('docVersion'),
           docDate: v('docDate'),
           city: v('city'),
-          signerName: v('signerName'),
-          signerTitle: v('signerTitle'),
           footerText: String(f.get('footerText') ?? '').trim(),
           maxPerDay: Number(f.get('maxPerDay')),
         },
@@ -321,20 +499,6 @@ export default function LaborCertificateAdminPage() {
                   maxLength={80}
                 />
                 <Field
-                  label="Nombre de quien firma"
-                  name="signerName"
-                  defaultValue={s.signerName}
-                  optional
-                  maxLength={100}
-                />
-                <Field
-                  label="Cargo de quien firma"
-                  name="signerTitle"
-                  defaultValue={s.signerTitle}
-                  optional
-                  maxLength={100}
-                />
-                <Field
                   label="Máximo de certificados por empleado al día"
                   name="maxPerDay"
                   type="number"
@@ -362,6 +526,7 @@ export default function LaborCertificateAdminPage() {
               <button type="submit">Guardar parámetros</button>
             </form>
           </section>
+          <SignersSection cEmp={cEmp} />
           {(['GENERAL', 'DIRIGIDO'] as const).map((k) => (
             <TemplateEditor
               key={k}

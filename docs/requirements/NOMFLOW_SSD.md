@@ -64,7 +64,7 @@ Esta sección es el modelo canónico; la elección de ORM y migraciones se fija 
 
 ### 6.1 Emisión de certificados laborales
 
-> **Decisión del 2026-09-25 (ADR-005):** el certificado laboral se emite en autoservicio, sin aprobador ni firma; el contenido está en plantillas editables y cada documento lleva el código del formato de calidad. Lo que sigue describe el flujo con aprobación y firma, que queda como mejora futura.
+> **Decisión del 2026-09-25 (ADR-005):** el certificado laboral se emite en autoservicio, sin cola de aprobación pero firmado por una persona designada (director financiero o directora de Gestión Humana; en su defecto el gerente general); el contenido está en plantillas editables y cada documento lleva el código del formato de calidad. Lo que sigue describe el flujo con aprobación y firma, que queda como mejora futura.
 
 El certificado laboral usa la última instantánea validada de `EMPLEADOS` (sección 9). La cuenta está vinculada a `N_IDE`; el empleado no puede suministrar otra identificación para obtener certificados ajenos.
 

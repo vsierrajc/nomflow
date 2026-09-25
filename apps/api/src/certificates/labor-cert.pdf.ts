@@ -12,8 +12,8 @@ export interface LaborCertPdfData {
   docCode: string;
   docVersion: string;
   docDate: string;
-  signerName: string;
-  signerTitle: string;
+  /** Quien firma: nombre, cargo y la imagen de su firma (solo en emisiones reales). */
+  signer: { name: string; title: string; signature: Buffer | null } | null;
   footerLines: string[];
   issuedAt: Date;
   /** Marca de agua «VISTA PREVIA» para el ensayo del administrador. */
@@ -97,22 +97,37 @@ export function renderLaborCertificatePdf(
       doc.moveDown(1);
     }
 
-    // Firma (solo si la empresa configuró quién firma).
-    if (d.signerName) {
-      doc.moveDown(3);
+    // Firma: imagen de quien firma sobre su nombre y cargo.
+    if (d.signer) {
+      doc.moveDown(2);
       const y = doc.y;
+      if (d.signer.signature) {
+        try {
+          doc.image(d.signer.signature, LEFT, y, { fit: [170, 60] });
+        } catch {
+          // imagen ilegible: se sigue con el nombre
+        }
+      } else if (d.preview) {
+        doc
+          .font('Helvetica-Oblique')
+          .fontSize(9)
+          .fillColor('#888888')
+          .text('(firma de ejemplo)', LEFT + 20, y + 22);
+        doc.fillColor('#111111');
+      }
+      const lineY = y + 64;
       doc
-        .moveTo(LEFT, y)
-        .lineTo(LEFT + 200, y)
+        .moveTo(LEFT, lineY)
+        .lineTo(LEFT + 200, lineY)
         .strokeColor('#222222')
         .lineWidth(0.8)
         .stroke();
       doc
         .font('Helvetica-Bold')
         .fontSize(10)
-        .text(d.signerName, LEFT, y + 4, { width: 260 });
-      if (d.signerTitle)
-        doc.font('Helvetica').fontSize(9).text(d.signerTitle, LEFT, doc.y, { width: 260 });
+        .fillColor('#111111')
+        .text(d.signer.name, LEFT, lineY + 4, { width: 300 });
+      doc.font('Helvetica').fontSize(9).text(d.signer.title, LEFT, doc.y, { width: 300 });
     }
 
     // Pie: datos de la empresa y referencia. Se escribe dentro del margen inferior sin abrir otra página.

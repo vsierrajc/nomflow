@@ -11,6 +11,7 @@ interface Options {
   kinds: Kind[];
   company: string;
   maxPerDay: number;
+  signers: { id: string; name: string; title: string }[];
 }
 
 interface Item {
@@ -43,6 +44,10 @@ function problem(status: number, data: unknown): string {
   if (d.code === 'MODE_NOT_ALLOWED') return 'Esa modalidad no está habilitada. Recargue la página.';
   if (d.code === 'MISSING_DATA')
     return `No se pudo generar porque falta información en su ficha: ${(d.details ?? []).join(', ')}. Comuníquelo a Gestión Humana.`;
+  if (d.code === 'NO_SIGNER')
+    return 'Por ahora no hay una persona disponible para firmar el certificado. Comuníquelo a Gestión Humana.';
+  if (d.code === 'SIGNER_NOT_ALLOWED')
+    return 'Esa persona ya no puede firmar. Recargue la página y elija de nuevo.';
   if (d.code === 'LIMIT_REACHED')
     return 'Alcanzó el máximo de certificados por día. Intente de nuevo mañana.';
   if (status === 503)
@@ -55,6 +60,7 @@ export default function LaborCertificatePage() {
   const [opts, setOpts] = useState<Options | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [kind, setKind] = useState<Kind>('GENERAL');
+  const [signerId, setSignerId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -68,6 +74,9 @@ export default function LaborCertificatePage() {
     if (o.status === 200 && o.data) {
       setOpts(o.data);
       setKind((k) => (o.data?.kinds.includes(k) ? k : (o.data?.kinds[0] ?? 'GENERAL')));
+      setSignerId((cur) =>
+        o.data?.signers.some((s) => s.id === cur) ? cur : (o.data?.signers[0]?.id ?? ''),
+      );
     } else {
       setBlocked(true);
       setError(problem(o.status, o.data));
@@ -88,7 +97,11 @@ export default function LaborCertificatePage() {
     const res = await api<{ id: string }>('/me/labor-certificates', {
       method: 'POST',
       csrf: profile.csrfToken,
-      body: { kind, ...(kind === 'DIRIGIDO' ? { addressee } : {}) },
+      body: {
+        kind,
+        ...(kind === 'DIRIGIDO' ? { addressee } : {}),
+        ...(signerId ? { signerId } : {}),
+      },
     });
     setBusy(false);
     if (res.status === 201 && res.data) {
@@ -143,7 +156,28 @@ export default function LaborCertificatePage() {
                 hint="Nombre de la persona o entidad que recibirá el certificado. Por ejemplo: Banco Ejemplo S.A."
               />
             ) : null}
-            <button type="submit" disabled={busy}>
+            {opts.signers.length > 1 ? (
+              <div className="field">
+                <label htmlFor="signer">Firma el certificado</label>
+                <select id="signer" value={signerId} onChange={(e) => setSignerId(e.target.value)}>
+                  {opts.signers.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} - {s.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : opts.signers[0] ? (
+              <p>
+                <strong>Firma:</strong> {opts.signers[0].name} - {opts.signers[0].title}
+              </p>
+            ) : (
+              <Alert kind="warn">
+                Por ahora no hay una persona disponible para firmar el certificado. Comuníquelo a
+                Gestión Humana.
+              </Alert>
+            )}
+            <button type="submit" disabled={busy || opts.signers.length === 0}>
               {busy ? 'Generando…' : 'Generar certificado'}
             </button>
           </form>

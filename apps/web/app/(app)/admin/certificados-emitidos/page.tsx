@@ -16,6 +16,8 @@ interface Row {
   docCode: string;
   docVersion: string;
   templateVersion: number;
+  signerName: string | null;
+  signerTitle: string | null;
 }
 
 interface Page {
@@ -129,6 +131,7 @@ export default function IssuedCertificatesPage() {
                   <th scope="col">Tipo</th>
                   <th scope="col">Dirigido a</th>
                   <th scope="col">Formato</th>
+                  <th scope="col">Firmó</th>
                   <th scope="col">Acciones</th>
                 </tr>
               </thead>
@@ -143,6 +146,10 @@ export default function IssuedCertificatesPage() {
                     <td>{r.addressee ?? '-'}</td>
                     <td>
                       {r.docCode} v{r.docVersion} (plantilla {r.templateVersion})
+                    </td>
+                    <td>
+                      {r.signerName ?? '-'}
+                      {r.signerTitle ? <span className="muted"> ({r.signerTitle})</span> : null}
                     </td>
                     <td>
                       <button
