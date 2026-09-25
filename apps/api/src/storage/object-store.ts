@@ -22,12 +22,20 @@ export interface ObjectStore {
   get(key: string): Promise<Buffer | null>;
 }
 
+/** Almacén que además puede borrar objetos: lo usa el archivado (las descargas no borran nada). */
+export interface DeletableObjectStore extends ObjectStore {
+  delete(key: string): Promise<void>;
+}
+
 /** Sin configuración, cada operación falla de forma explícita. */
-export class UnconfiguredObjectStore implements ObjectStore {
+export class UnconfiguredObjectStore implements DeletableObjectStore {
   put(): Promise<void> {
     return Promise.reject(new ObjectStoreError('NOT_CONFIGURED'));
   }
   get(): Promise<Buffer | null> {
+    return Promise.reject(new ObjectStoreError('NOT_CONFIGURED'));
+  }
+  delete(): Promise<void> {
     return Promise.reject(new ObjectStoreError('NOT_CONFIGURED'));
   }
 }

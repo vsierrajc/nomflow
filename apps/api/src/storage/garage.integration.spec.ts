@@ -26,6 +26,13 @@ describe.skipIf(!config)('Garage real (API S3)', () => {
   const raw = config ? new S3ObjectStore(config) : (null as unknown as S3ObjectStore);
   const store = new EncryptedObjectStore(raw, SECRET);
 
+  it('borra un objeto (lo usa el archivado tras verificar la copia)', async () => {
+    const key = name();
+    await raw.put(key, Buffer.from('x'));
+    await raw.delete(key);
+    expect(await raw.get(key)).toBeNull();
+  });
+
   it('guarda y recupera; un objeto inexistente es null', async () => {
     const key = name();
     await store.put(key, PDF, 'application/pdf');

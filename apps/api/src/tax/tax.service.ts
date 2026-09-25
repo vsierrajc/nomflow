@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { accounts, auditLogs, employeeSnapshots, taxCertificates } from '../db/schema';
+import { archivedKeys } from '../storage/archive.service';
 import { ObjectStoreError, type ObjectStore } from '../storage/object-store';
 
 export const FILE_RE = /^([A-Za-z0-9]{1,30})_(\d{4})\.pdf$/i;
@@ -205,15 +206,25 @@ async function myNIde(db: Db, accountId: string): Promise<string | null> {
 export async function listMine(db: Db, accountId: string) {
   const nIde = await myNIde(db, accountId);
   if (!nIde) return [];
-  return db
+  const rows = await db
     .select({
       year: taxCertificates.year,
       sizeBytes: taxCertificates.sizeBytes,
       uploadedAt: taxCertificates.uploadedAt,
+      objectKey: taxCertificates.objectKey,
     })
     .from(taxCertificates)
     .where(and(eq(taxCertificates.nIde, nIde), eq(taxCertificates.active, true)))
     .orderBy(desc(taxCertificates.year));
+  // `archived`: el PDF solo está en la nube (archivo histórico) y la descarga tardará algo más.
+  const inCloud = await archivedKeys(
+    db,
+    rows.flatMap((r) => (r.objectKey ? [r.objectKey] : [])),
+  );
+  return rows.map(({ objectKey, ...r }) => ({
+    ...r,
+    archived: objectKey ? inCloud.has(objectKey) : false,
+  }));
 }
 
 /**

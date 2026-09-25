@@ -48,6 +48,7 @@ import {
   myOpenPeriods,
 } from './prog-vac.service';
 import { HolidayApiError, getSettings, saveSettings, syncYear } from './holiday-api.service';
+import { archivedVacationRequestIds } from '../storage/archive.service';
 import { OBJECT_STORE, ObjectStoreError, type ObjectStore } from '../storage/object-store';
 import { getVacationDocument, tryEnsureVacationDocument } from './vacation-document.service';
 import { PlanError, type Allocation } from './leave-plan';
@@ -374,15 +375,23 @@ export class MeVacationsController {
 
   @Get()
   @Header('Cache-Control', 'no-store')
-  list(@Req() req: AuthedRequest) {
-    return listMine(this.db, req.auth.accountId);
+  async list(@Req() req: AuthedRequest) {
+    const rows = await listMine(this.db, req.auth.accountId);
+    // `documentArchived`: la constancia solo está en la nube y la descarga tardará algo más.
+    const archived = await archivedVacationRequestIds(
+      this.db,
+      rows.map((r) => r.id),
+    );
+    return rows.map((r) => ({ ...r, documentArchived: archived.has(r.id) }));
   }
 
   @Get(':id')
   @Header('Cache-Control', 'no-store')
   async one(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
     try {
-      return await detail(this.db, req.auth.accountId, id);
+      const d = await detail(this.db, req.auth.accountId, id);
+      const archived = await archivedVacationRequestIds(this.db, [id]);
+      return { ...d, documentArchived: archived.has(id) };
     } catch (e) {
       return mapLeave(e);
     }

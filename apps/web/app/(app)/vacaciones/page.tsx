@@ -254,6 +254,11 @@ export default function MyVacationsPage() {
                         Constancia (PDF)
                       </a>
                     ) : null}
+                    {r.status === 'APROBADA' && r.documentArchived ? (
+                      <span className="muted">
+                        Archivo histórico: la descarga puede tardar unos segundos.
+                      </span>
+                    ) : null}
                     {OPEN.includes(r.status) ? (
                       <button
                         type="button"

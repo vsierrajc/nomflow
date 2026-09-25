@@ -16,6 +16,7 @@ import { ConceptsController } from './payroll/concepts.controller';
 import { MePayrollController } from './payroll/me-payroll.controller';
 import { AdminMailController } from './mail/mail.controller';
 import { MailModule } from './mail/mail.module';
+import { ArchiveModule } from './storage/archive.module';
 import { StorageModule } from './storage/storage.module';
 import { AdminTaxController, MeTaxController } from './tax/tax.controller';
 import {
@@ -35,7 +36,7 @@ import { HealthController } from './health.controller';
 import { SystemHealthModule } from './health/health.module';
 
 @Module({
-  imports: [DbModule, MailModule, StorageModule, SystemHealthModule],
+  imports: [DbModule, MailModule, StorageModule, ArchiveModule, SystemHealthModule],
   controllers: [
     HealthController,
     AuthController,
