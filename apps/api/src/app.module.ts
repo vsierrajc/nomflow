@@ -33,6 +33,10 @@ import {
   MePermitsController,
 } from './leave/permit.controller';
 import { HealthController } from './health.controller';
+import { InboxController } from './inbox/inbox.controller';
+import { NotificationMonitor } from './inbox/notification-monitor';
+import { AdminNotificationsController } from './inbox/notification.controller';
+import { NotificationService } from './inbox/notification.service';
 import { SystemHealthModule } from './health/health.module';
 
 @Module({
@@ -62,8 +66,17 @@ import { SystemHealthModule } from './health/health.module';
     MePermitsController,
     ManagerPermitsController,
     AdminMailController,
+    InboxController,
+    AdminNotificationsController,
   ],
-  providers: [SessionGuard, RolesGuard, RecentAuthGuard, RequestAuditService],
+  providers: [
+    SessionGuard,
+    RolesGuard,
+    RecentAuthGuard,
+    RequestAuditService,
+    NotificationService,
+    NotificationMonitor,
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

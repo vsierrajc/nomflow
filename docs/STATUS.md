@@ -29,6 +29,7 @@
 | Almacenamiento de objetos con Garage (ADR-003) | DONE | (este PR) | Rotación de OBJECT_ENCRYPTION_KEY, política de retención |
 | Salud del sistema y alertas (almacenamiento, BD, errores, correo) | DONE | (este PR) | Métricas de CPU/memoria del servidor, alertas por otros canales |
 | Archivo histórico en la nube (Google Cloud Storage) | DONE (probado con almacenes simulados; falta la primera prueba real contra el bucket) | (este PR) | Configurar el bucket y las claves HMAC en /admin/archivo |
+| Bandeja de entrada y avisos por correo del flujo (vacaciones y permisos) | DONE | (este PR) | El flujo de aprobación de certificados aún no existe (el rol se registra) |
 | Certificados laborales, aviso de baja y ZIP | BACKLOG | — | Fases 3 y 4 de la SSD |
 
 ## Bloqueos

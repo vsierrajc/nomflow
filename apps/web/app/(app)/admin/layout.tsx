@@ -21,6 +21,7 @@ const NAV = [
   { href: '/admin/festivos', label: 'Festivos' },
   { href: '/admin/tipos-permiso', label: 'Tipos de permiso' },
   { href: '/admin/retenciones', label: 'Certificados de retención' },
+  { href: '/admin/notificaciones', label: 'Notificaciones del flujo' },
   { href: '/admin/salud', label: 'Salud del sistema' },
   { href: '/admin/archivo', label: 'Archivo histórico' },
   { href: '/admin/auditoria', label: 'Auditoría' },

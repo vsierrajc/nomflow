@@ -911,3 +911,40 @@ export const archivedObjects = pgTable(
   },
   (t) => [index('archived_objects_status_idx').on(t.status)],
 );
+
+/** Avisos por correo del flujo de vacaciones y permisos (una sola fila, id = 1). */
+export const notificationSettings = pgTable('notification_settings', {
+  id: integer('id').primaryKey().default(1),
+  /** Correo al aprobador cuando le llega una solicitud. */
+  notifyApprover: boolean('notify_approver').notNull().default(true),
+  /** Correo al empleado con la respuesta o cuando debe aceptar un cambio. */
+  notifyEmployee: boolean('notify_employee').notNull().default(true),
+  /** Recordatorio a quien tiene una solicitud sin atender tras estos días; 0 = sin recordatorios. */
+  reminderDays: integer('reminder_days').notNull().default(3),
+  /** Dirección pública de NOMFLOW para el enlace de los correos (opcional). */
+  appUrl: text('app_url').notNull().default(''),
+  updatedBy: uuid('updated_by').references(() => accounts.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Avisos ya enviados: evita repetirlos y marca cuándo toca el recordatorio. */
+export const notificationLog = pgTable(
+  'notification_log',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** NUEVA (actividad nueva), RESULTADO (respuesta al empleado) o RECORDATORIO. */
+    kind: text('kind').notNull(),
+    requestType: text('request_type').notNull(),
+    requestId: uuid('request_id').notNull(),
+    /** Paso de la solicitud al enviar (estado y revisión): un cambio de paso vuelve a avisar. */
+    step: text('step').notNull(),
+    recipientAccountId: uuid('recipient_account_id')
+      .notNull()
+      .references(() => accounts.id),
+    sentAt: timestamp('sent_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('notification_log_request_idx').on(t.requestId, t.recipientAccountId, t.step),
+    index('notification_log_sent_idx').on(t.sentAt),
+  ],
+);
