@@ -242,6 +242,8 @@ export class ArchiveService {
       status,
       sha256: sha(bytes),
       sizeBytes: bytes.length,
+      // Hora de la aplicación (no la de PostgreSQL): la gracia se compara con este mismo reloj.
+      archivedAt: new Date(),
       localDeletedAt,
     };
     await this.db
