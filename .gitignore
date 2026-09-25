@@ -39,7 +39,7 @@ coverage/
 *.xlsx
 *.xls
 !**/fixtures/**/*.xlsx
-storage/
+/storage/
 *.dump
 *.sql.gz
 *.pem
