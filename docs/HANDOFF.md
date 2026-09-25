@@ -100,7 +100,8 @@ Interfaz de módulos futuros (solicitudes, aprobaciones, documentos): ver `docs/
 14. **Migraciones aún no integradas**: si regeneras una migración que ya se aplicó en `nomflow_test`, la base de pruebas queda con la versión vieja (`CREATE TABLE` falla por «ya existe»). Solucionar quitando la tabla y su fila de `drizzle.__drizzle_migrations` en la base de pruebas (solo esa base).
 15. **Falsos positivos de CodeQL**: una alerta descartada por la API se pierde si el código cambia de línea. Las decisiones ya revisadas (cookie de sesión) van como comentario `// codeql[regla]` con su justificación junto al código.
 16. **Pruebas de navegador**: tras pulsar «Ingresar» hay que esperar la URL `/` antes de navegar; abrir otra página antes interrumpe el ingreso y falla de forma intermitente. Un aviso que ya estaba en pantalla no sirve para esperar una acción repetida: esperar el estado real.
-17. Integrar PR sin revisión de otra persona lo bloquea el clasificador de permisos salvo instrucción explícita del usuario y regla de permisos.
+17. **`docker compose down` y los volúmenes**: PostgreSQL debe tener un volumen con nombre (`pgdata`). Con uno anónimo, `down` deja los datos huérfanos y `up` crea una base vacía. Y `npm run build` con la aplicación en marcha rompe las páginas («This page couldn't load»): reiniciar con `./iniciar_app.sh`.
+18. Integrar PR sin revisión de otra persona lo bloquea el clasificador de permisos salvo instrucción explícita del usuario y regla de permisos.
 
 ## 9. Cierre de una tarea (definición de terminado)
 

@@ -72,9 +72,23 @@ up() {
 }
 
 down() {
-  stop_proc web
-  stop_proc api
-  docker compose stop
+  if [ "${1:-}" = "--borrar-datos" ]; then
+    echo "ATENCIÓN: se eliminarán los contenedores y sus VOLÚMENES: la base de desarrollo (nomflow y nomflow_test), MinIO y Redis."
+    printf 'Escriba BORRAR para confirmar: '
+    read -r answer
+    if [ "$answer" != "BORRAR" ]; then
+      echo "Cancelado: no se detuvo ni se borró nada." >&2
+      return 1
+    fi
+    stop_proc web
+    stop_proc api
+    docker compose down -v
+  else
+    stop_proc web
+    stop_proc api
+    # Elimina los contenedores y la red, pero conserva los datos (volúmenes).
+    docker compose down
+  fi
 }
 
 status() {
@@ -88,7 +102,7 @@ status() {
 
 case "${1:-}" in
   up) up ;;
-  down) down ;;
+  down) down "${2:-}" ;;
   status) ensure_env; status ;;
-  *) echo "Uso: bash scripts/stack.sh {up|down|status}" >&2; exit 1 ;;
+  *) echo "Uso: bash scripts/stack.sh {up|down [--borrar-datos]|status}" >&2; exit 1 ;;
 esac
