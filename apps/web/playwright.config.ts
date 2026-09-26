@@ -66,6 +66,8 @@ export default defineConfig({
         SMTP_SECURE: 'false',
         SMTP_REQUIRE_TLS: 'false',
         TAX_CERT_INBOX_DIR: join(tmpdir(), 'nomflow-e2e-certificados'),
+        LOG_FILES: `api=${join(tmpdir(), 'nomflow-e2e-api.log')}`,
+        LOGS_SCHEDULER: 'off',
         ...objectStoreEnv(),
       },
     },

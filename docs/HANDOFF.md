@@ -108,6 +108,8 @@ Interfaz de módulos futuros (solicitudes, aprobaciones, documentos): ver `docs/
 
 - **Firma digital de certificados laborales**: los `.p12` de los firmantes se guardan cifrados con `SETTINGS_ENCRYPTION_KEY` (o `SESSION_SECRET`); cambiar esa clave los deja inservibles. `@signpdf/placeholder-plain` NO se usa (arrastra un pdfkit antiguo con `crypto-js` vulnerable): el espacio de firma lo reserva `apps/api/src/certificates/digital-signature.ts`. El campo `/Contents` lleva relleno de ceros: se recorta por el largo del DER, nunca quitando ceros del final.
 
+- **Registros**: `.gitignore` excluye directorios llamados `logs/` (por eso el módulo se llama `registros`). Vaciar `.run/*.log` solo es seguro porque `stack.sh` los abre con `>>`; los archivos gestionables se declaran en `LOG_FILES`. Las peticiones HTTP también se auditan, así que cualquier consulta añade filas: las pruebas cuentan solo lo que siembran.
+
 ## 9. Cierre de una tarea (definición de terminado)
 
 Criterios de aceptación cumplidos, pruebas para los riesgos reales, la verificación de §1 en verde, PR integrado, `docs/CHANGELOG.md`, `docs/traceability.md`, `docs/STATUS.md` y una bitácora nueva en `docs/sessions/`, y **este archivo actualizado**.

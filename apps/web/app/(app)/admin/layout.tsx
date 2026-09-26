@@ -52,6 +52,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
       { href: '/admin/salud', label: 'Salud del sistema' },
       { href: '/admin/archivo', label: 'Archivo histórico' },
       { href: '/admin/auditoria', label: 'Auditoría' },
+      { href: '/admin/registros', label: 'Registros y depuración' },
     ],
   },
 ];

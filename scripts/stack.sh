@@ -58,7 +58,8 @@ stop_proc() {
 start_proc() {
   local name="$1"
   shift
-  setsid nohup "$@" >"$RUN/$name.log" 2>&1 </dev/null &
+  # «>>» (modo añadir): si alguien vacía el archivo, el proceso sigue escribiendo al final y no deja huecos
+  setsid nohup "$@" >>"$RUN/$name.log" 2>&1 </dev/null &
   echo $! >"$RUN/$name.pid"
 }
 
@@ -89,7 +90,7 @@ up() {
 
   stop_proc api
   stop_proc web
-  PORT="$API_PORT" start_proc api node apps/api/dist/main.js
+  LOG_FILES="api=$PWD/$RUN/api.log,web=$PWD/$RUN/web.log" PORT="$API_PORT" start_proc api node apps/api/dist/main.js
   start_proc web npm run start -w @nomflow/web -- -p "$WEB_PORT"
   wait_url "http://localhost:${API_PORT}/health" api
   wait_url "http://localhost:${WEB_PORT}" web

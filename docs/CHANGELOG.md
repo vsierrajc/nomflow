@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Gestión de registros (ADR-006, `/admin/registros`, migración 0029): ver el resumen de la auditoría, exportarla (CSV/JSONL), enviarla cifrada y verificada al histórico en Google, depurarla (por fecha y tipo, copiando antes por omisión; motivo y confirmación BORRAR; las huellas de las depuraciones no se borran), política de retención con ejecución diaria opcional, y gestionar los archivos de registro de la aplicación (`LOG_FILES`): ver últimas líneas, descargar, enviar al histórico y vaciar. `stack.sh` abre los registros en modo añadir.
 - Administración: los grupos del menú (Entidades, Operaciones, Certificados, Sistema) son desplegables: por omisión se abre el de la pantalla actual, se recuerda lo que la persona abre o cierra y se navega con teclado (`aria-expanded`).
 - Certificado laboral, firmantes: la persona a designar se elige de una lista (con filtro) de quienes tienen cuenta y contrato vigente en la empresa y aún no son firmantes (`GET /admin/labor-certificates/signers/:cEmp/candidates`), en lugar de escribir su identificación; el nivel y las acciones de la tabla ya no se parten en dos líneas.
 - Administración: el menú lateral se agrupa en Entidades (empresas y logo, áreas/cargos/centros de costo, conceptos, tipos de permiso, festivos), Operaciones (empleados, cuentas y roles, importaciones, nómina publicada, períodos de vacaciones), Certificados (retención, laboral y emitidos) y Sistema (correo, notificaciones, salud, archivo histórico, auditoría), con «Resumen» arriba.

@@ -204,6 +204,13 @@
       "when": 1790369581832,
       "tag": "0028_firma_digital",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1790389448369,
+      "tag": "0029_gestion_registros",
+      "breakpoints": true
     }
   ]
 }
