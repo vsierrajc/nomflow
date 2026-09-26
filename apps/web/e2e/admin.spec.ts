@@ -78,19 +78,7 @@ test.describe('acceso al área administrativa', () => {
       await expect(page).toHaveURL(/\/admin$/);
       await expect(page.getByRole('heading', { name: 'Resumen administrativo' })).toBeVisible();
       const nav = page.getByRole('navigation', { name: 'Administración' });
-      for (const name of [
-        'Resumen',
-        'Empresas y logo',
-        'Áreas, cargos y centros de costo',
-        'Conceptos de nómina',
-        'Empleados',
-        'Cuentas y roles',
-        'Importaciones',
-        'Nómina publicada',
-        'Auditoría',
-      ]) {
-        await expect(nav.getByRole('link', { name })).toBeVisible();
-      }
+      await expect(nav.getByRole('link', { name: 'Resumen' })).toBeVisible();
       // El menú está agrupado: cada enlace en su grupo, con su encabezado.
       const groups: Record<string, string[]> = {
         Entidades: [
@@ -120,11 +108,27 @@ test.describe('acceso al área administrativa', () => {
           'Auditoría',
         ],
       };
+      await expect(page.getByText('Cuentas activas')).toBeVisible();
+      // Los grupos son desplegables: al entrar a Resumen todos están cerrados; se abren uno a uno.
       for (const [group, links] of Object.entries(groups)) {
         const section = nav.getByRole('region', { name: group });
+        const toggle = section.getByRole('button', { name: group });
+        await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+        await expect(section.getByRole('link')).toHaveCount(0);
+        await toggle.click();
+        await expect(toggle).toHaveAttribute('aria-expanded', 'true');
         await expect(section.getByRole('link')).toHaveText(links);
       }
-      await expect(page.getByText('Cuentas activas')).toBeVisible();
+      // lo abierto se recuerda al recargar; al entrar a una pantalla se abre su grupo
+      await page.reload();
+      await expect(
+        nav.getByRole('region', { name: 'Sistema' }).getByRole('button', { name: 'Sistema' }),
+      ).toHaveAttribute('aria-expanded', 'true');
+      await nav
+        .getByRole('region', { name: 'Sistema' })
+        .getByRole('link', { name: 'Auditoría' })
+        .click();
+      await expect(page).toHaveURL(/\/admin\/auditoria/);
     });
   }
 });
