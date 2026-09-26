@@ -413,6 +413,28 @@ export const companyLogos = pgTable(
   ],
 );
 
+/** Imagen de encabezado o de pie de página de los documentos formales (una por empresa y posición). */
+export const companyLetterheads = pgTable(
+  'company_letterheads',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id),
+    kind: text('kind').notNull(),
+    contentType: text('content_type').notNull(),
+    data: bytea('data').notNull(),
+    sha256: text('sha256').notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    uploadedBy: uuid('uploaded_by')
+      .notNull()
+      .references(() => accounts.id),
+    uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('company_letterheads_uq').on(t.companyId, t.kind)],
+);
+
 export const employeeChanges = pgTable(
   'employee_changes',
   {

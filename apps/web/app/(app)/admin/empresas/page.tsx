@@ -285,6 +285,142 @@ function LogoDialog({ company, onClose }: { company: Company; onClose: () => voi
   );
 }
 
+interface LetterheadState {
+  kind: 'HEADER' | 'FOOTER';
+  image: { contentType: string; width: number; height: number; uploadedAt: string } | null;
+}
+
+const LETTERHEAD_ERRORS: Record<string, string> = {
+  TOO_LARGE: 'El archivo supera los 600 KB.',
+  INVALID_IMAGE: 'El archivo no es una imagen PNG o JPEG válida.',
+  INVALID_DIMENSIONS: 'La imagen debe medir entre 1000 y 5000 píxeles de ancho.',
+  TOO_TALL:
+    'La imagen es demasiado alta para su proporción: al ajustarla al ancho de la hoja excede el alto permitido.',
+};
+
+const LETTERHEAD_INFO = {
+  HEADER: {
+    title: 'Encabezado',
+    size: '2550 x 480 píxeles (216 x 40 mm a 300 ppp)',
+    max: 'alto máximo 130 pt (unos 46 mm) al ajustarla al ancho de la hoja',
+  },
+  FOOTER: {
+    title: 'Pie de página',
+    size: '2550 x 330 píxeles (216 x 28 mm a 300 ppp)',
+    max: 'alto máximo 100 pt (unos 35 mm) al ajustarla al ancho de la hoja',
+  },
+} as const;
+
+function LetterheadDialog({ company, onClose }: { company: Company; onClose: () => void }) {
+  const { call, send } = useAdmin();
+  const [state, setState] = useState<LetterheadState[]>([]);
+  const [stamp, setStamp] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    const res = await call<LetterheadState[]>(`/admin/companies/${company.id}/letterhead`);
+    if (res.status === 200 && res.data) setState(res.data);
+  }, [call, company.id]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function onUpload(kind: 'HEADER' | 'FOOTER', e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const file = form.get('file');
+    if (!(file instanceof File) || file.size === 0) {
+      setError('Elija un archivo PNG o JPEG.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setOk(null);
+    const res = await send<{ code?: string }>(
+      `/admin/companies/${company.id}/letterhead/${kind.toLowerCase()}`,
+      form,
+    );
+    setBusy(false);
+    if (res.status === 201) {
+      setOk(`${LETTERHEAD_INFO[kind].title} cargado. Ya lo usan los nuevos documentos.`);
+      setStamp(Date.now());
+      void load();
+      (e.target as HTMLFormElement).reset();
+    } else if (res.status === 413) setError(LETTERHEAD_ERRORS.TOO_LARGE ?? '');
+    else if (res.status === 422)
+      setError(LETTERHEAD_ERRORS[res.data?.code ?? ''] ?? 'La imagen no es válida.');
+    else if (res.status === 403) setError('Se canceló la confirmación de identidad.');
+    else setError(NETWORK_ERROR);
+  }
+
+  async function remove(kind: 'HEADER' | 'FOOTER') {
+    setError(null);
+    setOk(null);
+    const res = await call(`/admin/companies/${company.id}/letterhead/${kind.toLowerCase()}`, {
+      method: 'DELETE',
+    });
+    if (res.status === 204) {
+      setOk(`${LETTERHEAD_INFO[kind].title} quitado: se usa el diseño de texto.`);
+      setStamp(Date.now());
+      void load();
+    } else setError(NETWORK_ERROR);
+  }
+
+  return (
+    <Modal title={`Encabezado y pie de ${company.nombre}`} onClose={onClose} wide>
+      {error ? <Notice kind="error">{error}</Notice> : null}
+      {ok ? <Notice kind="ok">{ok}</Notice> : null}
+      <p className="muted">
+        Imágenes a todo el ancho de la hoja (carta) para los certificados laborales y la constancia
+        de vacaciones aprobada. Si no se cargan, se usa el diseño de texto con el logo.
+      </p>
+      {(['HEADER', 'FOOTER'] as const).map((kind) => {
+        const info = LETTERHEAD_INFO[kind];
+        const current = state.find((x) => x.kind === kind)?.image ?? null;
+        return (
+          <section key={kind} aria-label={info.title}>
+            <h3>{info.title}</h3>
+            {current ? (
+              <img
+                className="letterhead-preview"
+                alt={`${info.title} actual`}
+                src={`/api/admin/companies/${company.id}/letterhead/${kind.toLowerCase()}?v=${stamp}`}
+              />
+            ) : (
+              <p className="muted">No hay imagen cargada.</p>
+            )}
+            <form onSubmit={(e) => void onUpload(kind, e)}>
+              <div className="field">
+                <label
+                  htmlFor={`lh-${kind}`}
+                >{`Archivo PNG o JPEG del ${info.title.toLowerCase()}`}</label>
+                <input id={`lh-${kind}`} name="file" type="file" accept="image/png,image/jpeg" />
+                <p className="hint">
+                  Recomendado {info.size}. Máximo 600 KB, ancho entre 1000 y 5000 píxeles;{' '}
+                  {info.max}.
+                </p>
+              </div>
+              <div className="actions">
+                <button type="submit" disabled={busy}>
+                  {busy ? 'Cargando…' : `Cargar ${info.title.toLowerCase()}`}
+                </button>
+                {current ? (
+                  <button type="button" className="secondary" onClick={() => void remove(kind)}>
+                    {`Quitar ${info.title.toLowerCase()}`}
+                  </button>
+                ) : null}
+              </div>
+            </form>
+          </section>
+        );
+      })}
+    </Modal>
+  );
+}
+
 export default function CompaniesPage() {
   const { call } = useAdmin();
   const [items, setItems] = useState<Company[] | null>(null);
@@ -292,6 +428,7 @@ export default function CompaniesPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [editing, setEditing] = useState<Company | 'new' | null>(null);
   const [logoOf, setLogoOf] = useState<Company | null>(null);
+  const [letterheadOf, setLetterheadOf] = useState<Company | null>(null);
 
   const load = useCallback(async () => {
     const res = await call<Company[]>('/admin/companies');
@@ -366,6 +503,14 @@ export default function CompaniesPage() {
                       >
                         Logo
                       </button>
+                      <button
+                        type="button"
+                        className="secondary small"
+                        onClick={() => setLetterheadOf(c)}
+                        aria-label={`Encabezado y pie de ${c.nombre}`}
+                      >
+                        Encabezado y pie
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -391,6 +536,9 @@ export default function CompaniesPage() {
             void load();
           }}
         />
+      ) : null}
+      {letterheadOf ? (
+        <LetterheadDialog company={letterheadOf} onClose={() => setLetterheadOf(null)} />
       ) : null}
       {logoOf ? <LogoDialog company={logoOf} onClose={() => setLogoOf(null)} /> : null}
     </>
