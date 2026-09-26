@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { and, eq, gte, isNull, lte, or } from 'drizzle-orm';
+import { and, eq, gte, isNull, lte, or, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import {
   accounts,
@@ -124,6 +124,29 @@ export async function listSigners(db: Db, cEmp: string) {
     });
   }
   return out;
+}
+
+/** Personas de la empresa que se pueden designar: cuenta existente, contrato vigente y que aún no sean firmantes. */
+export async function signerCandidates(db: Db, cEmp: string) {
+  return db
+    .select({
+      nIde: accounts.nIde,
+      name: employeeSnapshots.nombre,
+      email: accounts.email,
+      status: accounts.status,
+    })
+    .from(accounts)
+    .innerJoin(
+      employeeSnapshots,
+      and(eq(employeeSnapshots.nIde, accounts.nIde), eq(employeeSnapshots.est, 'V')),
+    )
+    .where(
+      and(
+        eq(employeeSnapshots.cEmp, cEmp),
+        sql`not exists (select 1 from certificate_signers s where s.account_id = ${accounts.id} and s.c_emp = ${cEmp})`,
+      ),
+    )
+    .orderBy(employeeSnapshots.nombre);
 }
 
 /** El administrador designa a la persona por su identificación; la firma la carga ella misma después. */

@@ -857,4 +857,42 @@ describe.skipIf(!url)('certificado laboral (HTTP + PostgreSQL)', () => {
     }).expect(404);
     expect((await db.select().from(certificateSigners))[0]?.digitalEnc).toBeNull();
   });
+
+  it('los candidatos a firmante salen de una lista: personas con contrato vigente que aún no firman', async () => {
+    await person('NUEVO1');
+    await person('EXEMP2');
+    await db
+      .update(employeeSnapshots)
+      .set({ est: 'C' })
+      .where(eq(employeeSnapshots.nIde, 'EXEMP2'));
+    const list = (
+      await call('ADM', 'get', '/admin/labor-certificates/signers/GA/candidates').expect(200)
+    ).body as {
+      nIde: string;
+      name: string;
+      email: string;
+    }[];
+    const ids = list.map((c) => c.nIde);
+    expect(ids).toContain('EMP');
+    expect(ids).toContain('NUEVO1');
+    expect(ids).not.toContain('DIRGH'); // ya es firmante
+    expect(ids).not.toContain('EXEMP2'); // sin contrato vigente
+    expect(list.find((c) => c.nIde === 'NUEVO1')).toMatchObject({
+      name: 'PERSONA NUEVO1',
+      email: 'nuevo1@x.co',
+    });
+    expect(list.map((c) => c.name)).toEqual([...list.map((c) => c.name)].sort());
+    // al designar a una persona de la lista, sale de los candidatos
+    await call('ADM', 'post', '/admin/labor-certificates/signers/GA', {
+      nIde: 'NUEVO1',
+      title: 'Director Financiero',
+      tier: 'PRINCIPAL',
+    }).expect(201);
+    const after = (
+      await call('ADM', 'get', '/admin/labor-certificates/signers/GA/candidates').expect(200)
+    ).body as { nIde: string }[];
+    expect(after.map((c) => c.nIde)).not.toContain('NUEVO1');
+    await call('EMP', 'get', '/admin/labor-certificates/signers/GA/candidates').expect(403);
+    await call('ADM', 'get', '/admin/labor-certificates/signers/ZZ/candidates').expect(404);
+  });
 });

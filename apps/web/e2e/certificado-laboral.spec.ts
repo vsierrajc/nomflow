@@ -91,7 +91,12 @@ test.describe('certificado laboral', () => {
     await expect(pe0.getByRole('button', { name: 'Generar certificado' })).toBeDisabled();
 
     const signers = pa.getByRole('region', { name: 'Firmantes' });
-    await signers.getByLabel('Identificación del empleado (N_IDE)').fill(firmante.nIde);
+    // La persona se elige de una lista (con filtro), no se escribe su identificación.
+    await signers.getByLabel('Buscar en la lista').fill(firmante.email);
+    await expect(signers.getByLabel('Persona a designar').locator('option')).toHaveCount(2); // «Seleccione…» + la persona
+    await signers.getByLabel('Persona a designar').selectOption({ index: 1 });
+    await signers.getByRole('button', { name: 'Designar firmante' }).click();
+    await expect(pa.locator('p[role="alert"]', { hasText: 'Revise los datos' })).toBeVisible(); // falta el cargo
     await signers.getByLabel('Cargo que aparece bajo la firma').fill('Directora de Gestión Humana');
     await signers.getByRole('button', { name: 'Designar firmante' }).click();
     await expect(pa.getByText(/Firmante designado/)).toBeVisible();

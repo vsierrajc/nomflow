@@ -54,6 +54,13 @@ interface Signer {
   status: string;
 }
 
+interface Candidate {
+  nIde: string;
+  name: string | null;
+  email: string;
+  status: string;
+}
+
 const SIGNER_ERRORS: Record<string, string> = {
   INVALID_SIGNER: 'Revise los datos: el cargo va de 3 a 100 caracteres.',
   ACCOUNT_NOT_FOUND:
@@ -65,15 +72,20 @@ const SIGNER_ERRORS: Record<string, string> = {
 function SignersSection({ cEmp }: { cEmp: string }) {
   const { call } = useAdmin();
   const [signers, setSigners] = useState<Signer[] | null>(null);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [filter, setFilter] = useState('');
+  const [chosen, setChosen] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const res = await call<Signer[]>(
-      `/admin/labor-certificates/signers/${encodeURIComponent(cEmp)}`,
-    );
+    const [res, cand] = await Promise.all([
+      call<Signer[]>(`/admin/labor-certificates/signers/${encodeURIComponent(cEmp)}`),
+      call<Candidate[]>(`/admin/labor-certificates/signers/${encodeURIComponent(cEmp)}/candidates`),
+    ]);
     if (res.status === 200 && res.data) setSigners(res.data);
     else setError(NETWORK_ERROR);
+    if (cand.status === 200 && cand.data) setCandidates(cand.data);
   }, [call, cEmp]);
 
   useEffect(() => {
@@ -90,12 +102,13 @@ function SignersSection({ cEmp }: { cEmp: string }) {
     e.preventDefault();
     setError(null);
     setOk(null);
+    if (!chosen) return setError('Elija a la persona de la lista.');
     const form = e.currentTarget;
     const f = new FormData(form);
     const res = await call(`/admin/labor-certificates/signers/${encodeURIComponent(cEmp)}`, {
       method: 'POST',
       body: {
-        nIde: String(f.get('nIde') ?? '').trim(),
+        nIde: chosen,
         title: String(f.get('title') ?? '').trim(),
         tier: String(f.get('tier') ?? 'PRINCIPAL'),
       },
@@ -103,6 +116,8 @@ function SignersSection({ cEmp }: { cEmp: string }) {
     if (res.status === 201) {
       setOk('Firmante designado. Debe entrar a «Mi firma de certificados» para cargar su firma.');
       form.reset();
+      setChosen('');
+      setFilter('');
       await load();
     } else fail(res);
   }
@@ -162,7 +177,9 @@ function SignersSection({ cEmp }: { cEmp: string }) {
                     <span className="muted">{s.email}</span>
                   </th>
                   <td>{s.title}</td>
-                  <td>{s.tier === 'PRINCIPAL' ? 'Principal' : 'Respaldo'}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    {s.tier === 'PRINCIPAL' ? 'Principal' : 'Respaldo'}
+                  </td>
                   <td>
                     {!s.active ? (
                       <Badge kind="off">Inactivo</Badge>
@@ -181,7 +198,7 @@ function SignersSection({ cEmp }: { cEmp: string }) {
                       <Badge kind="warn">Falta su firma</Badge>
                     )}
                   </td>
-                  <td className="toolbar">
+                  <td className="row-actions">
                     <button
                       type="button"
                       className="secondary small"
@@ -210,7 +227,41 @@ function SignersSection({ cEmp }: { cEmp: string }) {
       <form onSubmit={add} noValidate>
         <h3>Designar un firmante</h3>
         <div className="grid-2">
-          <Field label="Identificación del empleado (N_IDE)" name="nIde" required maxLength={30} />
+          <>
+            <Field
+              label="Buscar en la lista"
+              name="filter"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              optional
+              maxLength={60}
+              hint="Escriba parte del nombre, del correo o de la identificación."
+            />
+            <div className="field">
+              <label htmlFor="signer-person">Persona a designar</label>
+              <select
+                id="signer-person"
+                name="person"
+                value={chosen}
+                onChange={(e) => setChosen(e.target.value)}
+                required
+              >
+                <option value="">- Seleccione una persona -</option>
+                {candidates
+                  .filter((c) =>
+                    `${c.name ?? ''} ${c.email} ${c.nIde}`
+                      .toLowerCase()
+                      .includes(filter.trim().toLowerCase()),
+                  )
+                  .map((c) => (
+                    <option key={c.nIde} value={c.nIde}>
+                      {c.name ?? c.email} ({c.email})
+                      {c.status === 'ACTIVA' ? '' : ' - cuenta sin activar'}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          </>
           <Field
             label="Cargo que aparece bajo la firma"
             name="title"
@@ -218,13 +269,15 @@ function SignersSection({ cEmp }: { cEmp: string }) {
             maxLength={100}
             hint="Por ejemplo: Directora de Gestión Humana."
           />
-        </div>
-        <div className="field">
-          <label htmlFor="tier">Nivel</label>
-          <select id="tier" name="tier" defaultValue="PRINCIPAL">
-            <option value="PRINCIPAL">Principal (firma normalmente)</option>
-            <option value="RESPALDO">Respaldo (firma si no hay ningún principal disponible)</option>
-          </select>
+          <div className="field">
+            <label htmlFor="tier">Nivel</label>
+            <select id="tier" name="tier" defaultValue="PRINCIPAL">
+              <option value="PRINCIPAL">Principal (firma normalmente)</option>
+              <option value="RESPALDO">
+                Respaldo (firma si no hay ningún principal disponible)
+              </option>
+            </select>
+          </div>
         </div>
         <button type="submit">Designar firmante</button>
       </form>
