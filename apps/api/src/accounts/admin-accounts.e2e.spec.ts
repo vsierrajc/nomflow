@@ -2,7 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { sql } from 'drizzle-orm';
 import request from 'supertest';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppModule } from '../app.module';
 import { createDb } from '../db/client';
 import { runMigrations } from '../db/migrate';
@@ -37,6 +37,10 @@ describe.skipIf(!url)('POST /admin/accounts (sesión + rol + reautenticación)',
   afterAll(async () => {
     await app.close();
     await ctx.pool.end();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   beforeEach(async () => {
@@ -132,7 +136,16 @@ describe.skipIf(!url)('POST /admin/accounts (sesión + rol + reautenticación)',
     expect(res.status).toBe(403);
   });
 
-  it('exige reautenticación reciente y se recupera con /auth/reauth', async () => {
+  it('por omisión NO exige reautenticación: una sesión antigua puede crear cuentas', async () => {
+    vi.stubEnv('REQUIRE_RECENT_AUTH', 'false');
+    await user('hr@x.co', 'ADM1', 'HR_ADMIN');
+    const s = await session('hr@x.co');
+    await db.execute(sql`UPDATE sessions SET created_at = now() - interval '11 minutes'`);
+    expect((await create(s)).status).toBe(201);
+  });
+
+  it('con REQUIRE_RECENT_AUTH=true exige reautenticación reciente y se recupera con /auth/reauth', async () => {
+    vi.stubEnv('REQUIRE_RECENT_AUTH', 'true');
     await user('hr@x.co', 'ADM1', 'HR_ADMIN');
     const s = await session('hr@x.co');
     await db.execute(sql`UPDATE sessions SET created_at = now() - interval '11 minutes'`);
