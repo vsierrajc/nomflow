@@ -1510,3 +1510,88 @@ th.num {
   flex: 0 1 20rem;
   margin-bottom: 0;
 }
+
+/* Pestañas de página: una barra con subrayado en la activa. */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tabs button {
+  min-height: 0;
+  margin-bottom: -1px;
+  padding: var(--space-2) var(--space-5);
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.tabs button:hover {
+  color: var(--color-text);
+  background: var(--color-surface-muted);
+}
+
+.tabs button.active {
+  color: var(--color-text);
+  border-bottom-color: var(--color-action);
+}
+
+/* Selector segmentado para elegir entre dos o tres vistas de un mismo listado. */
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+  padding: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+}
+
+.segmented button {
+  min-height: 0;
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.segmented button:hover {
+  color: var(--color-text);
+}
+
+.segmented button.active {
+  background: var(--color-action);
+  color: var(--color-on-action);
+}
+
+.back-link {
+  margin-top: var(--space-6);
+}
+
+.tabs button:hover:not(:disabled) {
+  background: var(--color-surface-muted);
+  border-color: transparent;
+  border-bottom-color: transparent;
+}
+
+.tabs button.active:hover:not(:disabled) {
+  border-bottom-color: var(--color-action);
+}
+
+.segmented button:hover:not(:disabled) {
+  background: var(--color-surface);
+  border-color: transparent;
+}
+
+.segmented button.active:hover:not(:disabled) {
+  background: var(--color-action-hover);
+}
