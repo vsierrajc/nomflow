@@ -12,6 +12,7 @@ import {
 } from '@/components/admin-ui';
 import { Field } from '@/components/ui';
 import { NETWORK_ERROR } from '@/lib/api';
+import { IconButton } from '@/components/icon-button';
 import { isSystemAdmin, useAdmin } from '@/lib/admin';
 import { loadCatalog, loadCompanies, type CatalogOption } from '@/lib/catalogs';
 
@@ -607,41 +608,30 @@ export default function AccountsPage() {
                       <td>{a.roles.map((r) => ROLE_LABELS[r] ?? r).join(', ') || '-'}</td>
                       <td>
                         <div className="row-actions">
-                          <button
-                            type="button"
-                            className="secondary small"
+                          <IconButton
+                            icon="roles"
+                            label={`Roles de ${a.email}`}
                             onClick={() => setRolesOf(a)}
-                            aria-label={`Roles de ${a.email}`}
-                          >
-                            Roles
-                          </button>
+                          />
                           {mine ? null : a.status === 'BLOQUEADA' ? (
-                            <button
-                              type="button"
-                              className="secondary small"
+                            <IconButton
+                              icon="unblock"
+                              label={`Desbloquear ${a.email}`}
                               onClick={() => void act(a, 'unblock')}
-                              aria-label={`Desbloquear ${a.email}`}
-                            >
-                              Desbloquear
-                            </button>
+                            />
                           ) : (
                             <>
-                              <button
-                                type="button"
-                                className="secondary small"
+                              <IconButton
+                                icon="reset"
+                                label={`Restablecer clave de ${a.email}`}
                                 onClick={() => void act(a, 'reset-password')}
-                                aria-label={`Restablecer clave de ${a.email}`}
-                              >
-                                Restablecer clave
-                              </button>
-                              <button
-                                type="button"
-                                className="danger small"
+                              />
+                              <IconButton
+                                icon="block"
+                                variant="danger"
+                                label={`Bloquear ${a.email}`}
                                 onClick={() => void act(a, 'block')}
-                                aria-label={`Bloquear ${a.email}`}
-                              >
-                                Bloquear
-                              </button>
+                              />
                             </>
                           )}
                         </div>

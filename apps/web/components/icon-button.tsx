@@ -3,7 +3,10 @@
 import type { ReactNode } from 'react';
 
 /** Iconos de trazo (24×24). Son solo dibujo: el nombre accesible lo da el botón. */
-const ICONS: Record<'view' | 'edit' | 'delete' | 'restore', ReactNode> = {
+const ICONS: Record<
+  'view' | 'edit' | 'delete' | 'restore' | 'roles' | 'reset' | 'block' | 'unblock',
+  ReactNode
+> = {
   // Ojo
   view: (
     <>
@@ -25,6 +28,32 @@ const ICONS: Record<'view' | 'edit' | 'delete' | 'restore', ReactNode> = {
       <path d="M9 6V4h6v2" />
       <path d="M6 6l1 14h10l1-14" />
       <path d="M10 10v6M14 10v6" />
+    </>
+  ),
+  // Pergamino (roles)
+  roles: (
+    <>
+      <path d="M8 4h11v12" />
+      <path d="M8 4a2.5 2.5 0 00-2.5 2.5V8H8" />
+      <path d="M8 4v12a3 3 0 01-3 3" />
+      <path d="M5 19h11a3 3 0 003-3v-1H11" />
+      <path d="M11.5 9h4M11.5 12h4" />
+    </>
+  ),
+  // Rayo (restablecer clave)
+  reset: <path d="M13.5 2.5L5 13.5h6l-1 8 8.5-11h-6l1-8z" />,
+  // Señal de prohibido: círculo con diagonal (bloquear)
+  block: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M5.6 5.6l12.8 12.8" />
+    </>
+  ),
+  // Círculo con marca (desbloquear)
+  unblock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 12.5l2.7 2.7L16 9.5" />
     </>
   ),
   // Flecha circular (reactivar)
