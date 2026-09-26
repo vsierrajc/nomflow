@@ -322,11 +322,19 @@ test.describe('cuentas y roles', () => {
       'Administrador del sistema',
     );
 
-    await d.getByLabel('Empresa (código)').fill(cEmp);
-    await d.getByLabel('Área (código)').fill('NOEXISTE');
+    // Empresa y área son listas tomadas de las tablas: no se escribe el código.
+    await d.getByLabel('Empresa', { exact: true }).selectOption(cEmp);
+    await expect(d.getByLabel('Área', { exact: true }).locator('option')).toHaveText([
+      '- Seleccione un área -',
+      '10300 - FINANCIERA',
+      '10400 - COMERCIAL',
+    ]);
+    // sin elegir un área no se concede
     await d.getByRole('button', { name: 'Conceder rol' }).click();
-    await expect(d.getByText('Esa área no existe en el catálogo de la empresa.')).toBeVisible();
-    await d.getByLabel('Área (código)').fill('10300');
+    await expect(
+      d.locator('p[role="alert"]', { hasText: 'Elija el área de la lista.' }),
+    ).toBeVisible();
+    await d.getByLabel('Área', { exact: true }).selectOption('10300');
     await d.getByRole('button', { name: 'Conceder rol' }).click();
     await expect(d.getByText('Rol concedido.')).toBeVisible();
     await expect(d.getByRole('row', { name: /Jefe de área/ })).toContainText(
