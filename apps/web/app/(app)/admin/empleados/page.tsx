@@ -15,6 +15,7 @@ import { IconButton } from '@/components/icon-button';
 import { Field } from '@/components/ui';
 import { NETWORK_ERROR } from '@/lib/api';
 import { useAdmin } from '@/lib/admin';
+import { loadCatalog, type CatalogOption } from '@/lib/catalogs';
 
 interface Row {
   id: string;
@@ -97,34 +98,6 @@ const FIELD_LABELS: Record<string, string> = {
 };
 
 const ISSUE_HELP = 'Revise los campos marcados.';
-
-interface CatalogOption {
-  value: string;
-  label: string;
-}
-
-interface CatalogPage {
-  items: { code: string; name: string }[];
-  total: number;
-}
-
-/** Trae todas las entradas activas de un catálogo (de 200 en 200) como opciones de lista. */
-async function loadCatalog(
-  call: ReturnType<typeof useAdmin>['call'],
-  kind: 'AREA' | 'CCOSTO' | 'CARGO' | 'TIPO_CONTRATO',
-  cEmp: string,
-): Promise<CatalogOption[] | null> {
-  const out: CatalogOption[] = [];
-  for (let page = 1; page <= 50; page += 1) {
-    const qs = new URLSearchParams({ active: 'true', page: String(page), pageSize: '200' });
-    if (kind !== 'TIPO_CONTRATO') qs.set('cEmp', cEmp);
-    const res = await call<CatalogPage>(`/admin/catalogs/${kind}?${qs.toString()}`);
-    if (res.status !== 200 || !res.data) return null;
-    out.push(...res.data.items.map((i) => ({ value: i.code, label: `${i.code} - ${i.name}` })));
-    if (out.length >= res.data.total) break;
-  }
-  return out;
-}
 
 /** Deja el valor actual como opción aunque ya no esté en el catálogo, para no perderlo al corregir. */
 function withCurrent(options: CatalogOption[], current: string): CatalogOption[] {

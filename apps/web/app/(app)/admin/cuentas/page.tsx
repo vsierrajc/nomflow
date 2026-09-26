@@ -12,7 +12,9 @@ import {
 } from '@/components/admin-ui';
 import { Field } from '@/components/ui';
 import { NETWORK_ERROR } from '@/lib/api';
+import { IconButton } from '@/components/icon-button';
 import { isSystemAdmin, useAdmin } from '@/lib/admin';
+import { loadCatalog, loadCompanies, type CatalogOption } from '@/lib/catalogs';
 
 interface Account {
   id: string;
@@ -94,10 +96,12 @@ function SecretDialog({
           ? 'Se envió un código de verificación al correo registrado.'
           : 'No se pudo enviar el código por correo: la persona puede pedirlo de nuevo en la pantalla de activación.'}
       </p>
-      {!sent && !activated ? (
+      {!activated ? (
         <p>
-          Si el correo no funciona, puede dejar la cuenta <strong>activa</strong> con esta clave: la
-          persona ingresa ya, sin código, y conviene que la cambie en «Mi cuenta».{' '}
+          Con esta clave la cuenta queda <strong>pendiente de activar</strong>: la persona no puede
+          ingresar directamente. {sent ? 'Debe activarla con el código del correo.' : ''} Si
+          prefiere, o si el correo no funciona, déjela <strong>activa</strong> ya con esta clave
+          (ingresa sin código y conviene que la cambie en «Mi cuenta»).{' '}
           <button
             type="button"
             className="secondary"
@@ -197,6 +201,10 @@ function RolesDialog({ account, onClose }: { account: Account; onClose: () => vo
   const [roles, setRoles] = useState<RoleRow[]>([]);
   const [managers, setManagers] = useState<Record<string, Manager[]>>({});
   const [role, setRole] = useState('AREA_MANAGER');
+  const [companyList, setCompanyList] = useState<CatalogOption[]>([]);
+  const [cEmp, setCEmp] = useState('');
+  const [areaList, setAreaList] = useState<CatalogOption[]>([]);
+  const [areaCode, setAreaCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const self = account.id === profile.accountId;
@@ -241,21 +249,45 @@ function RolesDialog({ account, onClose }: { account: Account; onClose: () => vo
     return NETWORK_ERROR;
   }
 
+  // Empresas activas: una vez.
+  useEffect(() => {
+    void (async () => {
+      const list = await loadCompanies(call);
+      if (!list) return;
+      setCompanyList(list);
+      setCEmp((cur) => cur || list[0]?.value || '');
+    })();
+  }, [call]);
+
+  // Áreas del catálogo de la empresa elegida (todas las activas).
+  useEffect(() => {
+    if (!cEmp) return;
+    void (async () => {
+      const list = await loadCatalog(call, 'AREA', cEmp);
+      if (!list) return;
+      setAreaList(list);
+      setAreaCode((cur) => (list.some((a) => a.value === cur) ? cur : ''));
+    })();
+  }, [call, cEmp]);
+
   async function grant(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     const v = (k: string) => String(f.get(k) ?? '').trim();
     setError(null);
     setOk(null);
+    if ((role === 'AREA_MANAGER' || role === 'VACATION_FINAL_APPROVER') && !cEmp)
+      return setError('Elija la empresa.');
+    if (role === 'AREA_MANAGER' && !areaCode) return setError('Elija el área de la lista.');
     const body: Record<string, string | null> = {
       role,
       validFrom: v('validFrom') || today(),
       validTo: v('validTo') || null,
     };
-    if (role === 'VACATION_FINAL_APPROVER') body.cEmp = v('cEmp');
+    if (role === 'VACATION_FINAL_APPROVER') body.cEmp = cEmp;
     if (role === 'AREA_MANAGER') {
-      body.cEmp = v('cEmp');
-      body.areaCode = v('areaCode');
+      body.cEmp = cEmp;
+      body.areaCode = areaCode;
     }
     const res = await call<{ code?: string }>(`/admin/accounts/${account.id}/roles`, {
       method: 'POST',
@@ -412,10 +444,27 @@ function RolesDialog({ account, onClose }: { account: Account; onClose: () => vo
               options={roleOptions}
             />
             {role === 'AREA_MANAGER' || role === 'VACATION_FINAL_APPROVER' ? (
-              <Field label="Empresa (código)" name="cEmp" required maxLength={30} />
+              <SelectField
+                label="Empresa"
+                name="cEmp"
+                value={cEmp}
+                onChange={(v) => {
+                  setCEmp(v);
+                  setAreaCode('');
+                }}
+                options={companyList}
+                required
+              />
             ) : null}
             {role === 'AREA_MANAGER' ? (
-              <Field label="Área (código)" name="areaCode" required maxLength={30} />
+              <SelectField
+                label="Área"
+                name="areaCode"
+                value={areaCode}
+                onChange={setAreaCode}
+                options={[{ value: '', label: '- Seleccione un área -' }, ...areaList]}
+                required
+              />
             ) : null}
             <Field label="Vigente desde" name="validFrom" type="date" defaultValue={today()} />
             <Field label="Vigente hasta (opcional)" name="validTo" type="date" />
@@ -561,41 +610,30 @@ export default function AccountsPage() {
                       <td>{a.roles.map((r) => ROLE_LABELS[r] ?? r).join(', ') || '-'}</td>
                       <td>
                         <div className="row-actions">
-                          <button
-                            type="button"
-                            className="secondary small"
+                          <IconButton
+                            icon="roles"
+                            label={`Roles de ${a.email}`}
                             onClick={() => setRolesOf(a)}
-                            aria-label={`Roles de ${a.email}`}
-                          >
-                            Roles
-                          </button>
+                          />
                           {mine ? null : a.status === 'BLOQUEADA' ? (
-                            <button
-                              type="button"
-                              className="secondary small"
+                            <IconButton
+                              icon="unblock"
+                              label={`Desbloquear ${a.email}`}
                               onClick={() => void act(a, 'unblock')}
-                              aria-label={`Desbloquear ${a.email}`}
-                            >
-                              Desbloquear
-                            </button>
+                            />
                           ) : (
                             <>
-                              <button
-                                type="button"
-                                className="secondary small"
+                              <IconButton
+                                icon="reset"
+                                label={`Restablecer clave de ${a.email}`}
                                 onClick={() => void act(a, 'reset-password')}
-                                aria-label={`Restablecer clave de ${a.email}`}
-                              >
-                                Restablecer clave
-                              </button>
-                              <button
-                                type="button"
-                                className="danger small"
+                              />
+                              <IconButton
+                                icon="block"
+                                variant="danger"
+                                label={`Bloquear ${a.email}`}
                                 onClick={() => void act(a, 'block')}
-                                aria-label={`Bloquear ${a.email}`}
-                              >
-                                Bloquear
-                              </button>
+                              />
                             </>
                           )}
                         </div>

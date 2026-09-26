@@ -985,6 +985,11 @@ th.num {
   gap: var(--space-2);
 }
 
+/* Botones de solo icono: van en una fila, no apilados */
+.row-actions:has(.icon-btn) {
+  flex-wrap: nowrap;
+}
+
 .pager {
   display: flex;
   flex-wrap: wrap;
