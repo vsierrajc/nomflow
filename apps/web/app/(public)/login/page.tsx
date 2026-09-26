@@ -15,6 +15,7 @@ export default function LoginPage() {
   const { state } = useProfile();
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [expired, setExpired] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   // Segundo paso (opcional): el código enviado al correo, para quien activó la verificación en dos pasos.
   const [challenge, setChallenge] = useState<string | null>(null);
@@ -22,6 +23,10 @@ export default function LoginPage() {
   const codeRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setExpired(new URLSearchParams(window.location.search).get('expirada') === '1');
+  }, []);
 
   useEffect(() => {
     if (state.status === 'ready') router.replace('/');
@@ -149,6 +154,12 @@ export default function LoginPage() {
         </p>
       }
     >
+      {expired && !formError ? (
+        <Alert kind="info">
+          Su sesión expiró por inactividad o se cerró desde otro lugar. Ingrese de nuevo para
+          continuar.
+        </Alert>
+      ) : null}
       {formError ? <Alert kind="error">{formError}</Alert> : null}
       <form onSubmit={onSubmit} noValidate>
         <Field
