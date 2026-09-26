@@ -1401,3 +1401,18 @@ th.num {
 .step-cancelled .step-dot {
   background: currentColor;
 }
+
+/* Visor de registros */
+.log-view {
+  max-height: 24rem;
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3);
+  overflow: auto;
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

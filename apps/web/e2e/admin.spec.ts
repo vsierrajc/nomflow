@@ -118,6 +118,7 @@ test.describe('acceso al área administrativa', () => {
           'Salud del sistema',
           'Archivo histórico',
           'Auditoría',
+          'Registros y depuración',
         ],
       };
       for (const [group, links] of Object.entries(groups)) {

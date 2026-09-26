@@ -31,6 +31,7 @@
 | Archivo histórico en la nube (Google Cloud Storage) | DONE (probado con almacenes simulados; falta la primera prueba real contra el bucket) | (este PR) | Configurar el bucket y las claves HMAC en /admin/archivo |
 | Bandeja de entrada y avisos por correo del flujo (vacaciones y permisos) | DONE | (este PR) | El flujo de aprobación de certificados aún no existe (el rol se registra) |
 | Certificado laboral de autoservicio (plantillas, historial, código de formato) | DONE | (este PR) | Designar a los firmantes y que carguen su firma; confirmar ciudad, pie y código del formato; validación pública, sellado de tiempo y HSM como mejora |
+| Gestión de registros (exportar, histórico en la nube, depurar, vaciar) | DONE (nube simulada en pruebas; falta la primera prueba real contra el bucket) | (este PR) | Activar la política automática cuando se defina la retención |
 | Aviso de baja y ZIP | BACKLOG | — | Fases 3 y 4 de la SSD |
 
 ## Bloqueos

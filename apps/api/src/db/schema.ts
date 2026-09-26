@@ -1074,3 +1074,45 @@ export const certificateRequests = pgTable(
     index('certificate_requests_nide_idx').on(t.nIde),
   ],
 );
+
+/** Política de mantenimiento de registros (una sola fila, id = 1). Ver ADR-006. */
+export const logSettings = pgTable('log_settings', {
+  id: integer('id').primaryKey().default(1),
+  /** Los registros más antiguos que estos días se archivan y/o depuran. */
+  retentionDays: integer('retention_days').notNull().default(365),
+  /** Peticiones HTTP (ruido de operación): se conservan menos tiempo que los eventos de auditoría. */
+  httpRetentionDays: integer('http_retention_days').notNull().default(90),
+  /** Antes de borrar se copian al histórico en la nube y se verifica la copia. */
+  archiveBeforePurge: boolean('archive_before_purge').notNull().default(true),
+  /** Mantenimiento diario automático (archivar y depurar según la política). */
+  autoEnabled: boolean('auto_enabled').notNull().default(false),
+  lastRunAt: timestamp('last_run_at', { withTimezone: true }),
+  lastRunStatus: text('last_run_status'),
+  lastRunSummary: text('last_run_summary'),
+  updatedBy: uuid('updated_by').references(() => accounts.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Copias de registros enviadas al histórico en la nube (cifradas por la aplicación). */
+export const logArchives = pgTable(
+  'log_archives',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** AUDITORIA (tabla audit_logs) o el nombre de un archivo de registro (API, WEB...). */
+    source: text('source').notNull(),
+    /** Para la auditoría: HTTP, EVENTOS o TODO. */
+    kind: text('kind'),
+    periodFrom: timestamp('period_from', { withTimezone: true }),
+    periodTo: timestamp('period_to', { withTimezone: true }),
+    rowCount: integer('row_count').notNull().default(0),
+    sizeBytes: integer('size_bytes').notNull(),
+    /** sha256 del archivo comprimido (antes de cifrar), verificado al releerlo de la nube. */
+    sha256: text('sha256').notNull(),
+    objectKey: text('object_key').notNull(),
+    /** Cuántas filas se borraron de la base tras verificar esta copia (0 = solo copia). */
+    purgedCount: integer('purged_count').notNull().default(0),
+    createdBy: uuid('created_by').references(() => accounts.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('log_archives_created_idx').on(t.createdAt)],
+);
