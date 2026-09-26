@@ -71,3 +71,4 @@
 - Vacaciones manuales: el selector de identificación se puede filtrar por nombre o cédula.
 - Vacaciones manuales: un solo campo de identificación con lista que se filtra al escribir nombre o cédula.
 - Encabezado y pie de página en imagen a todo el ancho (administración > Empresas), usados por los certificados laborales y la constancia de vacaciones; los PDF pasan a tamaño carta.
+- Solicitud de vacaciones: períodos en filas compactas con el campo de días a tomar a la derecha; fecha inicial y botón en una sola línea.
