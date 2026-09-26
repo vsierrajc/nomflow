@@ -33,7 +33,11 @@ describe('secret-box', () => {
     expect(sealed).not.toContain(KEY);
     expect(open(sealed)).toBe(KEY);
     expect(seal(KEY)).not.toBe(sealed); // iv aleatorio
-    expect(() => open(sealed.replace(/.$/, 'A'))).toThrow();
+    // alterar un byte del texto cifrado (no solo un carácter, que puede caer en bits de relleno del base64)
+    const [iv, tag, enc] = sealed.split('.');
+    const bytes = Buffer.from(enc ?? '', 'base64');
+    bytes[0] = (bytes[0] ?? 0) ^ 0xff;
+    expect(() => open([iv, tag, bytes.toString('base64')].join('.'))).toThrow();
   });
 });
 

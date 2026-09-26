@@ -488,7 +488,7 @@ table caption {
 
 .task-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
   gap: var(--space-4);
   margin: 0 0 var(--space-6);
   padding: 0;
@@ -524,7 +524,17 @@ table caption {
 
 .task-card .actions {
   margin-top: auto;
-  padding-top: var(--space-3);
+  padding-top: var(--space-4);
+}
+
+/* Todas las tarjetas: el botón ocupa el ancho y queda al pie, alineado con el de las demás */
+.task-card .actions .button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 2.75rem;
+  text-align: center;
 }
 
 .role-list {
