@@ -94,10 +94,12 @@ function SecretDialog({
           ? 'Se envió un código de verificación al correo registrado.'
           : 'No se pudo enviar el código por correo: la persona puede pedirlo de nuevo en la pantalla de activación.'}
       </p>
-      {!sent && !activated ? (
+      {!activated ? (
         <p>
-          Si el correo no funciona, puede dejar la cuenta <strong>activa</strong> con esta clave: la
-          persona ingresa ya, sin código, y conviene que la cambie en «Mi cuenta».{' '}
+          Con esta clave la cuenta queda <strong>pendiente de activar</strong>: la persona no puede
+          ingresar directamente. {sent ? 'Debe activarla con el código del correo.' : ''} Si
+          prefiere, o si el correo no funciona, déjela <strong>activa</strong> ya con esta clave
+          (ingresa sin código y conviene que la cambie en «Mi cuenta»).{' '}
           <button
             type="button"
             className="secondary"

@@ -147,10 +147,10 @@ export function EmployeeAccount({ nIde }: { nIde: string }) {
     setBusy(false);
     if (res.status === 200 && res.data) {
       setShown(res.data.temporaryPassword);
-      setMailFailed(!res.data.verificationSent);
+      setMailFailed(true); // tras restablecer la cuenta queda pendiente: se ofrece activarla ya
       setOk(
         res.data.verificationSent
-          ? 'Clave restablecida. Se envió al correo del empleado el código para activar la cuenta.'
+          ? 'Clave restablecida. La cuenta queda pendiente de activar: el empleado la activa con esta clave y el código que se le envió al correo (enlace «Activar mi cuenta»), o puede activarla ahora con el botón de abajo.'
           : 'Clave restablecida, pero NO se pudo enviar el código por correo: entregue la clave temporal que se muestra abajo; el empleado puede pedir el código de nuevo en la pantalla de activación.',
       );
       await load();

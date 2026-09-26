@@ -150,6 +150,15 @@ test.describe('cuenta de acceso en la gestión de empleados', () => {
     await page.request
       .post('/api/auth/login', { data: { email: u.email, password: temp } })
       .then((r) => expect(r.status()).toBe(401));
+    // activar ahora con esa misma clave (sin esperar el código del correo): ya puede ingresar
+    await section
+      .getByRole('button', { name: 'Activar la cuenta ahora con esta clave (sin código)' })
+      .click();
+    await expect(page.getByText(/La cuenta quedó activa/)).toBeVisible();
+    await expect(section.getByText('Activa', { exact: true })).toBeVisible();
+    await page.request
+      .post('/api/auth/login', { data: { email: u.email, password: temp } })
+      .then((r) => expect(r.status()).toBe(200));
   });
 
   test('el administrador asigna una clave a una cuenta activa y el empleado ingresa con ella', async ({
