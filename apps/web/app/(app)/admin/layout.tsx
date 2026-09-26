@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { HealthBanner } from '@/components/health-banner';
 import { AdminProvider, isAdmin } from '@/lib/admin';
 import { useReadyProfile } from '@/lib/use-profile';
@@ -60,6 +60,33 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const profile = useReadyProfile();
+  // Grupos desplegables: se abre el del apartado actual y se recuerda lo que la persona abre o cierra.
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const currentGroup = GROUPS.find((g) => g.items.some((i) => pathname.startsWith(i.href)))?.title;
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem('nomflow-admin-menu') ?? '{}') as Record<
+        string,
+        boolean
+      >;
+      setOpen(saved);
+    } catch {
+      // sin almacenamiento: se usa solo el grupo actual
+    }
+  }, []);
+
+  function toggle(title: string) {
+    setOpen((cur) => {
+      const next = { ...cur, [title]: !(cur[title] ?? title === currentGroup) };
+      try {
+        window.localStorage.setItem('nomflow-admin-menu', JSON.stringify(next));
+      } catch {
+        // no se pudo recordar: no pasa nada
+      }
+      return next;
+    });
+  }
 
   if (!isAdmin(profile)) {
     return (
@@ -84,25 +111,53 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               </Link>
             </li>
           </ul>
-          {GROUPS.map((g) => (
-            <section key={g.title} aria-labelledby={`admin-grupo-${g.title}`}>
-              <h2 className="admin-nav-title" id={`admin-grupo-${g.title}`}>
-                {g.title}
-              </h2>
-              <ul>
-                {g.items.map((item) => (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      aria-current={pathname.startsWith(item.href) ? 'page' : undefined}
+          {GROUPS.map((g) => {
+            // Abierto: lo que la persona eligió; si no ha elegido, el grupo de la pantalla actual.
+            const isOpen = open[g.title] ?? g.title === currentGroup;
+            const listId = `admin-grupo-${g.title}`;
+            return (
+              <section key={g.title} aria-labelledby={`${listId}-titulo`}>
+                <h2 className="admin-nav-title" id={`${listId}-titulo`}>
+                  <button
+                    type="button"
+                    className="admin-nav-toggle"
+                    aria-expanded={isOpen}
+                    aria-controls={listId}
+                    onClick={() => toggle(g.title)}
+                  >
+                    <span>{g.title}</span>
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      focusable="false"
+                      className="chevron"
                     >
-                      {item.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
+                      <path
+                        d="M6 9l6 6 6-6"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </h2>
+                <ul id={listId} hidden={!isOpen}>
+                  {g.items.map((item) => (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        aria-current={pathname.startsWith(item.href) ? 'page' : undefined}
+                      >
+                        {item.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
         </nav>
         <section className="admin-content">
           <HealthBanner />
