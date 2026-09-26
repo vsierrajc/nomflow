@@ -91,6 +91,39 @@ test.describe('acceso al área administrativa', () => {
       ]) {
         await expect(nav.getByRole('link', { name })).toBeVisible();
       }
+      // El menú está agrupado: cada enlace en su grupo, con su encabezado.
+      const groups: Record<string, string[]> = {
+        Entidades: [
+          'Empresas y logo',
+          'Áreas, cargos y centros de costo',
+          'Conceptos de nómina',
+          'Tipos de permiso',
+          'Festivos',
+        ],
+        Operaciones: [
+          'Empleados',
+          'Cuentas y roles',
+          'Importaciones',
+          'Nómina publicada',
+          'Períodos de vacaciones',
+        ],
+        Certificados: [
+          'Certificados de retención',
+          'Certificado laboral',
+          'Certificados laborales emitidos',
+        ],
+        Sistema: [
+          'Correo saliente',
+          'Notificaciones del flujo',
+          'Salud del sistema',
+          'Archivo histórico',
+          'Auditoría',
+        ],
+      };
+      for (const [group, links] of Object.entries(groups)) {
+        const section = nav.getByRole('region', { name: group });
+        await expect(section.getByRole('link')).toHaveText(links);
+      }
       await expect(page.getByText('Cuentas activas')).toBeVisible();
     });
   }

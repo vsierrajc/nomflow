@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Administración: el menú lateral se agrupa en Entidades (empresas y logo, áreas/cargos/centros de costo, conceptos, tipos de permiso, festivos), Operaciones (empleados, cuentas y roles, importaciones, nómina publicada, períodos de vacaciones), Certificados (retención, laboral y emitidos) y Sistema (correo, notificaciones, salud, archivo histórico, auditoría), con «Resumen» arriba.
 - Inicio: las tarjetas se distribuyen en tres columnas y el botón de cada una ocupa todo el ancho y queda al pie, alineado con los de las demás (la de la bandeja no tenía el mismo contenedor). Prueba de cifrado de secretos ahora determinista (alteraba un carácter del base64 y a veces no cambiaba el contenido).
 - «Cuentas y roles»: las acciones de cada cuenta pasan a botones de icono (Roles: pergamino; Restablecer clave: rayo; Bloquear: señal de prohibido; Desbloquear: círculo con marca), con los colores del tema y el nombre accesible y la ayuda emergente de antes.
 - Roles con alcance («Cuentas y roles»): la empresa y el área del jefe de área (y la empresa del aprobador final) se eligen de listas tomadas de las tablas (empresas activas y todas las áreas activas de esa empresa) en lugar de escribir el código; las listas se comparten con el formulario de empleado (`lib/catalogs.ts`).
