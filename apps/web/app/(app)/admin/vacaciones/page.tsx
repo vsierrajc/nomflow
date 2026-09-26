@@ -26,6 +26,13 @@ interface EmployeeOption {
   nombre: string | null;
 }
 
+function norm(t: string): string {
+  return t
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
 export default function VacationPeriodsPage() {
   const { call, profile } = useAdmin();
   const [items, setItems] = useState<Period[] | null>(null);
@@ -35,6 +42,7 @@ export default function VacationPeriodsPage() {
   const [editing, setEditing] = useState<Period | null>(null);
   const [employees, setEmployees] = useState<EmployeeOption[] | null>(null);
   const [selected, setSelected] = useState('');
+  const [search, setSearch] = useState('');
 
   const load = useCallback(
     async (nIde = '') => {
@@ -59,6 +67,14 @@ export default function VacationPeriodsPage() {
     })();
   }, [call]);
 
+  const term = norm(search.trim());
+  const shown = employees?.filter(
+    (e) =>
+      e.nIde === selected ||
+      !term ||
+      norm(e.nIde).includes(term) ||
+      norm(e.nombre ?? '').includes(term),
+  );
   const chosen = employees?.find((e) => e.nIde === selected) ?? null;
 
   function fail(status: number) {
@@ -168,6 +184,16 @@ export default function VacationPeriodsPage() {
         <form onSubmit={create} noValidate>
           <div className="grid-2">
             <div className="field">
+              <label htmlFor="prog-vac-buscar">Buscar empleado por nombre o identificación</label>
+              <input
+                id="prog-vac-buscar"
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+            <div className="field">
               <label htmlFor="prog-vac-empleado">Identificación</label>
               <select
                 id="prog-vac-empleado"
@@ -182,7 +208,7 @@ export default function VacationPeriodsPage() {
                       ? 'Ningún empleado activo coincide'
                       : 'Elija un empleado'}
                 </option>
-                {employees?.map((e) => (
+                {shown?.map((e) => (
                   <option key={e.nIde} value={e.nIde}>
                     {e.nIde} - {e.nombre ?? 'Sin nombre'}
                   </option>

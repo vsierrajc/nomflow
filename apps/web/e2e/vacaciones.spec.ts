@@ -123,7 +123,15 @@ test.describe('períodos de vacaciones (PROG_VAC) y festivos', () => {
     // solo empleados activos: el cancelado no está en la lista y el activo sí
     await expect(list.getByRole('option', { name: new RegExp(`^${emp.nIde} -`) })).toBeAttached();
     await expect(list.getByRole('option', { name: new RegExp(gone.nIde) })).toHaveCount(0);
-    await expect(list.getByLabel('Buscar empleado')).toHaveCount(0);
+    // la lista se filtra por nombre (sin distinguir tildes ni mayúsculas) y por cédula
+    const finder = list.getByLabel('Buscar empleado por nombre o identificación');
+    await finder.fill(emp.name.toUpperCase());
+    await expect(list.getByRole('option', { name: new RegExp(`^${emp.nIde} -`) })).toBeAttached();
+    await finder.fill('zzz-sin-coincidencia');
+    await expect(list.getByRole('option', { name: new RegExp(`^${emp.nIde} -`) })).toHaveCount(0);
+    await finder.fill(emp.nIde);
+    await expect(list.getByRole('option', { name: new RegExp(`^${emp.nIde} -`) })).toBeAttached();
+    await finder.fill('');
     await expect(list.getByLabel('Contrato (N_CONT)')).toHaveValue('');
     await expect(list.getByLabel('Contrato (N_CONT)')).toHaveAttribute('readonly', '');
     await list.getByRole('button', { name: 'Crear período' }).click();
