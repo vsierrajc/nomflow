@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Notice, PageHeader, Pager, SelectField, formatDate } from '@/components/admin-ui';
+import { IconButton } from '@/components/icon-button';
 import { Field } from '@/components/ui';
 import { NETWORK_ERROR } from '@/lib/api';
 import { useAdmin } from '@/lib/admin';
@@ -209,22 +210,18 @@ export default function IssuedCertificatesPage() {
                     </td>
                     <td>{MODE[r.signatureMode ?? ''] ?? '-'}</td>
                     <td>
-                      <button
-                        type="button"
-                        className="secondary small"
-                        onClick={() => void open(r)}
-                        aria-label={`Abrir el certificado de ${r.nombre ?? r.nIde} del ${formatDate(r.createdAt)}`}
-                      >
-                        Abrir PDF
-                      </button>{' '}
-                      <button
-                        type="button"
-                        className="secondary small"
-                        onClick={() => void check(r)}
-                        aria-label={`Verificar la firma del certificado de ${r.nombre ?? r.nIde}`}
-                      >
-                        Verificar firma
-                      </button>
+                      <div className="row-actions">
+                        <IconButton
+                          icon="pdf"
+                          label={`Abrir el certificado de ${r.nombre ?? r.nIde} del ${formatDate(r.createdAt)}`}
+                          onClick={() => void open(r)}
+                        />
+                        <IconButton
+                          icon="verify"
+                          label={`Verificar la firma del certificado de ${r.nombre ?? r.nIde}`}
+                          onClick={() => void check(r)}
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))}

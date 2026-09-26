@@ -4,7 +4,16 @@ import type { ReactNode } from 'react';
 
 /** Iconos de trazo (24×24). Son solo dibujo: el nombre accesible lo da el botón. */
 const ICONS: Record<
-  'view' | 'edit' | 'delete' | 'restore' | 'roles' | 'reset' | 'block' | 'unblock',
+  | 'view'
+  | 'edit'
+  | 'delete'
+  | 'restore'
+  | 'roles'
+  | 'reset'
+  | 'block'
+  | 'unblock'
+  | 'pdf'
+  | 'verify',
   ReactNode
 > = {
   // Ojo
@@ -54,6 +63,21 @@ const ICONS: Record<
     <>
       <circle cx="12" cy="12" r="9" />
       <path d="M8 12.5l2.7 2.7L16 9.5" />
+    </>
+  ),
+  // Hoja con esquina doblada (abrir el PDF)
+  pdf: (
+    <>
+      <path d="M6 3h8l4 4v14H6z" />
+      <path d="M14 3v4h4" />
+      <path d="M9 13h6M9 17h6" />
+    </>
+  ),
+  // Escudo con marca (verificar la firma)
+  verify: (
+    <>
+      <path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6l8-3z" />
+      <path d="M8.5 12.2l2.5 2.5 4.5-4.7" />
     </>
   ),
   // Flecha circular (reactivar)
