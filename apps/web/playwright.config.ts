@@ -56,6 +56,8 @@ export default defineConfig({
         PORT: String(API_PORT),
         DATABASE_URL: TEST_DB,
         HEALTH_MONITOR: 'off',
+        // Las pruebas de la confirmación de identidad necesitan que esté exigida.
+        REQUIRE_RECENT_AUTH: 'true',
         NOTIFICATIONS_MONITOR: 'off',
         ARCHIVE_SCHEDULER: 'off',
         SESSION_SECRET: 'e2e-secret-e2e-secret-e2e-secret-12345',
