@@ -229,4 +229,33 @@ describe.skipIf(!url)('clave asignada por el administrador (HTTP + PostgreSQL)',
     expect(auto.body.temporaryPassword.length).toBeGreaterThan(10);
     expect((await db.select().from(sessions)).length).toBeGreaterThan(0);
   });
+
+  it('activar ahora: con el correo caído la cuenta queda activa con la clave y sin enviar código', async () => {
+    const id = await person('PEND', 'pend@x.co', { status: 'PENDIENTE_VERIFICACION' });
+    const before = sent.length;
+    const res = await call(adm, 'post', `/admin/accounts/${id}/set-password`, {
+      password: ASSIGNED,
+      requireChange: false,
+      activateNow: true,
+    }).expect(200);
+    expect(res.body).toEqual({ status: 'ACTIVA', verificationSent: false });
+    expect(sent.length).toBe(before); // no se envió ningún correo
+    const [row] = await db.select().from(accounts).where(eq(accounts.id, id));
+    expect(row).toMatchObject({ status: 'ACTIVA', mustChangePassword: false });
+    expect(row?.emailVerifiedAt).not.toBeNull();
+    await login('pend@x.co', ASSIGNED).expect(200); // ya puede ingresar con esa clave
+    const [log] = await db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.action, 'ACCOUNT_PASSWORD_SET'));
+    expect(log?.context).toMatchObject({ activateNow: true });
+    expect(JSON.stringify(log)).not.toContain(ASSIGNED);
+    // una cuenta bloqueada no se activa por esta vía
+    await db.update(accounts).set({ status: 'BLOQUEADA' }).where(eq(accounts.id, id));
+    await call(adm, 'post', `/admin/accounts/${id}/set-password`, {
+      password: ASSIGNED,
+      requireChange: false,
+      activateNow: true,
+    }).expect(409);
+  });
 });

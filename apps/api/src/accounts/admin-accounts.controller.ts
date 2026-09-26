@@ -69,6 +69,8 @@ const CreateAccountDto = z.object({
 const SetPasswordDto = z.object({
   password: z.string().min(1).max(200),
   requireChange: z.boolean().default(true),
+  /** Deja la cuenta activa con esta clave, sin código por correo (para cuando el correo no funciona). */
+  activateNow: z.boolean().default(false),
 });
 
 @Controller('admin/accounts')

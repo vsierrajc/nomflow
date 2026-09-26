@@ -127,6 +127,31 @@ test.describe('cuenta de acceso en la gestión de empleados', () => {
     return page.getByRole('region', { name: 'Cuenta de acceso' });
   }
 
+  test('restablecer la clave desde el empleado genera una temporal, la muestra y pide confirmación', async ({
+    page,
+  }) => {
+    await loginAdmin(page);
+    const u = newUser('restablece');
+    await seedActiveAccount(u);
+    const section = await openAccount(page, u);
+    await expect(section.getByText('Activa', { exact: true })).toBeVisible();
+    await section.getByRole('button', { name: 'Restablecer clave (generar una temporal)' }).click();
+    // pide confirmación: cancelar no cambia nada
+    await section.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(section.getByTestId('temporary-password')).toHaveCount(0);
+    await section.getByRole('button', { name: 'Restablecer clave (generar una temporal)' }).click();
+    await section.getByRole('button', { name: 'Sí, restablecer y mostrar la clave' }).click();
+    await expect(page.getByText(/Clave restablecida\./)).toBeVisible();
+    const temp = (await section.getByTestId('temporary-password').textContent()) ?? '';
+    expect(temp.length).toBeGreaterThanOrEqual(12);
+    await expect(section.getByRole('button', { name: 'Copiar clave' })).toBeVisible();
+    await expect(section.getByText('Pendiente de activación')).toBeVisible();
+    // con la clave temporal el empleado no entra directo: debe activar la cuenta
+    await page.request
+      .post('/api/auth/login', { data: { email: u.email, password: temp } })
+      .then((r) => expect(r.status()).toBe(401));
+  });
+
   test('el administrador asigna una clave a una cuenta activa y el empleado ingresa con ella', async ({
     page,
     browser,

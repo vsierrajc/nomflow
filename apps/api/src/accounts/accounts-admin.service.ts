@@ -168,7 +168,7 @@ export async function setAccountPassword(
   db: Db,
   actorId: string,
   id: string,
-  input: { password: string; requireChange: boolean },
+  input: { password: string; requireChange: boolean; activateNow?: boolean },
   mailer: Mailer,
 ) {
   const account = await target(db, actorId, id);
@@ -185,14 +185,16 @@ export async function setAccountPassword(
       .limit(1);
     if (!active) throw new AccountAdminError('NO_ACTIVE_CONTRACT');
   }
-  const keepActive = account.status === 'ACTIVA' && !input.requireChange;
+  // «Activar ahora»: la persona entra ya con esta clave, sin el código por correo (que puede no llegar).
+  const activateNow = input.activateNow === true;
+  const keepActive = activateNow || (account.status === 'ACTIVA' && !input.requireChange);
   await db
     .update(accounts)
     .set({
       passwordHash: await hashPassword(input.password),
       mustChangePassword: !keepActive,
       status: keepActive ? 'ACTIVA' : 'PENDIENTE_VERIFICACION',
-      emailVerifiedAt: keepActive ? account.emailVerifiedAt : null,
+      emailVerifiedAt: keepActive ? (account.emailVerifiedAt ?? new Date()) : null,
       failedAttempts: 0,
       lockedUntil: null,
       updatedAt: new Date(),
@@ -206,7 +208,7 @@ export async function setAccountPassword(
     resource: 'account',
     resourceId: id,
     result: 'SUCCESS',
-    context: { requireChange: input.requireChange },
+    context: { requireChange: input.requireChange, activateNow },
   });
   return {
     status: keepActive ? ('ACTIVA' as const) : ('PENDIENTE_VERIFICACION' as const),

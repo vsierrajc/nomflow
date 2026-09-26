@@ -68,14 +68,18 @@ function SecretDialog({
   title,
   secret,
   sent,
+  onActivate,
   onClose,
 }: {
   title: string;
   secret: string;
   sent: boolean;
+  /** Deja la cuenta activa con esta clave, sin código por correo. */
+  onActivate: () => Promise<boolean>;
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [activated, setActivated] = useState(false);
   return (
     <Modal title={title} onClose={onClose}>
       <p>
@@ -90,6 +94,22 @@ function SecretDialog({
           ? 'Se envió un código de verificación al correo registrado.'
           : 'No se pudo enviar el código por correo: la persona puede pedirlo de nuevo en la pantalla de activación.'}
       </p>
+      {!sent && !activated ? (
+        <p>
+          Si el correo no funciona, puede dejar la cuenta <strong>activa</strong> con esta clave: la
+          persona ingresa ya, sin código, y conviene que la cambie en «Mi cuenta».{' '}
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => void onActivate().then((ok) => setActivated(ok))}
+          >
+            Activar la cuenta ahora con esta clave
+          </button>
+        </p>
+      ) : null}
+      {activated ? (
+        <p role="status">La cuenta quedó activa: la persona ya puede ingresar con esta clave.</p>
+      ) : null}
       <div className="actions">
         <button
           type="button"
@@ -111,7 +131,7 @@ function CreateDialog({
   onCreated,
   onClose,
 }: {
-  onCreated: (secret: string, sent: boolean) => void;
+  onCreated: (secret: string, sent: boolean, accountId: string) => void;
   onClose: () => void;
 }) {
   const { call } = useAdmin();
@@ -123,13 +143,15 @@ function CreateDialog({
     const nIde = String(new FormData(e.currentTarget).get('nIde') ?? '').trim();
     setBusy(true);
     setError(null);
-    const res = await call<{ temporaryPassword: string; verificationSent: boolean; code?: string }>(
-      '/admin/accounts',
-      { method: 'POST', body: { nIde } },
-    );
+    const res = await call<{
+      temporaryPassword: string;
+      verificationSent: boolean;
+      accountId: string;
+      code?: string;
+    }>('/admin/accounts', { method: 'POST', body: { nIde } });
     setBusy(false);
     if (res.status === 201 && res.data)
-      onCreated(res.data.temporaryPassword, res.data.verificationSent);
+      onCreated(res.data.temporaryPassword, res.data.verificationSent, res.data.accountId);
     else if (res.status === 404)
       setError('No hay ningún empleado con esa identificación. Impórtelo primero.');
     else if (res.status === 409) setError('Esa persona ya tiene una cuenta.');
@@ -416,9 +438,12 @@ export default function AccountsPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [secret, setSecret] = useState<{ title: string; value: string; sent: boolean } | null>(
-    null,
-  );
+  const [secret, setSecret] = useState<{
+    id: string;
+    title: string;
+    value: string;
+    sent: boolean;
+  } | null>(null);
   const [rolesOf, setRolesOf] = useState<Account | null>(null);
 
   const load = useCallback(async () => {
@@ -447,6 +472,7 @@ export default function AccountsPage() {
     }>(`/admin/accounts/${a.id}/${action}`, { method: 'POST', body: {} });
     if (action === 'reset-password' && res.status === 200 && res.data?.temporaryPassword) {
       setSecret({
+        id: a.id,
         title: `Nueva clave temporal de ${a.email}`,
         value: res.data.temporaryPassword,
         sent: Boolean(res.data.verificationSent),
@@ -595,9 +621,9 @@ export default function AccountsPage() {
       {creating ? (
         <CreateDialog
           onClose={() => setCreating(false)}
-          onCreated={(value, sent) => {
+          onCreated={(value, sent, accountId) => {
             setCreating(false);
-            setSecret({ title: 'Cuenta creada', value, sent });
+            setSecret({ id: accountId, title: 'Cuenta creada', value, sent });
             void load();
           }}
         />
@@ -607,6 +633,14 @@ export default function AccountsPage() {
           title={secret.title}
           secret={secret.value}
           sent={secret.sent}
+          onActivate={async () => {
+            const res = await call(`/admin/accounts/${secret.id}/set-password`, {
+              method: 'POST',
+              body: { password: secret.value, requireChange: false, activateNow: true },
+            });
+            if (res.status === 200) void load();
+            return res.status === 200;
+          }}
           onClose={() => setSecret(null)}
         />
       ) : null}
