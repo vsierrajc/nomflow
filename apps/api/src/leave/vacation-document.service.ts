@@ -13,6 +13,7 @@ import {
   vacationRevisionAllocations,
   vacationRevisions,
 } from '../db/schema';
+import { letterheadForCompanyCode } from '../org/letterhead.service';
 import { logoForCompanyCode } from '../org/logos.service';
 import { ObjectStoreError, type ObjectStore } from '../storage/object-store';
 import { renderVacationPdf, type VacationDocData } from './vacation-document.pdf';
@@ -95,6 +96,7 @@ async function buildData(db: Db, requestId: string): Promise<VacationDocData | n
       ? { nombre: company.nombre, sigla: company.sigla, direccion: company.direccion }
       : null,
     logo: await logoForCompanyCode(db, req.cEmp),
+    letterhead: await letterheadForCompanyCode(db, req.cEmp),
     start: rev.startDate,
     end: rev.endDate,
     calendarDiff: rev.calendarDiff,

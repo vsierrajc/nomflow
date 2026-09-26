@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit';
+import type { Letterhead } from '../org/letterhead.service';
 
 export interface VacationDocData {
   requestId: string;
@@ -8,6 +9,8 @@ export interface VacationDocData {
   employee: { name: string; nIde: string; nCont: string };
   company: { nombre: string; sigla: string; direccion: string } | null;
   logo: Buffer | null;
+  /** Imágenes a todo el ancho de la página; si faltan se usa el encabezado de texto. */
+  letterhead?: { header: Letterhead | null; footer: Letterhead | null };
   start: string;
   end: string;
   /** DIAS_DIS: diferencia literal en días calendario. */
@@ -21,7 +24,9 @@ export interface VacationDocData {
 }
 
 const LEFT = 40;
-const RIGHT = 555;
+const PAGE_W = 612;
+const PAGE_H = 792;
+const RIGHT = PAGE_W - 40;
 const dateFmt = new Intl.DateTimeFormat('es-CO', { dateStyle: 'long', timeZone: 'UTC' });
 const dateTimeFmt = new Intl.DateTimeFormat('es-CO', {
   dateStyle: 'long',
@@ -45,7 +50,7 @@ export function renderVacationPdf(
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
-      size: 'A4',
+      size: 'LETTER',
       margin: 40,
       compress: options.compress ?? true,
       info: {
@@ -60,28 +65,42 @@ export function renderVacationPdf(
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    let textX = LEFT;
-    if (d.logo) {
+    const header = d.letterhead?.header ?? null;
+    let headerDrawn = false;
+    if (header) {
       try {
-        doc.image(d.logo, LEFT, 36, { fit: [60, 60] });
-        textX = LEFT + 74;
+        doc.image(header.data, 0, 0, { width: PAGE_W });
+        headerDrawn = true;
+        doc.x = LEFT;
+        doc.y = header.heightPt + 14;
       } catch {
-        textX = LEFT;
+        headerDrawn = false;
       }
     }
-    doc
-      .font('Helvetica-Bold')
-      .fontSize(14)
-      .text(clean(d.company?.nombre ?? 'NOMFLOW'), textX, 42, { width: RIGHT - textX });
-    if (d.company)
+    if (!headerDrawn) {
+      let textX = LEFT;
+      if (d.logo) {
+        try {
+          doc.image(d.logo, LEFT, 36, { fit: [60, 60] });
+          textX = LEFT + 74;
+        } catch {
+          textX = LEFT;
+        }
+      }
       doc
-        .font('Helvetica')
-        .fontSize(9)
-        .fillColor('#444')
-        .text(clean(`${d.company.sigla} - ${d.company.direccion}`), textX, doc.y, {
-          width: RIGHT - textX,
-        });
-    if (d.logo) doc.y = Math.max(doc.y, 100);
+        .font('Helvetica-Bold')
+        .fontSize(14)
+        .text(clean(d.company?.nombre ?? 'NOMFLOW'), textX, 42, { width: RIGHT - textX });
+      if (d.company)
+        doc
+          .font('Helvetica')
+          .fontSize(9)
+          .fillColor('#444')
+          .text(clean(`${d.company.sigla} - ${d.company.direccion}`), textX, doc.y, {
+            width: RIGHT - textX,
+          });
+      if (d.logo) doc.y = Math.max(doc.y, 100);
+    }
     doc.x = LEFT;
     doc.fillColor('#000').moveDown(0.8);
     doc.font('Helvetica-Bold').fontSize(13).text('CONSTANCIA DE SOLICITUD DE VACACIONES APROBADA');
@@ -173,6 +192,15 @@ export function renderVacationPdf(
         'Constancia generada por NOMFLOW a partir de las acciones registradas por cada persona autenticada. La huella y los registros son evidencia del trámite; no equivalen a una firma digital criptográfica.',
         { width: RIGHT - LEFT },
       );
+    const footer = d.letterhead?.footer ?? null;
+    if (footer) {
+      doc.page.margins.bottom = 0;
+      try {
+        doc.image(footer.data, 0, PAGE_H - footer.heightPt, { width: PAGE_W });
+      } catch {
+        // imagen ilegible: se entrega sin pie
+      }
+    }
     doc.end();
   });
 }

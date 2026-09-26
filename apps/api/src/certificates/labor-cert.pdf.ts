@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit';
+import type { Letterhead } from '../org/letterhead.service';
 import { addSignaturePlaceholder } from './digital-signature';
 
 export interface LaborCertPdfData {
@@ -9,6 +10,8 @@ export interface LaborCertPdfData {
   body: string;
   company: { nombre: string; sigla: string; direccion: string };
   logo: Buffer | null;
+  /** Imágenes a todo el ancho de la página; si faltan se usa el encabezado y pie de texto. */
+  letterhead?: { header: Letterhead | null; footer: Letterhead | null };
   /** Control del sistema de gestión de la calidad. */
   docCode: string;
   docVersion: string;
@@ -24,7 +27,9 @@ export interface LaborCertPdfData {
 }
 
 const LEFT = 56;
-const RIGHT = 539;
+const PAGE_W = 612;
+const PAGE_H = 792;
+const RIGHT = PAGE_W - 56;
 const WIDTH = RIGHT - LEFT;
 const stamp = new Intl.DateTimeFormat('es-CO', {
   dateStyle: 'long',
@@ -42,8 +47,8 @@ export function renderLaborCertificatePdf(
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
-      size: 'A4',
-      margins: { top: 48, bottom: 40, left: LEFT, right: 595 - RIGHT },
+      size: 'LETTER',
+      margins: { top: 48, bottom: 40, left: LEFT, right: PAGE_W - RIGHT },
       compress: options.compress ?? true,
       info: {
         Title: `${d.title} - ${d.company.nombre}`,
@@ -57,38 +62,58 @@ export function renderLaborCertificatePdf(
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    // Encabezado: logo y razón social a la izquierda, control del documento a la derecha.
-    let textX = LEFT;
-    if (d.logo) {
+    const header = d.letterhead?.header ?? null;
+    const footerImg = d.letterhead?.footer ?? null;
+    let ruleY = 116;
+    let boxTop = 48;
+    let boxX = 372;
+    let boxW = RIGHT - boxX;
+    if (header) {
+      // Encabezado en imagen a todo el ancho; el código y la versión van debajo, a la derecha.
+      let drawn = false;
       try {
-        doc.image(d.logo, LEFT, 48, { fit: [64, 56] });
-        textX = LEFT + 76;
+        doc.image(header.data, 0, 0, { width: PAGE_W });
+        drawn = true;
       } catch {
-        // logo ilegible: se sigue sin él
+        // imagen ilegible: se usa el encabezado de texto
+      }
+      if (drawn) {
+        boxTop = header.heightPt + 6;
+        boxX = 372;
+        boxW = RIGHT - boxX;
+        ruleY = boxTop + 46;
       }
     }
-    doc.font('Helvetica-Bold').fontSize(13).fillColor('#111111');
-    doc.text(d.company.nombre, textX, 54, { width: 250 });
-    doc.font('Helvetica').fontSize(9).fillColor('#444444');
-    doc.text(d.company.direccion, textX, doc.y + 2, { width: 250 });
+    const usedImage = header !== null && boxTop !== 48;
+    if (!usedImage) {
+      // Encabezado: logo y razón social a la izquierda, control del documento a la derecha.
+      let textX = LEFT;
+      if (d.logo) {
+        try {
+          doc.image(d.logo, LEFT, 48, { fit: [64, 56] });
+          textX = LEFT + 76;
+        } catch {
+          // logo ilegible: se sigue sin él
+        }
+      }
+      doc.font('Helvetica-Bold').fontSize(13).fillColor('#111111');
+      doc.text(d.company.nombre, textX, 54, { width: 250 });
+      doc.font('Helvetica').fontSize(9).fillColor('#444444');
+      doc.text(d.company.direccion, textX, doc.y + 2, { width: 250 });
+    }
 
-    const boxX = 372;
-    doc
-      .rect(boxX, 48, RIGHT - boxX, 56)
-      .strokeColor('#888888')
-      .lineWidth(0.6)
-      .stroke();
+    doc.rect(boxX, boxTop, boxW, 40).strokeColor('#888888').lineWidth(0.6).stroke();
     doc.font('Helvetica-Bold').fontSize(8).fillColor('#111111');
-    doc.text(`Código: ${d.docCode}`, boxX + 6, 54, { width: RIGHT - boxX - 12 });
+    doc.text(`Código: ${d.docCode}`, boxX + 6, boxTop + 6, { width: boxW - 12 });
     doc.font('Helvetica').fontSize(8);
-    doc.text(`Versión: ${d.docVersion}`, boxX + 6, 68, { width: RIGHT - boxX - 12 });
-    if (d.docDate) doc.text(`Fecha: ${d.docDate}`, boxX + 6, 80, { width: RIGHT - boxX - 12 });
+    doc.text(`Versión: ${d.docVersion}`, boxX + 6, boxTop + 18, { width: boxW - 12 });
+    if (d.docDate) doc.text(`Fecha: ${d.docDate}`, boxX + 6, boxTop + 30, { width: boxW - 12 });
 
-    doc.moveTo(LEFT, 116).lineTo(RIGHT, 116).strokeColor('#222222').lineWidth(1).stroke();
+    doc.moveTo(LEFT, ruleY).lineTo(RIGHT, ruleY).strokeColor('#222222').lineWidth(1).stroke();
 
     // Título y cuerpo.
     doc.font('Helvetica-Bold').fontSize(15).fillColor('#111111');
-    doc.text(d.title, LEFT, 150, { width: WIDTH, align: 'center' });
+    doc.text(d.title, LEFT, ruleY + 34, { width: WIDTH, align: 'center' });
     doc.moveDown(1.6);
     doc.font('Helvetica').fontSize(11).fillColor('#111111');
     for (const para of d.body.split(/\n{2,}/)) {
@@ -144,24 +169,42 @@ export function renderLaborCertificatePdf(
           );
     }
 
-    // Pie: datos de la empresa y referencia. Se escribe dentro del margen inferior sin abrir otra página.
+    // Pie: imagen a todo el ancho o, si no hay, datos de la empresa. Se escribe dentro del margen
+    // inferior sin abrir otra página.
     doc.page.margins.bottom = 0;
-    const footTop = 760;
-    doc.moveTo(LEFT, footTop).lineTo(RIGHT, footTop).strokeColor('#888888').lineWidth(0.6).stroke();
-    doc.font('Helvetica-Bold').fontSize(8).fillColor('#333333');
-    doc.text(d.company.nombre, LEFT, footTop + 5, {
-      width: WIDTH,
-      align: 'center',
-      lineBreak: false,
-    });
-    doc.font('Helvetica').fontSize(7.5).fillColor('#555555');
-    let y = footTop + 16;
-    for (const line of [d.company.direccion, ...d.footerLines].filter(Boolean).slice(0, 4)) {
-      doc.text(line, LEFT, y, { width: WIDTH, align: 'center', lineBreak: false });
-      y += 9;
+    let footerDrawn = false;
+    if (footerImg) {
+      try {
+        doc.image(footerImg.data, 0, PAGE_H - footerImg.heightPt, { width: PAGE_W });
+        footerDrawn = true;
+      } catch {
+        // imagen ilegible: se usa el pie de texto
+      }
     }
-    doc.fontSize(6.5).fillColor('#777777');
-    doc.text(`Ref. ${d.ref} - Generado por NOMFLOW el ${stamp.format(d.issuedAt)}`, LEFT, 824, {
+    const refY = footerDrawn && footerImg ? PAGE_H - footerImg.heightPt - 10 : PAGE_H - 18;
+    if (!footerDrawn) {
+      const footTop = PAGE_H - 82;
+      doc
+        .moveTo(LEFT, footTop)
+        .lineTo(RIGHT, footTop)
+        .strokeColor('#888888')
+        .lineWidth(0.6)
+        .stroke();
+      doc.font('Helvetica-Bold').fontSize(8).fillColor('#333333');
+      doc.text(d.company.nombre, LEFT, footTop + 5, {
+        width: WIDTH,
+        align: 'center',
+        lineBreak: false,
+      });
+      doc.font('Helvetica').fontSize(7.5).fillColor('#555555');
+      let y = footTop + 16;
+      for (const line of [d.company.direccion, ...d.footerLines].filter(Boolean).slice(0, 4)) {
+        doc.text(line, LEFT, y, { width: WIDTH, align: 'center', lineBreak: false });
+        y += 9;
+      }
+    }
+    doc.font('Helvetica').fontSize(6.5).fillColor('#777777');
+    doc.text(`Ref. ${d.ref} - Generado por NOMFLOW el ${stamp.format(d.issuedAt)}`, LEFT, refY, {
       width: WIDTH,
       align: 'center',
       lineBreak: false,
@@ -169,9 +212,9 @@ export function renderLaborCertificatePdf(
 
     if (d.preview) {
       doc.save();
-      doc.rotate(-35, { origin: [300, 420] });
+      doc.rotate(-35, { origin: [PAGE_W / 2, PAGE_H / 2] });
       doc.font('Helvetica-Bold').fontSize(64).fillColor('#dddddd').opacity(0.5);
-      doc.text('VISTA PREVIA', 90, 400, { lineBreak: false });
+      doc.text('VISTA PREVIA', 100, 380, { lineBreak: false });
       doc.restore();
     }
     if (d.digital) addSignaturePlaceholder(doc, d.digital);

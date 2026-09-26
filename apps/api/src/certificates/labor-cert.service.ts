@@ -11,6 +11,7 @@ import {
   companies,
   employeeSnapshots,
 } from '../db/schema';
+import { letterheadForCompanyCode } from '../org/letterhead.service';
 import { logoForCompanyCode } from '../org/logos.service';
 import { archivedKeys } from '../storage/archive.service';
 import { signPdf, verifyPdfSignature, type SignatureReport } from './digital-signature';
@@ -446,6 +447,7 @@ export async function issue(
     body,
     company,
     logo: await logoForCompanyCode(db, cEmp),
+    letterhead: await letterheadForCompanyCode(db, cEmp),
     docCode: s.docCode,
     docVersion: s.docVersion,
     docDate: s.docDate,
@@ -559,6 +561,7 @@ export async function preview(
     body,
     company,
     logo: await logoForCompanyCode(db, cEmp),
+    letterhead: await letterheadForCompanyCode(db, cEmp),
     docCode: s.docCode,
     docVersion: s.docVersion,
     docDate: s.docDate,

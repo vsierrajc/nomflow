@@ -224,6 +224,43 @@ test.describe('empresas y logo', () => {
     expect(rows[0]?.n).toBe(2);
   });
 
+  test('carga el encabezado y el pie de página, los muestra y los quita', async ({ page }) => {
+    await asAdmin(page);
+    const cEmp = `H${uid().toUpperCase()}`;
+    await seedCompany(cEmp, 'Empresa con membrete');
+    await page.goto('/admin/empresas');
+    await page
+      .getByRole('row', { name: new RegExp(cEmp) })
+      .getByRole('button', { name: /Encabezado y pie/ })
+      .click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByText('No hay imagen cargada.')).toHaveCount(2);
+
+    await dialog.getByLabel(/Archivo PNG o JPEG del encabezado/).setInputFiles({
+      name: 'enc.png',
+      mimeType: 'image/png',
+      buffer: pngBuffer(1200, 200, [10, 10, 200]),
+    });
+    await dialog.getByRole('button', { name: 'Cargar encabezado' }).click();
+    await expect(dialog.getByText('Encabezado cargado.')).toBeVisible();
+    const img = dialog.getByRole('img', { name: /Encabezado actual/ });
+    await expect(img).toBeVisible();
+    expect(await img.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(1200);
+
+    // una imagen demasiado alta para su ancho se rechaza con un mensaje claro
+    await dialog.getByLabel(/Archivo PNG o JPEG del pie/).setInputFiles({
+      name: 'pie.png',
+      mimeType: 'image/png',
+      buffer: pngBuffer(1000, 900, [200, 10, 10]),
+    });
+    await dialog.getByRole('button', { name: 'Cargar pie de página' }).click();
+    await expect(dialog.getByText(/demasiado alta/)).toBeVisible();
+
+    await dialog.getByRole('button', { name: 'Quitar encabezado' }).click();
+    await expect(dialog.getByText('Encabezado quitado')).toBeVisible();
+    await expect(dialog.getByText('No hay imagen cargada.')).toHaveCount(2);
+  });
+
   test('rechaza archivos que no son logos válidos con un mensaje claro', async ({ page }) => {
     await asAdmin(page);
     const cEmp = `R${uid().toUpperCase()}`;
