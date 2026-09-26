@@ -1455,3 +1455,13 @@ th.num {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.letterhead-preview {
+  display: block;
+  width: 100%;
+  max-width: 40rem;
+  height: auto;
+  border: 1px solid var(--color-border);
+  background: #fff;
+  margin-bottom: var(--space-3);
+}

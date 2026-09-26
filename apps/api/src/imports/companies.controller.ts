@@ -4,6 +4,7 @@ import {
   ConflictException,
   Controller,
   Get,
+  Delete,
   Header,
   Res,
   UnprocessableEntityException,
@@ -31,6 +32,16 @@ import { DB } from '../db/db.module';
 import { auditLogs, companies } from '../db/schema';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
+import {
+  KINDS,
+  LetterheadError,
+  MAX_LETTERHEAD_BYTES,
+  letterheadImage,
+  letterheadStatus,
+  removeLetterhead,
+  uploadLetterhead,
+  type LetterheadKind,
+} from '../org/letterhead.service';
 import {
   LogoError,
   MAX_LOGO_BYTES,
@@ -193,6 +204,88 @@ export class CompaniesController {
     } catch (e) {
       mapLogoError(e);
     }
+  }
+
+  @Get(':id/letterhead')
+  @Header('Cache-Control', 'no-store')
+  async letterhead(@Param('id', ParseUUIDPipe) id: string) {
+    try {
+      return await letterheadStatus(this.db, id);
+    } catch (e) {
+      return mapLetterheadError(e);
+    }
+  }
+
+  @Get(':id/letterhead/:kind')
+  async letterheadFile(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('kind') kind: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    try {
+      const img = await letterheadImage(this.db, id, parseKind(kind));
+      res.setHeader('Content-Type', img.contentType);
+      res.setHeader('Cache-Control', 'private, no-cache');
+      res.setHeader('ETag', `"${img.sha256}"`);
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      return new StreamableFile(img.data);
+    } catch (e) {
+      return mapLetterheadError(e);
+    }
+  }
+
+  @Post(':id/letterhead/:kind')
+  @HttpCode(201)
+  @UseGuards(RecentAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: MAX_LETTERHEAD_BYTES + 1, files: 1 } }),
+  )
+  async uploadLetterhead(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('kind') kind: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Req() req: AuthedRequest,
+  ) {
+    if (!file) throw new BadRequestException();
+    try {
+      return await uploadLetterhead(this.db, req.auth.accountId, id, parseKind(kind), file.buffer);
+    } catch (e) {
+      return mapLetterheadError(e);
+    }
+  }
+
+  @Delete(':id/letterhead/:kind')
+  @HttpCode(204)
+  @UseGuards(RecentAuthGuard)
+  async deleteLetterhead(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('kind') kind: string,
+    @Req() req: AuthedRequest,
+  ): Promise<void> {
+    try {
+      await removeLetterhead(this.db, req.auth.accountId, id, parseKind(kind));
+    } catch (e) {
+      mapLetterheadError(e);
+    }
+  }
+}
+
+function parseKind(kind: string): LetterheadKind {
+  const k = kind.toUpperCase();
+  if (!(KINDS as readonly string[]).includes(k)) throw new NotFoundException();
+  return k as LetterheadKind;
+}
+
+function mapLetterheadError(e: unknown): never {
+  if (!(e instanceof LetterheadError)) throw e;
+  switch (e.code) {
+    case 'COMPANY_NOT_FOUND':
+    case 'NOT_FOUND':
+      throw new NotFoundException();
+    case 'TOO_LARGE':
+      throw new PayloadTooLargeException({ code: e.code });
+    default:
+      throw new UnprocessableEntityException({ code: e.code });
   }
 }
 
