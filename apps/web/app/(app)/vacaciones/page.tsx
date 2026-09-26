@@ -151,38 +151,50 @@ export default function MyVacationsPage() {
             </EmptyState>
           ) : (
             <form onSubmit={calculate} noValidate>
-              <fieldset>
+              <fieldset className="period-list">
                 <legend>Períodos y días hábiles que va a tomar</legend>
                 {periods.map((p) => (
-                  <div className="field" key={p.id}>
-                    <label htmlFor={`dias-${p.id}`}>
-                      Período {longDate(p.perIni)} a {longDate(p.perFin)}: {p.dias} días, {p.disp}{' '}
-                      disponibles. Días a tomar
-                    </label>
-                    <input
-                      id={`dias-${p.id}`}
-                      type="number"
-                      min={0}
-                      max={p.disp}
-                      inputMode="numeric"
-                      value={days[p.id] ?? ''}
-                      onChange={(e) => setDays({ ...days, [p.id]: e.target.value })}
-                    />
+                  <div className="period-row" key={p.id}>
+                    <div id={`info-${p.id}`} className="period-info">
+                      <strong>
+                        Período {longDate(p.perIni)} a {longDate(p.perFin)}
+                      </strong>
+                      <span className="muted">
+                        : {p.dias} días, {p.disp} disponibles.
+                      </span>
+                    </div>
+                    <div className="period-take">
+                      <label id={`take-${p.id}`} htmlFor={`dias-${p.id}`}>
+                        Días a tomar
+                      </label>
+                      <input
+                        id={`dias-${p.id}`}
+                        aria-labelledby={`info-${p.id} take-${p.id}`}
+                        type="number"
+                        min={0}
+                        max={p.disp}
+                        inputMode="numeric"
+                        value={days[p.id] ?? ''}
+                        onChange={(e) => setDays({ ...days, [p.id]: e.target.value })}
+                      />
+                    </div>
                   </div>
                 ))}
               </fieldset>
-              <Field
-                label="Fecha inicial del disfrute (día hábil)"
-                name="start"
-                type="date"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-                required
-              />
+              <div className="request-bar">
+                <Field
+                  label="Fecha inicial del disfrute (día hábil)"
+                  name="start"
+                  type="date"
+                  value={start}
+                  onChange={(e) => setStart(e.target.value)}
+                  required
+                />
+                <button type="submit" className="secondary">
+                  Calcular fechas
+                </button>
+              </div>
               {formError ? <Alert kind="error">{formError}</Alert> : null}
-              <button type="submit" className="secondary">
-                Calcular fechas
-              </button>
             </form>
           )}
           {plan ? (
