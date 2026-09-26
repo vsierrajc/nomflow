@@ -40,9 +40,17 @@ export class RolesGuard implements CanActivate {
   }
 }
 
+/**
+ * Reautenticación reciente para acciones sensibles. Por decisión del propietario del sistema está
+ * DESACTIVADA por omisión (quien opera la administración ya tiene el privilegio); se vuelve a exigir
+ * con REQUIRE_RECENT_AUTH=true (las acciones piden la clave si la sesión tiene más de 10 minutos).
+ */
+export const recentAuthRequired = () => process.env.REQUIRE_RECENT_AUTH === 'true';
+
 @Injectable()
 export class RecentAuthGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
+    if (!recentAuthRequired()) return true;
     const req = context.switchToHttp().getRequest<AuthedRequest>();
     if (Date.now() - req.auth.authenticatedAt.getTime() > REAUTH_WINDOW_MS) {
       throw new ForbiddenException({
