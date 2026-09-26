@@ -121,17 +121,13 @@ test.describe('períodos de vacaciones (PROG_VAC) y festivos', () => {
     );
     const list = page.getByRole('region', { name: 'Nuevo período' });
     // solo empleados activos: el cancelado no está en la lista y el activo sí
-    await expect(list.getByRole('option', { name: new RegExp(`^${emp.nIde} -`) })).toBeAttached();
-    await expect(list.getByRole('option', { name: new RegExp(gone.nIde) })).toHaveCount(0);
-    // la lista se filtra por nombre (sin distinguir tildes ni mayúsculas) y por cédula
-    const finder = list.getByLabel('Buscar empleado por nombre o identificación');
-    await finder.fill(emp.name.toUpperCase());
-    await expect(list.getByRole('option', { name: new RegExp(`^${emp.nIde} -`) })).toBeAttached();
-    await finder.fill('zzz-sin-coincidencia');
-    await expect(list.getByRole('option', { name: new RegExp(`^${emp.nIde} -`) })).toHaveCount(0);
-    await finder.fill(emp.nIde);
-    await expect(list.getByRole('option', { name: new RegExp(`^${emp.nIde} -`) })).toBeAttached();
-    await finder.fill('');
+    const opts = list.locator('#prog-vac-empleados option');
+    expect(await opts.evaluateAll((o) => o.map((x) => x.getAttribute('value')))).toEqual(
+      expect.arrayContaining([expect.stringContaining(`${emp.nIde} - `)]),
+    );
+    expect(
+      await opts.evaluateAll((o) => o.map((x) => x.getAttribute('value')).join('|')),
+    ).not.toContain(gone.nIde);
     await expect(list.getByLabel('Contrato (N_CONT)')).toHaveValue('');
     await expect(list.getByLabel('Contrato (N_CONT)')).toHaveAttribute('readonly', '');
     await list.getByRole('button', { name: 'Crear período' }).click();
@@ -140,7 +136,7 @@ test.describe('períodos de vacaciones (PROG_VAC) y festivos', () => {
     ).toBeVisible();
     const create = page.getByRole('region', { name: 'Nuevo período' });
     const fill = async () => {
-      await create.getByLabel('Identificación', { exact: true }).selectOption({ value: emp.nIde });
+      await create.getByLabel('Identificación', { exact: true }).fill(`${emp.nIde} - ${emp.name}`);
       await expect(create.getByLabel('Contrato (N_CONT)')).toHaveValue('1');
       await create.getByLabel('Inicio del período').fill('2026-01-01');
       await create.getByLabel('Fin del período').fill('2026-12-31');
