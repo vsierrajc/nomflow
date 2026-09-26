@@ -55,6 +55,7 @@ import {
   enrollDigitalUpload,
   enrollSignature,
   listSigners,
+  signerCandidates,
   mySigners,
   ownCertificatePem,
   ownSignatureImage,
@@ -424,6 +425,14 @@ export class AdminLaborCertController {
   async signers(@Param('cEmp') cEmp: string) {
     await this.company(cEmp);
     return listSigners(this.db, cEmp);
+  }
+
+  /** Personas que se pueden designar como firmantes (para elegirlas de una lista). */
+  @Get('signers/:cEmp/candidates')
+  @Header('Cache-Control', 'no-store')
+  async candidates(@Param('cEmp') cEmp: string) {
+    await this.company(cEmp);
+    return signerCandidates(this.db, cEmp);
   }
 
   @Post('signers/:cEmp')
