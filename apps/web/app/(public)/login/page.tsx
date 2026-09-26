@@ -61,7 +61,7 @@ export default function LoginPage() {
     else if (res.status === 400) setFormError('Revise el correo y la clave e intente de nuevo.');
     else
       setFormError(
-        'Correo o clave incorrectos, o la cuenta no está disponible. Si necesita ayuda, solicítela a Gestión Humana.',
+        'Correo o clave incorrectos, o la cuenta no está disponible. Si le entregaron una clave temporal, primero debe activarla con el enlace «Activar mi cuenta». Si necesita ayuda, solicítela a Gestión Humana.',
       );
     passwordRef.current?.focus();
     passwordRef.current?.select();

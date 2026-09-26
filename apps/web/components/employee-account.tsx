@@ -55,6 +55,9 @@ export function EmployeeAccount({ nIde }: { nIde: string }) {
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [shown, setShown] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [mailFailed, setMailFailed] = useState(false);
   const [password, setPassword] = useState('');
   const [requireChange, setRequireChange] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -118,9 +121,60 @@ export function EmployeeAccount({ nIde }: { nIde: string }) {
       setOk(
         res.data.status === 'ACTIVA'
           ? 'Clave asignada. El empleado ya puede ingresar con ella; sus sesiones abiertas se cerraron.'
-          : 'Clave asignada. El empleado debe activar su cuenta con esa clave y el código que se le envió al correo, y elegir una propia.',
+          : res.data.verificationSent
+            ? 'Clave asignada. El empleado debe activar su cuenta con esa clave y el código que se le envió al correo, y elegir una propia.'
+            : 'Clave asignada, pero NO se pudo enviar el código por correo: el empleado puede pedirlo de nuevo en la pantalla de activación.',
       );
       setPassword('');
+      await load();
+    } else fail(res);
+  }
+
+  /** Restablece la clave: NOMFLOW genera una temporal y se muestra aquí, por si el correo no llega. */
+  async function reset() {
+    if (!account?.id) return;
+    setError(null);
+    setOk(null);
+    setShown(null);
+    setCopied(false);
+    setConfirmReset(false);
+    setMailFailed(false);
+    setBusy(true);
+    const res = await call<{ temporaryPassword: string; verificationSent: boolean }>(
+      `/admin/accounts/${account.id}/reset-password`,
+      { method: 'POST', body: {} },
+    );
+    setBusy(false);
+    if (res.status === 200 && res.data) {
+      setShown(res.data.temporaryPassword);
+      setMailFailed(!res.data.verificationSent);
+      setOk(
+        res.data.verificationSent
+          ? 'Clave restablecida. Se envió al correo del empleado el código para activar la cuenta.'
+          : 'Clave restablecida, pero NO se pudo enviar el código por correo: entregue la clave temporal que se muestra abajo; el empleado puede pedir el código de nuevo en la pantalla de activación.',
+      );
+      await load();
+    } else if (res.status === 422)
+      setError('El empleado no tiene un contrato vigente: no se puede restablecer su clave.');
+    else if (res.status === 409) setError('La acción no aplica al estado actual de la cuenta.');
+    else fail(res);
+  }
+
+  /** Con el correo caído: deja la cuenta activa con la clave temporal que se acaba de mostrar. */
+  async function activateNow() {
+    if (!account?.id || !shown) return;
+    setError(null);
+    setBusy(true);
+    const res = await call(`/admin/accounts/${account.id}/set-password`, {
+      method: 'POST',
+      body: { password: shown, requireChange: false, activateNow: true },
+    });
+    setBusy(false);
+    if (res.status === 200) {
+      setMailFailed(false);
+      setOk(
+        'La cuenta quedó activa: el empleado ya puede ingresar con la clave temporal (conviene que la cambie en «Mi cuenta»).',
+      );
       await load();
     } else fail(res);
   }
@@ -151,7 +205,27 @@ export function EmployeeAccount({ nIde }: { nIde: string }) {
       {shown ? (
         <Notice kind="ok">
           Clave temporal generada (se muestra una sola vez; entréguela por un canal seguro):{' '}
-          <code>{shown}</code>
+          <code data-testid="temporary-password">{shown}</code>{' '}
+          <button
+            type="button"
+            className="secondary small"
+            onClick={() => void navigator.clipboard?.writeText(shown).then(() => setCopied(true))}
+          >
+            {copied ? 'Copiada' : 'Copiar clave'}
+          </button>
+          {mailFailed ? (
+            <>
+              {' '}
+              <button
+                type="button"
+                className="secondary small"
+                disabled={busy}
+                onClick={() => void activateNow()}
+              >
+                Activar la cuenta ahora con esta clave (sin código)
+              </button>
+            </>
+          ) : null}
         </Notice>
       ) : null}
       {account === null ? (
@@ -243,6 +317,39 @@ export function EmployeeAccount({ nIde }: { nIde: string }) {
               </button>
             </form>
           )}
+
+          {account.exists && account.employeeActive && account.status !== 'BLOQUEADA' ? (
+            <div>
+              <p className="muted">
+                Si el empleado olvidó su clave, puede restablecerla: NOMFLOW genera una clave
+                temporal, la muestra aquí (por si el correo falla), cierra sus sesiones y le envía
+                un código para activar la cuenta de nuevo.
+              </p>
+              {confirmReset ? (
+                <div className="toolbar">
+                  <button type="button" disabled={busy} onClick={() => void reset()}>
+                    Sí, restablecer y mostrar la clave
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => setConfirmReset(false)}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => setConfirmReset(true)}
+                >
+                  Restablecer clave (generar una temporal)
+                </button>
+              )}
+            </div>
+          ) : null}
 
           {account.exists && account.twoFactorEnabled ? (
             <div>
