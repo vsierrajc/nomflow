@@ -118,7 +118,16 @@ export default function LogsPage() {
     return false;
   }
 
-  const exportUrl = `/api/admin/logs/audit/export?kind=${kind}&format=${format}${from ? `&from=${from}` : ''}${to ? `&to=${to}` : ''}`;
+  // Solo valores válidos y codificados entran en el enlace de descarga (nada del campo se interpreta como HTML ni ruta).
+  const exportUrl = (() => {
+    const p = new URLSearchParams({
+      kind: KINDS.some((k) => k.value === kind) ? kind : 'TODO',
+      format: format === 'jsonl' ? 'jsonl' : 'csv',
+    });
+    if (/^\d{4}-\d{2}-\d{2}$/.test(from)) p.set('from', from);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(to)) p.set('to', to);
+    return `/api/admin/logs/audit/export?${p.toString()}`;
+  })();
 
   async function archive(e: FormEvent) {
     e.preventDefault();
