@@ -227,12 +227,12 @@ export default function ApprovalsPage() {
         </p>
       </div>
       {isManager ? (
-        <div role="tablist" aria-label="Tipo de solicitud" className="toolbar">
+        <div role="tablist" aria-label="Tipo de solicitud" className="tabs">
           <button
             type="button"
             role="tab"
             aria-selected={topic === 'vacaciones'}
-            className={topic === 'vacaciones' ? '' : 'secondary'}
+            className={topic === 'vacaciones' ? 'active' : ''}
             onClick={() => setTopic('vacaciones')}
           >
             Vacaciones
@@ -241,7 +241,7 @@ export default function ApprovalsPage() {
             type="button"
             role="tab"
             aria-selected={topic === 'permisos'}
-            className={topic === 'permisos' ? '' : 'secondary'}
+            className={topic === 'permisos' ? 'active' : ''}
             onClick={() => setTopic('permisos')}
           >
             Permisos
@@ -250,12 +250,12 @@ export default function ApprovalsPage() {
       ) : null}
       {topic === 'permisos' && isManager ? <PermitInbox /> : null}
       {topic === 'vacaciones' && isManager && isFinal ? (
-        <div role="tablist" aria-label="Bandeja" className="toolbar">
+        <div role="tablist" aria-label="Bandeja" className="segmented">
           <button
             type="button"
             role="tab"
             aria-selected={mode === 'manager'}
-            className={mode === 'manager' ? '' : 'secondary'}
+            className={mode === 'manager' ? 'active' : ''}
             onClick={() => setMode('manager')}
           >
             Como jefe de área
@@ -264,7 +264,7 @@ export default function ApprovalsPage() {
             type="button"
             role="tab"
             aria-selected={mode === 'final'}
-            className={mode === 'final' ? '' : 'secondary'}
+            className={mode === 'final' ? 'active' : ''}
             onClick={() => setMode('final')}
           >
             Aprobación final
@@ -272,7 +272,7 @@ export default function ApprovalsPage() {
         </div>
       ) : null}
       {topic === 'vacaciones' || !isManager ? <Inbox key={mode} mode={mode} /> : null}
-      <div className="links">
+      <div className="links back-link">
         <Link href="/">Volver al inicio</Link>
       </div>
     </>
