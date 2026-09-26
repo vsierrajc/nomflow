@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Inicio: las tarjetas se distribuyen en tres columnas y el botón de cada una ocupa todo el ancho y queda al pie, alineado con los de las demás (la de la bandeja no tenía el mismo contenedor). Prueba de cifrado de secretos ahora determinista (alteraba un carácter del base64 y a veces no cambiaba el contenido).
 - «Cuentas y roles»: las acciones de cada cuenta pasan a botones de icono (Roles: pergamino; Restablecer clave: rayo; Bloquear: señal de prohibido; Desbloquear: círculo con marca), con los colores del tema y el nombre accesible y la ayuda emergente de antes.
 - Roles con alcance («Cuentas y roles»): la empresa y el área del jefe de área (y la empresa del aprobador final) se eligen de listas tomadas de las tablas (empresas activas y todas las áreas activas de esa empresa) en lugar de escribir el código; las listas se comparten con el formulario de empleado (`lib/catalogs.ts`).
 - Cuentas: desde la ficha del empleado se puede «Restablecer clave (generar una temporal)» (con confirmación): NOMFLOW genera la clave, la muestra una sola vez con botón de copiar (por si el correo falla), cierra las sesiones y envía el código de activación; si el envío falla se avisa expresamente. Lo mismo al asignar una clave. (En «Cuentas y roles» ya existía.) Si el correo no funciona, el botón «Activar la cuenta ahora con esta clave» deja la cuenta activa con esa clave, sin código (`set-password` con `activateNow`); el mensaje de la pantalla de ingreso explica que una clave temporal exige antes «Activar mi cuenta».
