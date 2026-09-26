@@ -1062,13 +1062,52 @@ th.num {
 }
 
 .admin-nav-title {
-  margin: var(--space-4) 0 var(--space-1);
-  padding: 0 var(--space-3);
+  margin: var(--space-3) 0 var(--space-1);
+  padding: 0;
   color: var(--color-text-muted);
   font-size: var(--text-sm);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.admin-nav-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 2.25rem;
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.admin-nav-toggle:hover:not(:disabled) {
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+}
+
+.admin-nav-toggle .chevron {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  transition: transform 0.15s ease;
+}
+
+.admin-nav-toggle[aria-expanded='false'] .chevron {
+  transform: rotate(-90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-nav-toggle .chevron {
+    transition: none;
+  }
 }
 
 .admin-nav li a {
