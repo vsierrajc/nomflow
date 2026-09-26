@@ -26,11 +26,8 @@ interface EmployeeOption {
   nombre: string | null;
 }
 
-function norm(t: string): string {
-  return t
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
+function label(e: { nIde: string; nombre: string | null }): string {
+  return `${e.nIde} - ${e.nombre ?? 'Sin nombre'}`;
 }
 
 export default function VacationPeriodsPage() {
@@ -42,7 +39,6 @@ export default function VacationPeriodsPage() {
   const [editing, setEditing] = useState<Period | null>(null);
   const [employees, setEmployees] = useState<EmployeeOption[] | null>(null);
   const [selected, setSelected] = useState('');
-  const [search, setSearch] = useState('');
 
   const load = useCallback(
     async (nIde = '') => {
@@ -67,15 +63,7 @@ export default function VacationPeriodsPage() {
     })();
   }, [call]);
 
-  const term = norm(search.trim());
-  const shown = employees?.filter(
-    (e) =>
-      e.nIde === selected ||
-      !term ||
-      norm(e.nIde).includes(term) ||
-      norm(e.nombre ?? '').includes(term),
-  );
-  const chosen = employees?.find((e) => e.nIde === selected) ?? null;
+  const chosen = employees?.find((e) => label(e) === selected.trim()) ?? null;
 
   function fail(status: number) {
     if (status === 400)
@@ -184,36 +172,25 @@ export default function VacationPeriodsPage() {
         <form onSubmit={create} noValidate>
           <div className="grid-2">
             <div className="field">
-              <label htmlFor="prog-vac-buscar">Buscar empleado por nombre o identificación</label>
-              <input
-                id="prog-vac-buscar"
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                autoComplete="off"
-              />
-            </div>
-            <div className="field">
               <label htmlFor="prog-vac-empleado">Identificación</label>
-              <select
+              <input
                 id="prog-vac-empleado"
+                list="prog-vac-empleados"
                 value={selected}
                 onChange={(e) => setSelected(e.target.value)}
-                required
-              >
-                <option value="">
-                  {employees === null
+                placeholder={
+                  employees === null
                     ? 'Cargando…'
-                    : employees.length === 0
-                      ? 'Ningún empleado activo coincide'
-                      : 'Elija un empleado'}
-                </option>
-                {shown?.map((e) => (
-                  <option key={e.nIde} value={e.nIde}>
-                    {e.nIde} - {e.nombre ?? 'Sin nombre'}
-                  </option>
+                    : 'Escriba el nombre o la cédula y elija de la lista'
+                }
+                autoComplete="off"
+                required
+              />
+              <datalist id="prog-vac-empleados">
+                {employees?.map((e) => (
+                  <option key={e.nIde} value={label(e)} />
                 ))}
-              </select>
+              </datalist>
             </div>
             <Field
               label="Contrato (N_CONT)"

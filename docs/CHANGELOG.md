@@ -69,3 +69,4 @@
 - Scripts `iniciar_app.sh` y `detener_app.sh` (envoltorios de `scripts/stack.sh`). `detener_app.sh` ahora ejecuta `docker compose down` (antes `stop`) y admite `--borrar-datos`, con confirmación escrita. PostgreSQL pasa a un volumen con nombre (`pgdata`): con el anónimo, `down` habría dejado la base huérfana.
 - Pruebas: la de festivos apuntaba a un texto que también contiene el párrafo de ayuda («…calendario publicado.») y fallaba de forma intermitente en CI; ahora apunta al aviso real.
 - Vacaciones manuales: el selector de identificación se puede filtrar por nombre o cédula.
+- Vacaciones manuales: un solo campo de identificación con lista que se filtra al escribir nombre o cédula.
