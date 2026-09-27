@@ -391,6 +391,42 @@ test.describe('catálogos: áreas, centros de costo, cargos y tipos de contrato'
     );
   });
 
+  test('importa jefe y director de varias áreas desde Excel, omitiendo lo que no se puede resolver', async ({
+    page,
+  }) => {
+    await asAdmin(page);
+    const cEmp = `M${uid().toUpperCase()}`;
+    await seedCompany(cEmp);
+    await seedCatalog('AREA', cEmp, '10300', 'FINANCIERA');
+    await seedCatalog('AREA', cEmp, '10400', 'GESTION HUMANA');
+    const boss = newUser('jefe');
+    await seedActiveAccount(boss);
+    await query(`update employee_snapshots set c_emp = $1 where n_ide = $2`, [cEmp, boss.nIde]);
+
+    await page.goto('/admin/catalogos');
+    await page.getByLabel('Empresa', { exact: true }).selectOption(cEmp);
+    const section = page.getByRole('region', {
+      name: /Importar jefe y director de las áreas desde Excel/,
+    });
+    const cols = ['CDGO_AREA', 'CDGO_EMPRSA', 'NMBRE_AREA', 'JEFE', 'DIRECTOR'];
+    const rows = [
+      ['10300', cEmp, 'FINANCIERA', boss.nIde, null],
+      ['10400', cEmp, 'GESTION HUMANA', '000000000', null], // cédula sin cuenta
+    ];
+    await section
+      .getByLabel('Archivo Excel (.xlsx)')
+      .setInputFiles(xlsxFile('AREAS.xlsx', await xlsxBuffer(cols, rows)));
+    await section.getByRole('button', { name: 'Validar archivo' }).click();
+    await expect(section.getByText('Lista para aplicar')).toBeVisible();
+    await section.getByRole('button', { name: 'Aplicar importación' }).click();
+    await expect(section.getByText('Importación aplicada correctamente.')).toBeVisible();
+
+    const row10300 = page.getByRole('row', { name: /^10300/ });
+    await expect(row10300).toContainText(boss.name);
+    const row10400 = page.getByRole('row', { name: /^10400/ });
+    await expect(row10400).toContainText('- sin asignar -');
+  });
+
   test('no permite desactivar un cargo en uso y explica por qué', async ({ page }) => {
     await asAdmin(page);
     const cEmp = `U${uid().toUpperCase()}`;

@@ -506,6 +506,25 @@ export default function CatalogsPage() {
         </p>
       </ImportPanel>
 
+      {kind === 'AREA' && !meta.global ? (
+        <ImportPanel
+          key={`area-approvers-${cEmp}`}
+          title="Importar jefe y director de las áreas desde Excel"
+          endpoint="/admin/imports/area-approvers"
+          defaultResponsible={profile.email}
+          onApplied={() => void load()}
+        >
+          <p className="muted">
+            Columnas: CDGO_AREA, CDGO_EMPRSA, NMBRE_AREA, JEFE, DIRECTOR (JEFE y DIRECTOR llevan la
+            cédula de la persona). Solo se asigna a personas con cuenta activa; un valor que no es
+            una cédula, una persona sin cuenta activa o un área inexistente en el catálogo se
+            informa en la vista previa y esa asignación se omite sin detener el resto del archivo.
+            Si JEFE y DIRECTOR traen la misma cédula, prevalece el jefe y el área queda sin
+            director.
+          </p>
+        </ImportPanel>
+      ) : null}
+
       {editing ? (
         <EntryForm
           kind={kind}
