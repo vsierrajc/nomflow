@@ -1,0 +1,1 @@
+Certificado laboral: el recuadro de código y versión queda alineado con el encabezado (imagen o texto) en la misma banda superior, con un diseño más cuidado (fondo claro, franja de acento y bordes redondeados).
