@@ -88,14 +88,9 @@ test.describe('acceso al área administrativa', () => {
           'Tipos de permiso',
           'Festivos',
         ],
-        Operaciones: [
-          'Empleados',
-          'Cuentas y roles',
-          'Importaciones',
-          'Nómina publicada',
-          'Períodos de vacaciones',
-        ],
-        Certificados: [
+        Operaciones: ['Empleados', 'Cuentas y roles', 'Importaciones', 'Períodos de vacaciones'],
+        Documentos: [
+          'Volantes de pago',
           'Certificados de retención',
           'Certificado laboral',
           'Certificados laborales emitidos',

@@ -110,7 +110,7 @@ export default function PayrollPage() {
 
   return (
     <>
-      <PageHeader title="Nómina publicada" />
+      <PageHeader title="Volantes de pago" />
       {error ? <Notice kind="error">{error}</Notice> : null}
       {versions === null ? (
         error ? null : (
