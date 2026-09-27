@@ -11,7 +11,7 @@ export const MAX_LETTERHEAD_BYTES = 600 * 1024;
 export const MIN_LETTERHEAD_WIDTH = 1000;
 export const MAX_LETTERHEAD_WIDTH = 5000;
 /** Alto máximo, en puntos, cuando la imagen se estira al ancho de la página. */
-export const MAX_HEIGHT_PT = { HEADER: 130, FOOTER: 100 } as const;
+export const MAX_HEIGHT_PT = { HEADER: 210, FOOTER: 100 } as const;
 
 export type LetterheadKind = 'HEADER' | 'FOOTER';
 export const KINDS: readonly LetterheadKind[] = ['HEADER', 'FOOTER'];
