@@ -144,6 +144,74 @@ describe.skipIf(!url)('certificados de retención (HTTP + PostgreSQL)', () => {
     ]);
   });
 
+  it('carga desde el navegador: por nombre de archivo o con identificación y año a mano', async () => {
+    await account('840695', 'e1@x.co');
+    const up = () =>
+      request(app.getHttpServer())
+        .post('/admin/tax-certificates/upload')
+        .set('Cookie', hr.cookie)
+        .set('X-CSRF-Token', hr.csrf);
+    const by = (body: { results: { file: string; result: string }[] }) =>
+      Object.fromEntries(body.results.map((r) => [r.file, r.result]));
+
+    // varios archivos, cada uno con su nombre identificación_año.pdf
+    const many = await up()
+      .attach('files', pdf('a'), { filename: '840695_2025.pdf', contentType: 'application/pdf' })
+      .attach('files', pdf('x'), { filename: '999_2025.pdf', contentType: 'application/pdf' })
+      .attach('files', Buffer.from('no es pdf'), { filename: '840695_2024.pdf' })
+      .attach('files', pdf('y'), { filename: 'malo.pdf', contentType: 'application/pdf' })
+      .expect(200);
+    expect(by(many.body)).toEqual({
+      '840695_2025.pdf': 'CARGADO',
+      '999_2025.pdf': 'EMPLEADO_NO_EXISTE',
+      '840695_2024.pdf': 'NO_ES_PDF',
+      'malo.pdf': 'NOMBRE_INVALIDO',
+    });
+
+    // un solo archivo con otro nombre, indicando identificación y año: versión nueva del mismo año
+    const one = await up()
+      .field('nIde', '840695')
+      .field('year', '2025')
+      .attach('files', pdf('b'), { filename: 'escaneo final.pdf', contentType: 'application/pdf' })
+      .expect(200);
+    expect(by(one.body)).toEqual({ 'escaneo final.pdf': 'CARGADO' });
+    const rows = await db.select().from(taxCertificates);
+    expect(rows.map((r) => [r.year, r.version, r.active]).sort()).toEqual([
+      [2025, 1, false],
+      [2025, 2, true],
+    ]);
+    expect(rows.every((r) => r.objectKey?.startsWith('tax-certificates/'))).toBe(true);
+
+    // mismo contenido: sin cambios; año futuro o datos a mano incompletos o mal formados
+    const same = await up().attach('files', pdf('b'), { filename: '840695_2025.pdf' }).expect(200);
+    expect(same.body.results[0].result).toBe('SIN_CAMBIOS');
+    const future = await up()
+      .field('nIde', '840695')
+      .field('year', '2999')
+      .attach('files', pdf('c'), { filename: 'x.pdf' })
+      .expect(200);
+    expect(future.body.results[0].result).toBe('ANIO_INVALIDO');
+    await up().field('nIde', '840695').attach('files', pdf('c'), { filename: 'x.pdf' }).expect(400);
+    await up()
+      .field('nIde', '84 06;95')
+      .field('year', '2025')
+      .attach('files', pdf('c'), { filename: 'x.pdf' })
+      .expect(400);
+    await up().expect(400); // sin archivos
+
+    expect((await db.select().from(auditLogs)).some((l) => l.action === 'TAX_CERT_UPLOAD')).toBe(
+      true,
+    );
+    // un empleado no puede
+    const emp = await account('111', 'e2@x.co');
+    await request(app.getHttpServer())
+      .post('/admin/tax-certificates/upload')
+      .set('Cookie', emp.cookie)
+      .set('X-CSRF-Token', emp.csrf)
+      .attach('files', pdf('a'), { filename: '111_2025.pdf' })
+      .expect(403);
+  });
+
   it('el empleado ve y descarga solo el suyo', async () => {
     const e1 = await account('840695', 'e1@x.co');
     const e2 = await account('555', 'e2@x.co');

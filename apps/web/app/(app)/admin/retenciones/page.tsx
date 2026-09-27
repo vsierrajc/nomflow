@@ -34,11 +34,12 @@ const RESULTS: Record<string, string> = {
 };
 
 export default function TaxCertificatesAdminPage() {
-  const { call } = useAdmin();
+  const { call, send } = useAdmin();
   const [items, setItems] = useState<Item[] | null>(null);
   const [outcomes, setOutcomes] = useState<Outcome[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [filter, setFilter] = useState('');
 
   const load = useCallback(
@@ -55,6 +56,33 @@ export default function TaxCertificatesAdminPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function upload(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const files = form.getAll('files').filter((f): f is File => f instanceof File && f.size > 0);
+    if (files.length === 0) return setError('Elija al menos un archivo PDF.');
+    const nIde = String(form.get('nIde') ?? '').trim();
+    const year = String(form.get('year') ?? '').trim();
+    if ((nIde || year) && !(nIde && year && files.length === 1))
+      return setError(
+        'Para indicar la identificación y el año a mano, complete ambos campos y elija un solo archivo.',
+      );
+    if (!nIde) form.delete('nIde');
+    if (!year) form.delete('year');
+    setUploading(true);
+    setError(null);
+    const res = await send<{ results: Outcome[] }>('/admin/tax-certificates/upload', form);
+    setUploading(false);
+    if (res.status === 200 && res.data) {
+      setOutcomes(res.data.results);
+      (e.target as HTMLFormElement).reset();
+      await load(filter);
+    } else if (res.status === 403) setError('Se canceló la confirmación de identidad.');
+    else if (res.status === 400)
+      setError('Revise los datos: identificación alfanumérica y año de cuatro dígitos.');
+    else setError(NETWORK_ERROR);
+  }
 
   async function run() {
     setBusy(true);
@@ -106,6 +134,34 @@ export default function TaxCertificatesAdminPage() {
             </ul>
           )
         ) : null}
+      </section>
+
+      <section className="import-panel" aria-label="Cargar desde el navegador">
+        <h2>Carga desde el navegador</h2>
+        <p className="muted">
+          Alternativa a la carpeta del servidor: elija uno o varios PDF (hasta 50) nombrados{' '}
+          <code>identificación_año.pdf</code>. Para un solo archivo con otro nombre, escriba la
+          identificación y el año a mano. Un archivo con distinto contenido crea una versión nueva y
+          reemplaza la vigente.
+        </p>
+        <form onSubmit={upload} noValidate>
+          <div className="field">
+            <label htmlFor="tax-files">Archivos PDF</label>
+            <input id="tax-files" name="files" type="file" accept="application/pdf" multiple />
+          </div>
+          <div className="grid-2">
+            <Field label="Identificación (solo para un archivo)" name="nIde" maxLength={30} />
+            <Field
+              label="Año (solo para un archivo)"
+              name="year"
+              inputMode="numeric"
+              maxLength={4}
+            />
+          </div>
+          <button type="submit" disabled={uploading}>
+            {uploading ? 'Cargando…' : 'Cargar PDF'}
+          </button>
+        </form>
       </section>
 
       <form onSubmit={search} className="toolbar" noValidate>

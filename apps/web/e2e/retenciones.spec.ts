@@ -73,4 +73,52 @@ test.describe('certificados de retención en el almacén de objetos', () => {
     expect(body.toString()).not.toContain(`certificado-de-${other.nIde}`); // nunca el de otra persona
     expect((await e.request.get(`/api/me/tax-certificates/2020/pdf`)).status()).toBe(404);
   });
+
+  test('el administrador carga certificados desde el navegador, por nombre y a mano', async ({
+    browser,
+  }) => {
+    const admin = await seedAdminUser('HR_ADMIN');
+    const emp = newUser('retencion');
+    await seedActiveAccount(emp);
+    const a = await (await browser.newContext()).newPage();
+    await a.goto('http://localhost:3100/login');
+    await login(a, admin);
+    await a.goto('/admin/retenciones');
+
+    const panel = a.getByRole('region', { name: 'Cargar desde el navegador' });
+    await panel.getByLabel('Archivos PDF').setInputFiles([
+      { name: `${emp.nIde}_2023.pdf`, mimeType: 'application/pdf', buffer: pdf('uno') },
+      { name: 'sin-formato.pdf', mimeType: 'application/pdf', buffer: pdf('dos') },
+    ]);
+    await panel.getByRole('button', { name: 'Cargar PDF' }).click();
+    const results = a.getByRole('list', { name: 'Resultado del proceso' });
+    await expect(results.getByText(new RegExp(`${emp.nIde}_2023.pdf: Cargado`))).toBeVisible();
+    await expect(results.getByText(/sin-formato.pdf: Nombre inválido/)).toBeVisible();
+
+    // un archivo con otro nombre, con la identificación y el año escritos a mano
+    await panel.getByLabel('Archivos PDF').setInputFiles({
+      name: 'escaneo.pdf',
+      mimeType: 'application/pdf',
+      buffer: pdf('tres'),
+    });
+    await panel.getByLabel(/Identificación/).fill(emp.nIde);
+    await panel.getByLabel(/Año/).fill('2022');
+    await panel.getByRole('button', { name: 'Cargar PDF' }).click();
+    await expect(results.getByText(/escaneo.pdf: Cargado/)).toBeVisible();
+    const years = await query<{ year: number }>(
+      `select year from tax_certificates where n_ide = $1 order by year`,
+      [emp.nIde],
+    );
+    expect(years.map((y) => y.year)).toEqual([2022, 2023]);
+
+    // datos a mano incompletos: se explica antes de enviar
+    await panel.getByLabel('Archivos PDF').setInputFiles({
+      name: 'otro.pdf',
+      mimeType: 'application/pdf',
+      buffer: pdf('cuatro'),
+    });
+    await panel.getByLabel(/Identificación/).fill(emp.nIde);
+    await panel.getByRole('button', { name: 'Cargar PDF' }).click();
+    await expect(a.getByText(/complete ambos campos/)).toBeVisible();
+  });
 });

@@ -113,6 +113,28 @@ async function storeOne(
   });
 }
 
+/** Validaciones comunes a la carpeta y a la carga desde el navegador; guarda si todo es válido. */
+async function classifyBuffer(
+  db: Db,
+  store: ObjectStore,
+  actor: string,
+  name: string,
+  target: { nIde: string; year: number } | null,
+  buf: Buffer,
+): Promise<ProcessResult> {
+  if (!target) return 'NOMBRE_INVALIDO';
+  if (target.year < MIN_YEAR || target.year > new Date().getFullYear()) return 'ANIO_INVALIDO';
+  if (buf.length > MAX_PDF_BYTES) return 'DEMASIADO_GRANDE';
+  if (!isPdf(buf)) return 'NO_ES_PDF';
+  const [emp] = await db
+    .select({ n: employeeSnapshots.nIde })
+    .from(employeeSnapshots)
+    .where(eq(employeeSnapshots.nIde, target.nIde))
+    .limit(1);
+  if (!emp) return 'EMPLEADO_NO_EXISTE';
+  return storeOne(db, store, actor, target.nIde, target.year, name, buf);
+}
+
 async function classify(
   db: Db,
   store: ObjectStore,
@@ -121,18 +143,51 @@ async function classify(
   name: string,
 ): Promise<ProcessResult> {
   const parsed = parseFileName(name);
-  if (!parsed) return 'NOMBRE_INVALIDO';
-  if (parsed.year < MIN_YEAR || parsed.year > new Date().getFullYear()) return 'ANIO_INVALIDO';
-  if ((await stat(join(base, name))).size > MAX_PDF_BYTES) return 'DEMASIADO_GRANDE';
-  const buf = await readFile(join(base, name));
-  if (!isPdf(buf)) return 'NO_ES_PDF';
-  const [emp] = await db
-    .select({ n: employeeSnapshots.nIde })
-    .from(employeeSnapshots)
-    .where(eq(employeeSnapshots.nIde, parsed.nIde))
-    .limit(1);
-  if (!emp) return 'EMPLEADO_NO_EXISTE';
-  return storeOne(db, store, actor, parsed.nIde, parsed.year, name, buf);
+  if (parsed && (await stat(join(base, name))).size > MAX_PDF_BYTES) return 'DEMASIADO_GRANDE';
+  const buf = parsed ? await readFile(join(base, name)) : Buffer.alloc(0);
+  return classifyBuffer(db, store, actor, name, parsed, buf);
+}
+
+/**
+ * Carga desde el navegador: cada archivo se nombra `identificación_año.pdf`, salvo que se envíe un solo
+ * archivo con la identificación y el año indicados a mano (el nombre entonces no importa).
+ */
+export async function processUploads(
+  db: Db,
+  store: ObjectStore,
+  actor: string,
+  files: { name: string; buf: Buffer }[],
+  manual?: { nIde: string; year: number },
+): Promise<ProcessedFile[]> {
+  const out: ProcessedFile[] = [];
+  for (const f of files) {
+    let result: ProcessResult;
+    try {
+      result = await classifyBuffer(
+        db,
+        store,
+        actor,
+        f.name,
+        manual && files.length === 1 ? manual : parseFileName(f.name),
+        f.buf,
+      );
+    } catch {
+      result = 'ERROR';
+    }
+    out.push({ file: f.name, result });
+  }
+  await db.insert(auditLogs).values({
+    actorAccountId: actor,
+    action: 'TAX_CERT_UPLOAD',
+    resource: 'tax_certificates',
+    result: 'OK',
+    context: {
+      total: out.length,
+      cargados: out.filter((r) => r.result === 'CARGADO').length,
+      rechazados: out.filter((r) => !['CARGADO', 'SIN_CAMBIOS'].includes(r.result)).length,
+    },
+  });
+  return out;
 }
 
 /** Procesa los PDF de la carpeta de entrada: los válidos van a procesados/ y los demás a rechazados/. */
