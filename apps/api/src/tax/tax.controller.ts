@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Get,
   Header,
@@ -13,15 +14,25 @@ import {
   Query,
   Req,
   StreamableFile,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { RecentAuthGuard, Roles, RolesGuard } from '../auth/guards';
 import { ADMIN_ROLES } from '../auth/roles';
 import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
 import type { Db } from '../db/client';
 import { DB } from '../db/db.module';
 import { OBJECT_STORE, ObjectStoreError, type ObjectStore } from '../storage/object-store';
-import { getMine, listAll, listMine, processInbox } from './tax.service';
+import {
+  MAX_PDF_BYTES,
+  getMine,
+  listAll,
+  listMine,
+  processInbox,
+  processUploads,
+} from './tax.service';
 
 @Controller('me/tax-certificates')
 @UseGuards(SessionGuard)
@@ -84,5 +95,34 @@ export class AdminTaxController {
   @UseGuards(RecentAuthGuard)
   async process(@Req() req: AuthedRequest) {
     return { results: await processInbox(this.db, this.store, req.auth.accountId) };
+  }
+
+  /** Alternativa a la carpeta del servidor: sube los PDF desde el navegador (hasta 50 por vez). */
+  @Post('upload')
+  @HttpCode(200)
+  @UseGuards(RecentAuthGuard)
+  @UseInterceptors(FilesInterceptor('files', 50, { limits: { fileSize: MAX_PDF_BYTES + 1 } }))
+  async upload(
+    @UploadedFiles() files: Express.Multer.File[] | undefined,
+    @Body() body: { nIde?: string; year?: string } | undefined,
+    @Req() req: AuthedRequest,
+  ) {
+    if (!files || files.length === 0) throw new BadRequestException();
+    const nIde = body?.nIde?.trim() ?? '';
+    const year = Number(body?.year);
+    const manual =
+      nIde && /^[A-Za-z0-9]{1,30}$/.test(nIde) && Number.isInteger(year)
+        ? { nIde, year }
+        : undefined;
+    if ((nIde || body?.year) && !manual) throw new BadRequestException();
+    return {
+      results: await processUploads(
+        this.db,
+        this.store,
+        req.auth.accountId,
+        files.map((f) => ({ name: f.originalname, buf: f.buffer })),
+        manual,
+      ),
+    };
   }
 }

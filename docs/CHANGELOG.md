@@ -75,4 +75,5 @@
 - Certificados laborales emitidos: «Abrir PDF» y «Verificar firma» pasan a iconos.
 - Aprobaciones: pestañas con subrayado para Vacaciones/Permisos y selector segmentado para «Como jefe de área»/«Aprobación final».
 - Aprobación de vacaciones jerárquica: el jefe de área aprueba a su equipo, el director del área (rol nuevo AREA_DIRECTOR) al jefe, el gerente general (rol nuevo GENERAL_MANAGER) a los directores y se autoaprueba; todos pasan por la aprobación final de Gestión Humana. Migración 0031.
+- Certificados de retención: nueva carga desde el navegador (varios PDF por nombre o uno con identificación y año a mano), alternativa a la carpeta del servidor.
 - Definición de áreas: nueva acción «Jefe y director» para designar quién aprueba las vacaciones de cada área, sin pasar por la pantalla de roles.
