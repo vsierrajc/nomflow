@@ -1595,3 +1595,7 @@ th.num {
 .segmented button.active:hover:not(:disabled) {
   background: var(--color-action-hover);
 }
+
+td.nowrap {
+  white-space: nowrap;
+}

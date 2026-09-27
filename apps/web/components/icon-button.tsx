@@ -13,7 +13,9 @@ const ICONS: Record<
   | 'block'
   | 'unblock'
   | 'pdf'
-  | 'verify',
+  | 'verify'
+  | 'history'
+  | 'team',
   ReactNode
 > = {
   // Ojo
@@ -63,6 +65,23 @@ const ICONS: Record<
     <>
       <circle cx="12" cy="12" r="9" />
       <path d="M8 12.5l2.7 2.7L16 9.5" />
+    </>
+  ),
+  // Reloj con flecha hacia atrás (historial)
+  history: (
+    <>
+      <path d="M3.5 12a8.5 8.5 0 108.5-8.5A8.5 8.5 0 005.6 6.4" />
+      <path d="M3.5 3.5v3.4h3.4" />
+      <path d="M12 7.5V12l3 2" />
+    </>
+  ),
+  // Dos personas (jefe y director)
+  team: (
+    <>
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M2.8 19.5c0-3.4 2.8-5.6 6.2-5.6s6.2 2.2 6.2 5.6" />
+      <circle cx="17" cy="9" r="2.5" />
+      <path d="M16.5 14.2c3 0 4.9 1.8 4.9 4.6" />
     </>
   ),
   // Hoja con esquina doblada (abrir el PDF)
