@@ -148,6 +148,134 @@ function EntryForm({
   );
 }
 
+interface Person {
+  accountId: string;
+  nIde: string;
+  name: string | null;
+  email: string;
+}
+
+interface Approvers {
+  manager: { accountId: string; name: string } | null;
+  director: { accountId: string; name: string } | null;
+  candidates: Person[];
+}
+
+const personLabel = (p: { nIde: string; name: string | null; email: string }) =>
+  `${p.nIde} - ${p.name ?? p.email}`;
+
+const APPROVER_ERRORS: Record<string, string> = {
+  SAME_PERSON: 'El jefe y el director del área deben ser personas distintas.',
+  SELF_GRANT: 'No puede designarse a sí mismo.',
+  MANAGER_NOT_ELIGIBLE: 'Esa persona no tiene una cuenta activa.',
+  FORBIDDEN: 'Se necesita un rol de administración.',
+};
+
+function ApproversDialog({
+  area,
+  cEmp,
+  onClose,
+  onDone,
+}: {
+  area: Entry;
+  cEmp: string;
+  onClose: () => void;
+  onDone: (msg: string) => void;
+}) {
+  const { call } = useAdmin();
+  const [data, setData] = useState<Approvers | null>(null);
+  const [manager, setManager] = useState('');
+  const [director, setDirector] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      const res = await call<Approvers>(`/admin/areas/${cEmp}/${area.code}/approvers`);
+      if (res.status !== 200 || !res.data) return setError(NETWORK_ERROR);
+      const cur = (id: string | undefined) => {
+        const c = res.data?.candidates.find((x) => x.accountId === id);
+        return c ? personLabel(c) : '';
+      };
+      setData(res.data);
+      setManager(cur(res.data.manager?.accountId));
+      setDirector(cur(res.data.director?.accountId));
+    })();
+  }, [call, cEmp, area.code]);
+
+  // Un campo vacío quita al titular; un valor debe ser una persona de la lista.
+  function resolve(text: string): string | null | 'invalid' {
+    const t = text.trim();
+    if (!t) return null;
+    return data?.candidates.find((c) => personLabel(c) === t)?.accountId ?? 'invalid';
+  }
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    const m = resolve(manager);
+    const d = resolve(director);
+    if (m === 'invalid' || d === 'invalid') return setError('Elija la persona de la lista.');
+    setBusy(true);
+    const res = await call<{ code?: string }>(`/admin/areas/${cEmp}/${area.code}/approvers`, {
+      method: 'PUT',
+      body: { managerAccountId: m, directorAccountId: d },
+    });
+    setBusy(false);
+    if (res.status === 204) onDone(`Jefe y director del área ${area.code} actualizados.`);
+    else if (res.status === 403) setError('Se canceló la confirmación de identidad.');
+    else setError(APPROVER_ERRORS[res.data?.code ?? ''] ?? NETWORK_ERROR);
+  }
+
+  return (
+    <Modal title={`Jefe y director del área ${area.code} - ${area.name}`} onClose={onClose}>
+      {error ? <Notice kind="error">{error}</Notice> : null}
+      {data === null && !error ? <p className="muted">Cargando…</p> : null}
+      {data ? (
+        <form onSubmit={onSubmit} noValidate>
+          <p className="muted">
+            El jefe aprueba las vacaciones de su equipo; el director aprueba las del jefe. Escriba
+            el nombre o la cédula y elija de la lista. Dejar un campo vacío quita al titular.
+          </p>
+          <datalist id="area-personas">
+            {data.candidates.map((c) => (
+              <option key={c.accountId} value={personLabel(c)} />
+            ))}
+          </datalist>
+          <div className="field">
+            <label htmlFor="area-jefe">Jefe del área</label>
+            <input
+              id="area-jefe"
+              list="area-personas"
+              value={manager}
+              onChange={(e) => setManager(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="area-director">Director del área</label>
+            <input
+              id="area-director"
+              list="area-personas"
+              value={director}
+              onChange={(e) => setDirector(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          <div className="actions">
+            <button type="submit" disabled={busy}>
+              {busy ? 'Guardando…' : 'Guardar'}
+            </button>
+            <button type="button" className="secondary" onClick={onClose}>
+              Cancelar
+            </button>
+          </div>
+        </form>
+      ) : null}
+    </Modal>
+  );
+}
+
 export default function CatalogsPage() {
   const { call, profile } = useAdmin();
   const [kind, setKind] = useState<Kind>('AREA');
@@ -161,6 +289,7 @@ export default function CatalogsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [editing, setEditing] = useState<Entry | 'new' | null>(null);
   const [history, setHistory] = useState<{ entry: Entry; rows: HistoryRow[] } | null>(null);
+  const [approversOf, setApproversOf] = useState<Entry | null>(null);
 
   const meta = KINDS.find((k) => k.kind === kind) ?? KINDS[0]!;
 
@@ -313,6 +442,16 @@ export default function CatalogsPage() {
                         >
                           Historial
                         </button>
+                        {kind === 'AREA' ? (
+                          <button
+                            type="button"
+                            className="secondary small"
+                            onClick={() => setApproversOf(e)}
+                            aria-label={`Jefe y director del área ${e.code}`}
+                          >
+                            Jefe y director
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -375,6 +514,17 @@ export default function CatalogsPage() {
             setEditing(null);
             setNotice(m);
             void load();
+          }}
+        />
+      ) : null}
+      {approversOf ? (
+        <ApproversDialog
+          area={approversOf}
+          cEmp={cEmp}
+          onClose={() => setApproversOf(null)}
+          onDone={(m) => {
+            setApproversOf(null);
+            setNotice(m);
           }}
         />
       ) : null}
