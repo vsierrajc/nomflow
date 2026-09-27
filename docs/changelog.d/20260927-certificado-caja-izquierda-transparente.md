@@ -1,0 +1,1 @@
+Certificado laboral: el recuadro de código y versión se ajusta al ancho del texto, ya no tapa el logo del encabezado (queda a la izquierda, a la misma altura) y su fondo es translúcido como red de seguridad si algún membrete tuviera contenido a ese lado.
