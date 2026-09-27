@@ -1,23 +1,38 @@
 'use client';
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Badge, Notice, PageHeader } from '@/components/admin-ui';
+import { Badge, Notice, Pager, PageHeader, SelectField } from '@/components/admin-ui';
+import { IconButton } from '@/components/icon-button';
 import { ImportPanel } from '@/components/import-panel';
 import { Field } from '@/components/ui';
 import { NETWORK_ERROR } from '@/lib/api';
 import { useAdmin } from '@/lib/admin';
 
+type Estado = 'ACTIVA' | 'LIQUIDADA' | 'VENCIDA';
+type Source = 'MANUAL' | 'IMPORT' | 'AUTOMATICO';
+type SortBy = 'nombre' | 'nIde';
+type SortDir = 'asc' | 'desc';
+
 interface Period {
   id: string;
   nIde: string;
+  nombre: string | null;
   nCont: string;
   perIni: string;
   perFin: string;
   dias: number;
   disp: number;
-  estado: 'ACTIVA' | 'LIQUIDADA' | 'VENCIDA';
+  estado: Estado;
   estOrigen: string | null;
+  source: Source;
   version: number;
+}
+
+interface Page {
+  total: number;
+  page: number;
+  pageSize: number;
+  items: Period[];
 }
 
 interface EmployeeOption {
@@ -26,34 +41,100 @@ interface EmployeeOption {
   nombre: string | null;
 }
 
+const PAGE_SIZE = 25;
+const ESTADOS: { value: Estado | ''; label: string }[] = [
+  { value: '', label: 'Todos' },
+  { value: 'ACTIVA', label: 'Activa' },
+  { value: 'VENCIDA', label: 'Vencida' },
+  { value: 'LIQUIDADA', label: 'Liquidada' },
+];
+/** Aviso visual cuando falten pocos días para el fin del período (o ya haya pasado). */
+const SOON_DAYS = 30;
+
+const SOURCE_LABEL: Record<Source, string> = {
+  MANUAL: 'Manual',
+  IMPORT: 'Excel',
+  AUTOMATICO: 'Automática',
+};
+
 function label(e: { nIde: string; nombre: string | null }): string {
   return `${e.nIde} - ${e.nombre ?? 'Sin nombre'}`;
 }
 
+/** Días de calendario entre hoy y el fin del período; negativo si ya pasó. */
+function daysUntil(perFin: string): number {
+  const end = new Date(`${perFin}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((end.getTime() - today.getTime()) / 86_400_000);
+}
+
+function SortHeader({
+  label: text,
+  active,
+  dir,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  dir: SortDir;
+  onClick: () => void;
+}) {
+  return (
+    <th scope="col" aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button type="button" className="sort-header" onClick={onClick}>
+        {text}
+        <span aria-hidden="true" className="sort-arrow">
+          {active ? (dir === 'asc' ? '▲' : '▼') : '↕'}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 export default function VacationPeriodsPage() {
   const { call, profile } = useAdmin();
-  const [items, setItems] = useState<Period[] | null>(null);
+  const [data, setData] = useState<Page | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
-  const [filter, setFilter] = useState('');
+  const [companies, setCompanies] = useState<string[]>([]);
+  const [cEmp, setCEmp] = useState('');
+  const [estado, setEstado] = useState<Estado | ''>('');
+  const [q, setQ] = useState('');
+  const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState<SortBy>('nIde');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [editing, setEditing] = useState<Period | null>(null);
   const [employees, setEmployees] = useState<EmployeeOption[] | null>(null);
   const [selected, setSelected] = useState('');
 
-  const load = useCallback(
-    async (nIde = '') => {
-      const res = await call<Period[]>(
-        `/admin/prog-vac${nIde ? `?nIde=${encodeURIComponent(nIde)}` : ''}`,
-      );
-      if (res.status === 200 && res.data) setItems(res.data);
-      else setError(NETWORK_ERROR);
-    },
-    [call],
-  );
+  const load = useCallback(async () => {
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(PAGE_SIZE),
+    });
+    if (q) params.set('q', q);
+    if (estado) params.set('estado', estado);
+    if (cEmp) params.set('cEmp', cEmp);
+    params.set('sortBy', sortBy);
+    params.set('sortDir', sortDir);
+    const res = await call<Page>(`/admin/prog-vac?${params.toString()}`);
+    if (res.status === 200 && res.data) {
+      setData(res.data);
+      setError(null);
+    } else setError(NETWORK_ERROR);
+  }, [call, page, q, estado, cEmp, sortBy, sortDir]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void (async () => {
+      const res = await call<string[]>('/admin/prog-vac/companies');
+      if (res.status === 200 && res.data) setCompanies(res.data);
+    })();
+  }, [call]);
 
   // Lista de valores: todos los empleados activos.
   useEffect(() => {
@@ -97,7 +178,8 @@ export default function VacationPeriodsPage() {
       setOk('Período creado.');
       form.reset();
       setSelected('');
-      await load(filter);
+      setPage(1);
+      await load();
     } else fail(res.status);
   }
 
@@ -118,9 +200,28 @@ export default function VacationPeriodsPage() {
     if (res.status === 200) {
       setOk('Ajuste registrado con su motivo; el período subió de versión.');
       setEditing(null);
-      await load(filter);
+      await load();
     } else fail(res.status);
   }
+
+  function sortClick(col: SortBy) {
+    if (sortBy === col) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    else {
+      setSortBy(col);
+      setSortDir('asc');
+    }
+    setPage(1);
+  }
+
+  const exportUrl = (() => {
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (estado) params.set('estado', estado);
+    if (cEmp && companies.includes(cEmp)) params.set('cEmp', cEmp);
+    params.set('sortBy', sortBy);
+    params.set('sortDir', sortDir);
+    return `/api/admin/prog-vac/export?${params.toString()}`;
+  })();
 
   async function remove(p: Period) {
     setError(null);
@@ -128,7 +229,7 @@ export default function VacationPeriodsPage() {
     const res = await call(`/admin/prog-vac/${p.id}`, { method: 'DELETE' });
     if (res.status === 204 || res.status === 200) {
       setOk('Período dado de baja.');
-      await load(filter);
+      await load();
     } else fail(res.status);
   }
 
@@ -137,8 +238,9 @@ export default function VacationPeriodsPage() {
       <PageHeader title="Períodos de vacaciones" />
       <p className="muted">
         Días hábiles programados (<code>DIAS</code>) y disponibles (<code>DISP</code>) por contrato.
-        Un período con 0 disponibles queda «Liquidada» y no se ofrece para nuevas solicitudes. Toda
-        corrección exige motivo y queda versionada.
+        Un período con 0 disponibles queda «Liquidada» (se disfrutó) o «Vencida» (se causó un ciclo
+        nuevo sin haberlo tomado) y no se ofrece para nuevas solicitudes. Toda corrección exige
+        motivo y queda versionada.
       </p>
       {error ? <Notice kind="error">{error}</Notice> : null}
       {ok ? <Notice kind="ok">{ok}</Notice> : null}
@@ -156,7 +258,7 @@ export default function VacationPeriodsPage() {
             maxLength: 10,
           },
         ]}
-        onApplied={() => void load(filter)}
+        onApplied={() => void load()}
       >
         <p className="muted">
           Columnas: N_IDE, N_CONT, PER_INI, PER_FIN, DIAS, DISP y EST. Las fechas van como
@@ -211,7 +313,8 @@ export default function VacationPeriodsPage() {
       {editing ? (
         <section className="import-panel" aria-label="Ajustar período">
           <h2>
-            Ajustar período {editing.perIni} a {editing.perFin} (empleado {editing.nIde})
+            Ajustar período {editing.perIni} a {editing.perFin} (empleado{' '}
+            {editing.nombre ?? editing.nIde})
           </h2>
           <form onSubmit={adjust} noValidate>
             <div className="grid-2">
@@ -239,94 +342,168 @@ export default function VacationPeriodsPage() {
         </section>
       ) : null}
 
+      <h2>Períodos registrados</h2>
+      <div role="tablist" aria-label="Filtrar por estado" className="segmented">
+        {ESTADOS.map((e) => (
+          <button
+            key={e.value || 'todos'}
+            type="button"
+            role="tab"
+            aria-selected={estado === e.value}
+            className={estado === e.value ? 'active' : ''}
+            onClick={() => {
+              setEstado(e.value);
+              setPage(1);
+            }}
+          >
+            {e.label}
+          </button>
+        ))}
+      </div>
       <form
         className="toolbar"
         noValidate
         onSubmit={(e) => {
           e.preventDefault();
-          const v = String(new FormData(e.currentTarget).get('nIde') ?? '').trim();
-          setFilter(v);
-          void load(v);
+          const v = String(new FormData(e.currentTarget).get('q') ?? '').trim();
+          setQ(v);
+          setPage(1);
         }}
       >
-        <Field label="Filtrar por identificación" name="nIde" maxLength={30} />
+        <Field
+          label="Buscar por nombre o identificación"
+          name="q"
+          defaultValue={q}
+          maxLength={100}
+        />
+        {companies.length > 1 ? (
+          <SelectField
+            label="Empresa"
+            name="cEmp"
+            value={cEmp}
+            onChange={(v) => {
+              setCEmp(v);
+              setPage(1);
+            }}
+            options={[
+              { value: '', label: 'Todas' },
+              ...companies.map((c) => ({ value: c, label: c })),
+            ]}
+          />
+        ) : null}
         <button type="submit" className="secondary">
-          Filtrar
+          Buscar
         </button>
+        <a className="button secondary" href={exportUrl} download>
+          Exportar a Excel
+        </a>
       </form>
 
-      {items === null ? (
+      {data === null ? (
         error ? null : (
           <p className="muted">Cargando…</p>
         )
       ) : (
-        <div className="table-wrap" tabIndex={0} role="region" aria-label="Períodos de vacaciones">
-          <table>
-            <caption className="muted">Períodos de vacaciones (hasta 500)</caption>
-            <thead>
-              <tr>
-                <th scope="col">Empleado</th>
-                <th scope="col">Contrato</th>
-                <th scope="col">Período</th>
-                <th scope="col">Días</th>
-                <th scope="col">Disponibles</th>
-                <th scope="col">Estado</th>
-                <th scope="col">Versión</th>
-                <th scope="col">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((p) => (
-                <tr key={p.id}>
-                  <td>{p.nIde}</td>
-                  <td>{p.nCont}</td>
-                  <td>
-                    {p.perIni} a {p.perFin}
-                  </td>
-                  <td className="num">{p.dias}</td>
-                  <td className="num">{p.disp}</td>
-                  <td>
-                    <Badge
-                      kind={p.estado === 'ACTIVA' ? 'ok' : p.estado === 'VENCIDA' ? 'warn' : 'off'}
-                    >
-                      {p.estado === 'ACTIVA'
-                        ? 'Activa'
-                        : p.estado === 'VENCIDA'
-                          ? 'Vencida'
-                          : 'Liquidada'}
-                    </Badge>
-                  </td>
-                  <td className="num">{p.version}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => setEditing(p)}
-                      aria-label={`Ajustar período ${p.perIni} a ${p.perFin} del empleado ${p.nIde}`}
-                    >
-                      Ajustar
-                    </button>{' '}
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => void remove(p)}
-                      aria-label={`Dar de baja período ${p.perIni} a ${p.perFin} del empleado ${p.nIde}`}
-                    >
-                      Dar de baja
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {items.length === 0 ? (
+        <>
+          <div
+            className="table-wrap"
+            tabIndex={0}
+            role="region"
+            aria-label="Períodos de vacaciones"
+          >
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan={8} className="muted">
-                    Todavía no hay períodos de vacaciones.
-                  </td>
+                  <SortHeader
+                    label="Empleado"
+                    active={sortBy === 'nombre'}
+                    dir={sortDir}
+                    onClick={() => sortClick('nombre')}
+                  />
+                  <SortHeader
+                    label="Identificación"
+                    active={sortBy === 'nIde'}
+                    dir={sortDir}
+                    onClick={() => sortClick('nIde')}
+                  />
+                  <th scope="col">Contrato</th>
+                  <th scope="col">Período</th>
+                  <th scope="col">Días</th>
+                  <th scope="col">Disponibles</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Origen</th>
+                  <th scope="col">Versión</th>
+                  <th scope="col">Acciones</th>
                 </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {data.items.map((p) => {
+                  const left = daysUntil(p.perFin);
+                  const soon = p.estado === 'ACTIVA' && left <= SOON_DAYS;
+                  return (
+                    <tr key={p.id} className={soon ? 'row-warn' : ''}>
+                      <td>
+                        <strong>{p.nombre ?? 'Sin nombre'}</strong>
+                      </td>
+                      <td>{p.nIde}</td>
+                      <td>{p.nCont}</td>
+                      <td>
+                        {p.perIni} a {p.perFin}
+                        {soon ? (
+                          <span className="muted" style={{ display: 'block' }}>
+                            {left >= 0 ? `Vence en ${left} días` : `Venció hace ${-left} días`}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="num">{p.dias}</td>
+                      <td className="num">{p.disp}</td>
+                      <td>
+                        <Badge
+                          kind={
+                            p.estado === 'ACTIVA' ? 'ok' : p.estado === 'VENCIDA' ? 'warn' : 'off'
+                          }
+                        >
+                          {p.estado === 'ACTIVA'
+                            ? 'Activa'
+                            : p.estado === 'VENCIDA'
+                              ? 'Vencida'
+                              : 'Liquidada'}
+                        </Badge>
+                      </td>
+                      <td>
+                        <span className="muted">{SOURCE_LABEL[p.source] ?? p.source}</span>
+                      </td>
+                      <td className="num">{p.version}</td>
+                      <td>
+                        <div className="row-actions">
+                          <IconButton
+                            icon="edit"
+                            label={`Ajustar período ${p.perIni} a ${p.perFin} de ${p.nombre ?? p.nIde}`}
+                            onClick={() => setEditing(p)}
+                          />
+                          <IconButton
+                            icon="delete"
+                            variant="danger"
+                            label={`Dar de baja período ${p.perIni} a ${p.perFin} de ${p.nombre ?? p.nIde}`}
+                            onClick={() => void remove(p)}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {data.items.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="muted">
+                      No hay períodos que coincidan con el filtro.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+          <Pager page={data.page} pageSize={data.pageSize} total={data.total} onPage={setPage} />
+        </>
       )}
     </>
   );

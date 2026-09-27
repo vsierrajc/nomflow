@@ -83,17 +83,32 @@ test.describe('períodos de vacaciones (PROG_VAC) y festivos', () => {
       { disp: 15, estado: 'ACTIVA', fecha_corte: '2026-09-01' },
     ]);
 
-    // 3) el listado y el filtro
-    await page.getByLabel('Filtrar por identificación').fill(emp.nIde);
-    await page.getByRole('button', { name: 'Filtrar' }).click();
+    // 3) el listado, con el nombre del empleado, y la búsqueda
     await expect(
-      page.getByRole('row', { name: new RegExp(`${emp.nIde}.*2024-01-01 a 2024-12-31`) }),
+      page.getByRole('row', {
+        name: new RegExp(`${emp.name}.*${emp.nIde}.*2024-01-01 a 2024-12-31`),
+      }),
     ).toBeVisible();
+    await page.getByLabel('Buscar por nombre o identificación').fill(emp.name);
+    await page.getByRole('button', { name: 'Buscar' }).click();
+    await expect(
+      page.getByRole('row', {
+        name: new RegExp(`${emp.name}.*${emp.nIde}.*2024-01-01 a 2024-12-31`),
+      }),
+    ).toBeVisible();
+    // filtro por estado: solo activas oculta la que quedará liquidada más abajo, sin ocultar esta
+    await page.getByRole('tab', { name: 'Activa' }).click();
+    await expect(
+      page.getByRole('row', {
+        name: new RegExp(`${emp.name}.*${emp.nIde}.*2024-01-01 a 2024-12-31`),
+      }),
+    ).toBeVisible();
+    await page.getByRole('tab', { name: 'Todos' }).click();
 
     // 4) ajuste con motivo: deja el período liquidado y versionado
     await page
       .getByRole('button', {
-        name: new RegExp(`Ajustar período 2024-01-01 a 2024-12-31 del empleado ${emp.nIde}`),
+        name: new RegExp(`Ajustar período 2024-01-01 a 2024-12-31 de ${emp.name}`),
       })
       .click();
     const adjust = page.getByRole('region', { name: 'Ajustar período' });
@@ -150,7 +165,7 @@ test.describe('períodos de vacaciones (PROG_VAC) y festivos', () => {
     await expect(page.locator('p[role="alert"]', { hasText: 'ya existe' })).toBeVisible();
     await page
       .getByRole('button', {
-        name: new RegExp(`Dar de baja período 2026-01-01 a 2026-12-31 del empleado ${emp.nIde}`),
+        name: new RegExp(`Dar de baja período 2026-01-01 a 2026-12-31 de ${emp.name}`),
       })
       .click();
     await expect(page.getByText('Período dado de baja.')).toBeVisible();
@@ -159,6 +174,56 @@ test.describe('períodos de vacaciones (PROG_VAC) y festivos', () => {
         emp.nIde,
       ]),
     ).toEqual([{ active: false }]);
+  });
+
+  test('la lista admite orden por columna, resalta lo próximo a vencer y exporta a Excel', async ({
+    page,
+  }) => {
+    await login(page, await seedAdminUser('HR_ADMIN'));
+    const ana = newUser('zzzana');
+    const bruno = newUser('aaabruno');
+    await seedEmployee(ana);
+    await seedEmployee(bruno);
+    const soon = new Date();
+    soon.setDate(soon.getDate() + 10);
+    const soonIso = soon.toISOString().slice(0, 10);
+    await query(
+      `insert into prog_vac (n_ide, n_cont, per_ini, per_fin, dias, disp, source) values ($1, '1', '2025-01-01', $2, 15, 15, 'AUTOMATICO')`,
+      [ana.nIde, soonIso],
+    );
+    await query(
+      `insert into prog_vac (n_ide, n_cont, per_ini, per_fin, dias, disp, source) values ($1, '1', '2025-01-01', '2026-12-31', 15, 15, 'MANUAL')`,
+      [bruno.nIde],
+    );
+    await page.goto('/admin/vacaciones');
+    const table = page.getByRole('region', { name: 'Períodos de vacaciones' });
+    // orden por nombre: primero Bruno (a...), y de nuevo invierte a Zzzana
+    await table.getByRole('button', { name: 'Empleado' }).click();
+    const firstRow = () => table.locator('tbody tr').first();
+    await expect(firstRow()).toContainText(bruno.name);
+    await table.getByRole('button', { name: 'Empleado' }).click();
+    await expect(firstRow()).toContainText(ana.name);
+    // orden por cédula
+    await table.getByRole('button', { name: 'Identificación' }).click();
+    await expect(table.locator('tbody tr').first()).toBeVisible();
+
+    // el período de Ana vence pronto: fila resaltada con el aviso, y su origen es automático
+    const rowAna = table.locator('tr', { hasText: ana.name });
+    await expect(rowAna).toHaveClass(/row-warn/);
+    await expect(rowAna).toContainText('Vence en');
+    await expect(rowAna).toContainText('Automática');
+    const rowBruno = table.locator('tr', { hasText: bruno.name });
+    await expect(rowBruno).not.toHaveClass(/row-warn/);
+    await expect(rowBruno).toContainText('Manual');
+
+    // exportar respeta el filtro de búsqueda
+    await page.getByLabel('Buscar por nombre o identificación').fill(ana.name);
+    await page.getByRole('button', { name: 'Buscar' }).click();
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('link', { name: 'Exportar a Excel' }).click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/periodos-vacaciones-.*\.xlsx/);
   });
 
   test('festivos: borrador, publicación y versión reemplazada', async ({ page }) => {

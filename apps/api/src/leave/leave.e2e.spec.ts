@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import ExcelJS from 'exceljs';
 import { sql } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -152,6 +153,98 @@ describe.skipIf(!url)('festivos, PROG_VAC y cálculo previo (HTTP + PostgreSQL)'
       .set('X-CSRF-Token', hr.csrf)
       .expect(404);
     await request(srv()).get('/admin/prog-vac').set('Cookie', emp.cookie).expect(403);
+  });
+
+  it('la lista de administración pagina, busca por nombre o cédula, y filtra por estado y empresa', async () => {
+    await db.insert(employeeSnapshots).values([
+      { nIde: '500', nCont: '1', email: 'ana@x.co', est: 'V', nombre: 'ANA PEREZ', cEmp: 'GA' },
+      { nIde: '600', nCont: '1', email: 'luis@x.co', est: 'V', nombre: 'LUIS PEREZ', cEmp: 'OT' },
+    ]);
+    await db.insert(progVac).values([
+      { nIde: '500', nCont: '1', perIni: '2025-01-01', perFin: '2025-12-31', dias: 15, disp: 15 },
+      {
+        nIde: '600',
+        nCont: '1',
+        perIni: '2025-01-01',
+        perFin: '2025-12-31',
+        dias: 15,
+        disp: 0,
+        estado: 'LIQUIDADA',
+      },
+    ]);
+    const byName = await request(srv())
+      .get('/admin/prog-vac?q=perez')
+      .set('Cookie', hr.cookie)
+      .expect(200);
+    expect(byName.body.total).toBe(2);
+    expect(byName.body.items.map((p: { nombre: string }) => p.nombre).sort()).toEqual([
+      'ANA PEREZ',
+      'LUIS PEREZ',
+    ]);
+    const byCedula = await request(srv())
+      .get('/admin/prog-vac?q=500')
+      .set('Cookie', hr.cookie)
+      .expect(200);
+    expect(byCedula.body.items).toHaveLength(1);
+    expect(byCedula.body.items[0].nombre).toBe('ANA PEREZ');
+    const activas = await request(srv())
+      .get('/admin/prog-vac?estado=ACTIVA')
+      .set('Cookie', hr.cookie)
+      .expect(200);
+    expect(activas.body.items.map((p: { nIde: string }) => p.nIde)).toEqual(['500']);
+    const porEmpresa = await request(srv())
+      .get('/admin/prog-vac?cEmp=OT')
+      .set('Cookie', hr.cookie)
+      .expect(200);
+    expect(porEmpresa.body.items.map((p: { nIde: string }) => p.nIde)).toEqual(['600']);
+    const page1 = await request(srv())
+      .get('/admin/prog-vac?pageSize=1&page=1')
+      .set('Cookie', hr.cookie)
+      .expect(200);
+    expect(page1.body).toMatchObject({ total: 2, page: 1, pageSize: 1 });
+    expect(page1.body.items).toHaveLength(1);
+    const companies = await request(srv())
+      .get('/admin/prog-vac/companies')
+      .set('Cookie', hr.cookie)
+      .expect(200);
+    expect(companies.body.sort()).toEqual(['GA', 'OT']);
+
+    // orden por nombre, descendente
+    const byNameDesc = await request(srv())
+      .get('/admin/prog-vac?sortBy=nombre&sortDir=desc')
+      .set('Cookie', hr.cookie)
+      .expect(200);
+    expect(byNameDesc.body.items.map((p: { nombre: string }) => p.nombre)).toEqual([
+      'LUIS PEREZ',
+      'ANA PEREZ',
+    ]);
+    // orden por cédula, descendente
+    const byIdeDesc = await request(srv())
+      .get('/admin/prog-vac?sortBy=nIde&sortDir=desc')
+      .set('Cookie', hr.cookie)
+      .expect(200);
+    expect(byIdeDesc.body.items.map((p: { nIde: string }) => p.nIde)).toEqual(['600', '500']);
+
+    // exportar a Excel respeta el mismo filtro y muestra el nombre, el estado y el origen
+    const xlsx = await request(srv())
+      .get('/admin/prog-vac/export?q=ana')
+      .set('Cookie', hr.cookie)
+      .buffer(true)
+      .parse((res, cb) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => cb(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+    expect(xlsx.headers['content-disposition']).toContain('periodos-vacaciones');
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(Buffer.from(xlsx.body as Buffer) as unknown as ExcelJS.Buffer);
+    const ws = wb.worksheets[0];
+    expect(ws?.getRow(1).getCell(2).value).toBe('Nombre');
+    expect(ws?.getRow(2).getCell(2).value).toBe('ANA PEREZ');
+    expect(ws?.getRow(2).getCell(8).value).toBe('Activa');
+    expect(ws?.getRow(2).getCell(9).value).toBe('Manual');
+    expect(ws?.rowCount).toBe(2); // encabezado + la única fila que coincide con "ana"
   });
 
   it('la lista de empleados del alta manual trae solo activos con su contrato vigente', async () => {

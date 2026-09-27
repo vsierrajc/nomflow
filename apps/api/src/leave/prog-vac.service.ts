@@ -149,13 +149,121 @@ export async function deactivatePeriod(db: Db, actor: string, id: string) {
   await audit(db, actor, 'PROG_VAC_DEACTIVATE', id, 'SUCCESS');
 }
 
-export async function listPeriods(db: Db, nIde?: string) {
-  return db
-    .select()
+export type PeriodSortBy = 'nombre' | 'nIde';
+
+export interface PeriodListQuery {
+  /** Nombre o cédula, coincidencia parcial. */
+  q?: string | undefined;
+  estado?: 'ACTIVA' | 'LIQUIDADA' | 'VENCIDA' | undefined;
+  cEmp?: string | undefined;
+  sortBy?: PeriodSortBy | undefined;
+  sortDir?: 'asc' | 'desc' | undefined;
+}
+
+export interface PeriodPage extends PeriodListQuery {
+  page: number;
+  pageSize: number;
+}
+
+/** Empresas con al menos un período vigente, para el selector de la lista de administración. */
+export async function periodCompanies(db: Db) {
+  const rows = await db
+    .selectDistinct({ cEmp: employeeSnapshots.cEmp })
     .from(progVac)
-    .where(and(eq(progVac.active, true), nIde ? eq(progVac.nIde, nIde) : undefined))
-    .orderBy(asc(progVac.nIde), desc(progVac.perIni))
-    .limit(500);
+    .innerJoin(employeeSnapshots, eq(employeeSnapshots.nIde, progVac.nIde))
+    .where(and(eq(progVac.active, true), eq(employeeSnapshots.est, 'V')));
+  return rows
+    .map((r) => r.cEmp)
+    .filter((c): c is string => c !== null)
+    .sort();
+}
+
+const vigenteView = (db: Db) =>
+  db
+    .select({
+      nIde: employeeSnapshots.nIde,
+      nombre: employeeSnapshots.nombre,
+      cEmp: employeeSnapshots.cEmp,
+    })
+    .from(employeeSnapshots)
+    .where(eq(employeeSnapshots.est, 'V'))
+    .as('vigente');
+
+function periodFilters(vigente: ReturnType<typeof vigenteView>, query: PeriodListQuery) {
+  const filters = [eq(progVac.active, true)];
+  if (query.estado) filters.push(eq(progVac.estado, query.estado));
+  if (query.cEmp) filters.push(eq(vigente.cEmp, query.cEmp));
+  if (query.q) {
+    const like = `%${query.q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+    const cond = or(ilike(progVac.nIde, like), ilike(vigente.nombre, like));
+    if (cond) filters.push(cond);
+  }
+  return and(...filters);
+}
+
+/** Columnas de selección compartidas por la lista paginada y la exportación. */
+function periodColumns(vigente: ReturnType<typeof vigenteView>) {
+  return {
+    id: progVac.id,
+    nIde: progVac.nIde,
+    nombre: vigente.nombre,
+    nCont: progVac.nCont,
+    perIni: progVac.perIni,
+    perFin: progVac.perFin,
+    dias: progVac.dias,
+    disp: progVac.disp,
+    estado: progVac.estado,
+    estOrigen: progVac.estOrigen,
+    source: progVac.source,
+    version: progVac.version,
+  };
+}
+
+function periodOrder(
+  vigente: ReturnType<typeof vigenteView>,
+  sortBy: PeriodSortBy | undefined,
+  sortDir: 'asc' | 'desc' | undefined,
+) {
+  const dir = sortDir === 'desc' ? desc : asc;
+  // Sin orden explícito: por identificación y, dentro de ella, el período más reciente primero.
+  if (!sortBy) return [asc(progVac.nIde), desc(progVac.perIni)];
+  if (sortBy === 'nombre') return [dir(vigente.nombre), desc(progVac.perIni)];
+  return [dir(progVac.nIde), desc(progVac.perIni)];
+}
+
+export async function listPeriods(db: Db, query: PeriodPage) {
+  const vigente = vigenteView(db);
+  const where = periodFilters(vigente, query);
+
+  const [{ total } = { total: 0 }] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(progVac)
+    .leftJoin(vigente, eq(vigente.nIde, progVac.nIde))
+    .where(where);
+  const items = await db
+    .select(periodColumns(vigente))
+    .from(progVac)
+    .leftJoin(vigente, eq(vigente.nIde, progVac.nIde))
+    .where(where)
+    .orderBy(...periodOrder(vigente, query.sortBy, query.sortDir))
+    .limit(query.pageSize)
+    .offset((query.page - 1) * query.pageSize);
+  return { total: Number(total), page: query.page, pageSize: query.pageSize, items };
+}
+
+export const MAX_EXPORT_ROWS = 5000;
+
+/** Los mismos filtros y orden de la lista, sin paginar, para exportar a Excel. */
+export async function exportPeriods(db: Db, query: PeriodListQuery) {
+  const vigente = vigenteView(db);
+  const where = periodFilters(vigente, query);
+  return db
+    .select(periodColumns(vigente))
+    .from(progVac)
+    .leftJoin(vigente, eq(vigente.nIde, progVac.nIde))
+    .where(where)
+    .orderBy(...periodOrder(vigente, query.sortBy, query.sortDir))
+    .limit(MAX_EXPORT_ROWS);
 }
 
 export async function listAdjustments(db: Db, id: string) {
