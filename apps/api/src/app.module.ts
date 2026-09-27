@@ -41,6 +41,7 @@ import {
 import { HealthController } from './health.controller';
 import { InboxController } from './inbox/inbox.controller';
 import { NotificationMonitor } from './inbox/notification-monitor';
+import { VacationCycleMonitor } from './leave/vacation-cycle-monitor';
 import { AdminNotificationsController } from './inbox/notification.controller';
 import { NotificationService } from './inbox/notification.service';
 import { SystemHealthModule } from './health/health.module';
@@ -85,6 +86,7 @@ import { SystemHealthModule } from './health/health.module';
     RequestAuditService,
     NotificationService,
     NotificationMonitor,
+    VacationCycleMonitor,
   ],
 })
 export class AppModule implements NestModule {

@@ -15,7 +15,7 @@ interface Period {
   perFin: string;
   dias: number;
   disp: number;
-  estado: 'ACTIVA' | 'LIQUIDADA';
+  estado: 'ACTIVA' | 'LIQUIDADA' | 'VENCIDA';
   estOrigen: string | null;
   version: number;
 }
@@ -286,8 +286,14 @@ export default function VacationPeriodsPage() {
                   <td className="num">{p.dias}</td>
                   <td className="num">{p.disp}</td>
                   <td>
-                    <Badge kind={p.estado === 'ACTIVA' ? 'ok' : 'off'}>
-                      {p.estado === 'ACTIVA' ? 'Activa' : 'Liquidada'}
+                    <Badge
+                      kind={p.estado === 'ACTIVA' ? 'ok' : p.estado === 'VENCIDA' ? 'warn' : 'off'}
+                    >
+                      {p.estado === 'ACTIVA'
+                        ? 'Activa'
+                        : p.estado === 'VENCIDA'
+                          ? 'Vencida'
+                          : 'Liquidada'}
                     </Badge>
                   </td>
                   <td className="num">{p.version}</td>
