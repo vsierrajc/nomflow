@@ -348,6 +348,48 @@ test.describe('catálogos: áreas, centros de costo, cargos y tipos de contrato'
     await expect(page.getByRole('row', { name: /10300/ })).toContainText('Inactivo');
   });
 
+  test('designa el jefe y el director de un área desde su definición', async ({ page }) => {
+    await asAdmin(page);
+    const cEmp = `J${uid().toUpperCase()}`;
+    await seedCompany(cEmp);
+    await seedCatalog('AREA', cEmp, '10300', 'FINANCIERA');
+    const boss = newUser('jefe');
+    const dir = newUser('dir');
+    for (const u of [boss, dir]) {
+      await seedActiveAccount(u);
+      await query(`update employee_snapshots set c_emp = $1 where n_ide = $2`, [cEmp, u.nIde]);
+    }
+    await page.goto('/admin/catalogos');
+    await page.getByLabel('Empresa', { exact: true }).selectOption(cEmp);
+
+    await page.getByRole('button', { name: 'Jefe y director del área 10300' }).click();
+    const dialog = page.getByRole('dialog');
+    // se busca escribiendo parte del nombre
+    await dialog.getByLabel('Jefe del área').fill('nadie');
+    await dialog.getByRole('button', { name: 'Guardar' }).click();
+    await expect(dialog.getByText('Elija la persona de la lista.')).toBeVisible();
+    await dialog.getByLabel('Jefe del área').fill(`${boss.nIde} - ${boss.name}`);
+    await dialog.getByLabel('Director del área').fill(`${dir.nIde} - ${dir.name}`);
+    await dialog.getByRole('button', { name: 'Guardar' }).click();
+    await expect(page.getByText('Jefe y director del área 10300 actualizados.')).toBeVisible();
+
+    const rows = await query<{ role: string; n_ide: string }>(
+      `select r.role, a.n_ide from role_assignments r join accounts a on a.id = r.account_id
+        where r.company_code = $1 and r.area_code = '10300' order by r.role`,
+      [cEmp],
+    );
+    expect(rows).toEqual([
+      { role: 'AREA_MANAGER', n_ide: boss.nIde },
+      { role: 'AREA_DIRECTOR', n_ide: dir.nIde },
+    ]);
+
+    // al reabrir se ven los titulares vigentes
+    await page.getByRole('button', { name: 'Jefe y director del área 10300' }).click();
+    await expect(page.getByRole('dialog').getByLabel('Jefe del área')).toHaveValue(
+      `${boss.nIde} - ${boss.name}`,
+    );
+  });
+
   test('no permite desactivar un cargo en uso y explica por qué', async ({ page }) => {
     await asAdmin(page);
     const cEmp = `U${uid().toUpperCase()}`;

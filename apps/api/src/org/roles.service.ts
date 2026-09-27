@@ -13,6 +13,7 @@ export type OrgErrorCode =
   | 'COMPANY_NOT_FOUND'
   | 'MANAGER_NOT_ELIGIBLE'
   | 'OVERLAP'
+  | 'SAME_PERSON'
   | 'NOT_FOUND';
 
 export class OrgError extends Error {
