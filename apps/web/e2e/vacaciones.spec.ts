@@ -83,17 +83,32 @@ test.describe('períodos de vacaciones (PROG_VAC) y festivos', () => {
       { disp: 15, estado: 'ACTIVA', fecha_corte: '2026-09-01' },
     ]);
 
-    // 3) el listado y el filtro
-    await page.getByLabel('Filtrar por identificación').fill(emp.nIde);
-    await page.getByRole('button', { name: 'Filtrar' }).click();
+    // 3) el listado, con el nombre del empleado, y la búsqueda
     await expect(
-      page.getByRole('row', { name: new RegExp(`${emp.nIde}.*2024-01-01 a 2024-12-31`) }),
+      page.getByRole('row', {
+        name: new RegExp(`${emp.name}.*${emp.nIde}.*2024-01-01 a 2024-12-31`),
+      }),
     ).toBeVisible();
+    await page.getByLabel('Buscar por nombre o identificación').fill(emp.name);
+    await page.getByRole('button', { name: 'Buscar' }).click();
+    await expect(
+      page.getByRole('row', {
+        name: new RegExp(`${emp.name}.*${emp.nIde}.*2024-01-01 a 2024-12-31`),
+      }),
+    ).toBeVisible();
+    // filtro por estado: solo activas oculta la que quedará liquidada más abajo, sin ocultar esta
+    await page.getByRole('tab', { name: 'Activa' }).click();
+    await expect(
+      page.getByRole('row', {
+        name: new RegExp(`${emp.name}.*${emp.nIde}.*2024-01-01 a 2024-12-31`),
+      }),
+    ).toBeVisible();
+    await page.getByRole('tab', { name: 'Todos' }).click();
 
     // 4) ajuste con motivo: deja el período liquidado y versionado
     await page
       .getByRole('button', {
-        name: new RegExp(`Ajustar período 2024-01-01 a 2024-12-31 del empleado ${emp.nIde}`),
+        name: new RegExp(`Ajustar período 2024-01-01 a 2024-12-31 de ${emp.name}`),
       })
       .click();
     const adjust = page.getByRole('region', { name: 'Ajustar período' });
@@ -150,7 +165,7 @@ test.describe('períodos de vacaciones (PROG_VAC) y festivos', () => {
     await expect(page.locator('p[role="alert"]', { hasText: 'ya existe' })).toBeVisible();
     await page
       .getByRole('button', {
-        name: new RegExp(`Dar de baja período 2026-01-01 a 2026-12-31 del empleado ${emp.nIde}`),
+        name: new RegExp(`Dar de baja período 2026-01-01 a 2026-12-31 de ${emp.name}`),
       })
       .click();
     await expect(page.getByText('Período dado de baja.')).toBeVisible();

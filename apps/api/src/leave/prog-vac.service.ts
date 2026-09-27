@@ -149,13 +149,75 @@ export async function deactivatePeriod(db: Db, actor: string, id: string) {
   await audit(db, actor, 'PROG_VAC_DEACTIVATE', id, 'SUCCESS');
 }
 
-export async function listPeriods(db: Db, nIde?: string) {
-  return db
-    .select()
+export interface PeriodListQuery {
+  /** Nombre o cédula, coincidencia parcial. */
+  q?: string | undefined;
+  estado?: 'ACTIVA' | 'LIQUIDADA' | 'VENCIDA' | undefined;
+  cEmp?: string | undefined;
+  page: number;
+  pageSize: number;
+}
+
+/** Empresas con al menos un período vigente, para el selector de la lista de administración. */
+export async function periodCompanies(db: Db) {
+  const rows = await db
+    .selectDistinct({ cEmp: employeeSnapshots.cEmp })
     .from(progVac)
-    .where(and(eq(progVac.active, true), nIde ? eq(progVac.nIde, nIde) : undefined))
+    .innerJoin(employeeSnapshots, eq(employeeSnapshots.nIde, progVac.nIde))
+    .where(and(eq(progVac.active, true), eq(employeeSnapshots.est, 'V')));
+  return rows
+    .map((r) => r.cEmp)
+    .filter((c): c is string => c !== null)
+    .sort();
+}
+
+export async function listPeriods(db: Db, query: PeriodListQuery) {
+  const vigente = db
+    .select({
+      nIde: employeeSnapshots.nIde,
+      nombre: employeeSnapshots.nombre,
+      cEmp: employeeSnapshots.cEmp,
+    })
+    .from(employeeSnapshots)
+    .where(eq(employeeSnapshots.est, 'V'))
+    .as('vigente');
+
+  const filters = [eq(progVac.active, true)];
+  if (query.estado) filters.push(eq(progVac.estado, query.estado));
+  if (query.cEmp) filters.push(eq(vigente.cEmp, query.cEmp));
+  if (query.q) {
+    const like = `%${query.q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+    const cond = or(ilike(progVac.nIde, like), ilike(vigente.nombre, like));
+    if (cond) filters.push(cond);
+  }
+  const where = and(...filters);
+
+  const [{ total } = { total: 0 }] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(progVac)
+    .leftJoin(vigente, eq(vigente.nIde, progVac.nIde))
+    .where(where);
+  const items = await db
+    .select({
+      id: progVac.id,
+      nIde: progVac.nIde,
+      nombre: vigente.nombre,
+      nCont: progVac.nCont,
+      perIni: progVac.perIni,
+      perFin: progVac.perFin,
+      dias: progVac.dias,
+      disp: progVac.disp,
+      estado: progVac.estado,
+      estOrigen: progVac.estOrigen,
+      version: progVac.version,
+    })
+    .from(progVac)
+    .leftJoin(vigente, eq(vigente.nIde, progVac.nIde))
+    .where(where)
     .orderBy(asc(progVac.nIde), desc(progVac.perIni))
-    .limit(500);
+    .limit(query.pageSize)
+    .offset((query.page - 1) * query.pageSize);
+  return { total: Number(total), page: query.page, pageSize: query.pageSize, items };
 }
 
 export async function listAdjustments(db: Db, id: string) {

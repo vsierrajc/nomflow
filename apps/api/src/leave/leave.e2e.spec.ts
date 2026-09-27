@@ -154,6 +154,61 @@ describe.skipIf(!url)('festivos, PROG_VAC y cálculo previo (HTTP + PostgreSQL)'
     await request(srv()).get('/admin/prog-vac').set('Cookie', emp.cookie).expect(403);
   });
 
+  it('la lista de administración pagina, busca por nombre o cédula, y filtra por estado y empresa', async () => {
+    await db.insert(employeeSnapshots).values([
+      { nIde: '500', nCont: '1', email: 'ana@x.co', est: 'V', nombre: 'ANA PEREZ', cEmp: 'GA' },
+      { nIde: '600', nCont: '1', email: 'luis@x.co', est: 'V', nombre: 'LUIS PEREZ', cEmp: 'OT' },
+    ]);
+    await db.insert(progVac).values([
+      { nIde: '500', nCont: '1', perIni: '2025-01-01', perFin: '2025-12-31', dias: 15, disp: 15 },
+      {
+        nIde: '600',
+        nCont: '1',
+        perIni: '2025-01-01',
+        perFin: '2025-12-31',
+        dias: 15,
+        disp: 0,
+        estado: 'LIQUIDADA',
+      },
+    ]);
+    const byName = await request(srv())
+      .get('/admin/prog-vac?q=perez')
+      .set('Cookie', hr.cookie)
+      .expect(200);
+    expect(byName.body.total).toBe(2);
+    expect(byName.body.items.map((p: { nombre: string }) => p.nombre).sort()).toEqual([
+      'ANA PEREZ',
+      'LUIS PEREZ',
+    ]);
+    const byCedula = await request(srv())
+      .get('/admin/prog-vac?q=500')
+      .set('Cookie', hr.cookie)
+      .expect(200);
+    expect(byCedula.body.items).toHaveLength(1);
+    expect(byCedula.body.items[0].nombre).toBe('ANA PEREZ');
+    const activas = await request(srv())
+      .get('/admin/prog-vac?estado=ACTIVA')
+      .set('Cookie', hr.cookie)
+      .expect(200);
+    expect(activas.body.items.map((p: { nIde: string }) => p.nIde)).toEqual(['500']);
+    const porEmpresa = await request(srv())
+      .get('/admin/prog-vac?cEmp=OT')
+      .set('Cookie', hr.cookie)
+      .expect(200);
+    expect(porEmpresa.body.items.map((p: { nIde: string }) => p.nIde)).toEqual(['600']);
+    const page1 = await request(srv())
+      .get('/admin/prog-vac?pageSize=1&page=1')
+      .set('Cookie', hr.cookie)
+      .expect(200);
+    expect(page1.body).toMatchObject({ total: 2, page: 1, pageSize: 1 });
+    expect(page1.body.items).toHaveLength(1);
+    const companies = await request(srv())
+      .get('/admin/prog-vac/companies')
+      .set('Cookie', hr.cookie)
+      .expect(200);
+    expect(companies.body.sort()).toEqual(['GA', 'OT']);
+  });
+
   it('la lista de empleados del alta manual trae solo activos con su contrato vigente', async () => {
     await db.insert(employeeSnapshots).values([
       { nIde: '300', nCont: '7', email: 'c@x.co', est: 'C', nombre: 'ANA CANCELADA' },

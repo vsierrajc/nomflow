@@ -46,6 +46,7 @@ import {
   listAdjustments,
   listPeriods,
   myOpenPeriods,
+  periodCompanies,
 } from './prog-vac.service';
 import { HolidayApiError, getSettings, saveSettings, syncYear } from './holiday-api.service';
 import { archivedVacationRequestIds } from '../storage/archive.service';
@@ -90,6 +91,13 @@ const AdjustDto = z.object({
   dias: z.number().int(),
   disp: z.number().int(),
   reason: z.string().trim().min(10).max(300),
+});
+const PeriodListDto = z.object({
+  q: z.string().trim().max(100).optional(),
+  estado: z.enum(['ACTIVA', 'LIQUIDADA', 'VENCIDA']).optional(),
+  cEmp: z.string().trim().max(30).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(25),
 });
 
 function mapProgVac(e: unknown): never {
@@ -230,8 +238,16 @@ export class AdminProgVacController {
 
   @Get()
   @Header('Cache-Control', 'no-store')
-  list(@Query('nIde') nIde: string | undefined) {
-    return listPeriods(this.db, nIde?.trim() || undefined);
+  list(@Query() query: unknown) {
+    const dto = PeriodListDto.safeParse(query);
+    if (!dto.success) throw new BadRequestException();
+    return listPeriods(this.db, dto.data);
+  }
+
+  @Get('companies')
+  @Header('Cache-Control', 'no-store')
+  companies() {
+    return periodCompanies(this.db);
   }
 
   /** Lista de valores para el alta manual: empleados activos con su contrato vigente. */
