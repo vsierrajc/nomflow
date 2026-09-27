@@ -1,0 +1,1 @@
+Encabezado y pie de página (certificados/vacaciones): el alto máximo permitido para el encabezado sube de 130 pt a 210 pt (unos 74 mm), para admitir membretes con logo y varias líneas de texto como el modelo real de GRALCO.

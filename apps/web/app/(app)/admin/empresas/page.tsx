@@ -302,7 +302,7 @@ const LETTERHEAD_INFO = {
   HEADER: {
     title: 'Encabezado',
     size: '2550 x 480 píxeles (216 x 40 mm a 300 ppp)',
-    max: 'alto máximo 130 pt (unos 46 mm) al ajustarla al ancho de la hoja',
+    max: 'alto máximo 210 pt (unos 74 mm) al ajustarla al ancho de la hoja',
   },
   FOOTER: {
     title: 'Pie de página',
