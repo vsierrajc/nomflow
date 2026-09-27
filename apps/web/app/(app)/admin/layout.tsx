@@ -32,13 +32,13 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
       { href: '/admin/empleados', label: 'Empleados' },
       { href: '/admin/cuentas', label: 'Cuentas y roles' },
       { href: '/admin/importaciones', label: 'Importaciones' },
-      { href: '/admin/nomina', label: 'Nómina publicada' },
       { href: '/admin/vacaciones', label: 'Períodos de vacaciones' },
     ],
   },
   {
-    title: 'Certificados',
+    title: 'Documentos',
     items: [
+      { href: '/admin/nomina', label: 'Volantes de pago' },
       { href: '/admin/retenciones', label: 'Certificados de retención' },
       { href: '/admin/certificado-laboral', label: 'Certificado laboral' },
       { href: '/admin/certificados-emitidos', label: 'Certificados laborales emitidos' },

@@ -80,3 +80,4 @@
 - Catálogos: las acciones de cada fila (editar, historial, jefe y director) pasan a iconos en una sola fila.
 - Inicio: todas las tarjetas usan el mismo botón principal y el mismo acento de color.
 - Diálogo de clave temporal: el botón «Cerrar» no se parte y la explicación de activación va en un recuadro con su acción alineada.
+- Menú de administración: el grupo «Certificados» pasa a «Documentos» e incluye «Volantes de pago» (antes «Nómina publicada»).
