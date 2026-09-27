@@ -1,0 +1,11 @@
+# Sesión: 2026-09-26 - estado y plan por fases
+- Responsable / agente: Claude Code
+- Objetivo e incidencias: actualizar STATUS, HANDOFF y la matriz de trazabilidad tras los PR #37 a #76 y ordenar los pendientes por prioridad
+- Rama y commit inicial: docs/estado-y-plan desde main (6d7e3fa)
+- Cambios realizados: `docs/PLAN.md` (nuevo, cinco fases), `docs/STATUS.md`, `docs/HANDOFF.md` y `docs/traceability.md` reescritos; limpieza de la rama `fix/volante-sin-unidad` (local y remota)
+- Decisiones / ADR: sin ADR nuevo. Reglas vigentes: aprobación previa y respaldo antes de tocar datos reales; pruebas solo contra `nomflow_test`; merge commit
+- Pruebas y evidencia: documentación; sin cambios de código
+- Migraciones, configuración y datos necesarios: ninguno
+- Bloqueos y riesgos: la nómina y `PROG_VAC` reales aún no se cargaron; faltan el director de cada área, el gerente general y las firmas de dos firmantes
+- Estado final: completa
+- Próximo paso exacto y responsable: fase 0 de PLAN.md (Gestión Humana y administrador), luego fase 1 (desarrollo)

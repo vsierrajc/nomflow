@@ -1,6 +1,6 @@
 # Traspaso para la próxima sesión
 
-Actualizado: 24 de septiembre de 2026. Estado del código: `main` (PR #1 a #20 integrados, sin PR abiertos). Este archivo se **reescribe al cerrar cada sesión** (SSD 10.2); el historial vive en `docs/sessions/`. No contiene claves, correos ni datos de personas.
+Actualizado: 26 de septiembre de 2026. Estado del código: `main` (PR #1 a #76 integrados, sin PR abiertos). Este archivo se **reescribe al cerrar cada sesión** (SSD 10.2); el historial vive en `docs/sessions/`. No contiene claves, correos ni datos de personas. **El plan por fases está en [PLAN.md](PLAN.md).**
 
 ## 1. Cómo arrancar (10 minutos)
 
@@ -24,44 +24,28 @@ npm run test:e2e          # pruebas de navegador (ver docs/local-stack.md si Chr
 
 ## 2. Qué está hecho (resumen; detalle en README y STATUS)
 
-Identidad y cuentas, importación de EMPLEADOS, empresas y logo, catálogos, conceptos de nómina, jefes de área, importación de NOMINA y volantes PDF, área administrativa completa (API e interfaz), auditoría de todas las peticiones, rediseño de la interfaz, stack local, Graphify, CI. 215 pruebas de API y 81 de navegador.
+Identidad y cuentas (clave asignada, doble paso opcional, sesión por inactividad), importación de EMPLEADOS, empresas, logo y encabezado/pie en imagen, catálogos, conceptos de nómina, roles con alcance (jefe y director de área, gerente general), importación de NOMINA por período y liquidación del archivo, volantes PDF en carta según el modelo, certificados de retención (carpeta y navegador), certificado laboral con firma imagen y digital, vacaciones con aprobación jerárquica, permisos, bandeja de entrada y avisos por correo, salud del sistema, almacenamiento cifrado en Garage, archivo histórico en Google, gestión de registros, área administrativa completa, rediseño de la interfaz, stack local, Graphify y CI. 400 pruebas de API y unas 115 de navegador.
 
-## 3. Pendientes que esperan datos o personas (no se pueden cerrar programando)
+## 3. Pendientes que esperan datos o personas (fase 0 del plan)
 
-| # | Qué falta | Responsable | Qué hacer cuando llegue |
-| --- | --- | --- | --- |
-| D1 | `EMPLEADOS.xlsx` con `EST` = `V`/`C` (hoy trae `A` en las 240 filas) | Gestión Humana / sistema origen | Importar desde `/admin/importaciones`; luego crear las cuentas desde `/admin/cuentas` |
-| D2 | `CCOSTOS.xlsx` corregido (1 código con dos descripciones) y `CARGOS.xlsx` (17 códigos repetidos), o una **clave oficial** que los desambigüe | Gestión Humana | Importar desde `/admin/catalogos`. Si la clave es compuesta, hace falta ADR y cambiar el índice único de `catalog_entries` |
-| D3 | Muestra **anonimizada** de `NOMINA` con decimales y reversos negativos | Nómina | Probar ambos modos del volante; revisar visualmente el PDF (la verificación con logo se hizo por operadores de pdfjs, no a ojo) |
-| D4 | Cargar `conceptos.xlsx` (213 conceptos, unidades `PES`/`HRS`) por `/admin/conceptos` | Administrador | Sin esto los volantes muestran la cantidad sin unidad |
-| D5 | Logo real de la empresa `GA` | Comunicaciones | Subirlo en `/admin/empresas` (PNG/JPEG, ≤ 512 KB) |
-| D6 | Decisiones de la SSD sección 12 (ver §5) | Dueños funcionales | Registrar cada una como ADR o en la SSD |
+Ver [PLAN.md](PLAN.md), fase 0: cargar `nomina.xlsx` y `PROG_VAC` reales (con respaldo previo y aprobación), asignar el director de cada área y el gerente general, firmas de los firmantes, ciudad/pie/código del certificado laboral, primera prueba real del archivo histórico y corrección de las pruebas intermitentes. **Todo lo que escribe datos reales exige aprobación explícita del usuario y un `pg_dump` previo.**
 
-## 4. Trabajo de desarrollo pendiente, en el orden recomendado
+## 4. Trabajo de desarrollo pendiente
 
-Cada ID está en `docs/traceability.md`. Patrón que ya funciona y conviene **reutilizar**: importación en dos pasos (vista previa → aplicar atómico, `apps/api/src/imports`), versionado con índice único parcial, historial, auditoría, reautenticación y `ADMIN_ROLES`; PDF con `pdfkit` (`apps/api/src/payroll/voucher.pdf.ts`); interfaz con `ImportPanel` y los componentes de `apps/web/components`.
+Está ordenado por prioridad y por fases en [PLAN.md](PLAN.md): seguridad y resiliencia (fase 1), ciclo de vida del empleado y ZIP (fase 2), completar vacaciones y permisos (fase 3), producción (fase 4) y mejoras (fase 5). Patrón que conviene **reutilizar**: importación en dos pasos (vista previa y aplicación atómica, `apps/api/src/imports`), versionado con índice único parcial, historial, auditoría y `ADMIN_ROLES`; PDF con `pdfkit` (`apps/api/src/payroll/voucher.pdf.ts`, `apps/api/src/certificates/labor-cert.pdf.ts`); tareas periódicas dentro de la API (salud, avisos, registros).
 
-| Prioridad | ID | Alcance (SSD) | Primer paso concreto |
-| --- | --- | --- | --- |
-| 1 | ESS-TAX-001 | **Hecho** (carga por carpeta, versiones, descarga del empleado). Queda: prueba de navegador, retención y mover el PDF a S3 | — |
-| 2 | ESS-EXIT-001 | Aviso previo a la baja y ZIP con todos los documentos (3.1, 6.3) | Parámetro `PRE_BAJA_AVISO_DIAS`, cola de trabajos (Redis ya está en el stack, sin uso), manifiesto y caducidad. La baja ya revoca sesiones |
-| 3 | ESS-CERT-001/002 | Plantillas de certificado con variables en lista blanca, aprobación y firma interna, código de validación público (6.1) | Pedir `CertificadoLaboral.pdf` (la SSD lo cita y **no está** en el repo) y los firmantes autorizados. Existen `CERTIFICATE_APPROVER`, reautenticación y el generador PDF |
-| 4 | ESS-LEAVE-003 (resto), ESS-HOL-001 (resto) | **Hecho**: `PROG_VAC`, festivos con CRUD y publicación, cálculo, solicitud, revisiones, aprobación del jefe y final con descuento y `VACACIONES`. **Falta**: PDF con firmas visuales (imágenes de firma privadas por cuenta), suplencias del jefe, corrección/reversión de disfrutes aprobados, consulta administrativa con motivo, festivos por Excel y reintento programado de la API (la carga automática de un año sin calendario ya existe; falta el reintento periódico y la alerta al administrador) | Reutilizar `voucher.pdf.ts` para el PDF; la evidencia de firma ya se guarda en `vacation_actions` (actor, revisión, hash, fecha) |
-| 5 | ESS-PERM-001 | **Hecho**: tipos configurables, solicitud con soporte y decisión solo del jefe de área. Falta: reglas adicionales por tipo si Gestión Humana las define (anticipación mínima, tope anual), consulta administrativa con motivo y PDF | — |
-| 6 | ESS-OPS-001 | Endurecimiento, respaldo y restauración probados, `Dockerfile`s, despliegue, monitoreo (8, 11) | Hoy API y web corren como procesos locales; no hay imagen |
-| — | Higiene | Reconciliar el estado de `docs/traceability.md` (varios ID figuran `BACKLOG` aunque ya están hechos: AUTH-001/002/003, AUD-001, IMPORT-001) | Editar la tabla con el PR que corresponda a cada uno |
-
-Interfaz de módulos futuros (solicitudes, aprobaciones, documentos): ver `docs/design/rediseno-ui.md` §8. No mostrar nada como operativo hasta que su servicio exista.
+Higiene: la matriz `docs/traceability.md` se actualizó el 26 de septiembre de 2026; mantenerla con cada PR.
 
 ## 5. Decisiones abiertas (SSD sección 12)
 
 - Baja: valor inicial de `PRE_BAJA_AVISO_DIAS`, si cuenta días hábiles o calendario, canal de aviso, retención de PDF/ZIP y entrega a ex empleados.
 - `PROG_VAC`: códigos de `EST`, fecha de corte y ejemplos con períodos parciales.
 - Festivos: credencial de la API, región por empresa y quién aprueba diferencias.
-- Certificados: firmantes y evidencia de firma.
-- Operación: el SMTP se configura en `/admin/correo`; el servidor interno (192.168.1.44:25) no tiene TLS, así que los correos viajan sin cifrar dentro de la red hasta habilitar STARTTLS. Pendiente: almacenamiento, respaldos, monitoreo y suplencias.
-- **Retención** de: filas de preparación de importaciones (contienen datos personales y salarios), auditoría de peticiones (crece rápido) y sesiones/códigos vencidos (nada los purga hoy).
-- Gobierno: activar protección de `main`, exigir revisión de otra persona (ningún PR de la cadena #1 a #20 la tuvo). CodeQL ya es un control real: sube a Code scanning (pestaña Security), guarda el SARIF y falla por hallazgos. Con el repositorio público quedaron activos el escaneo de secretos con protección de push y las alertas de Dependabot.
+- Certificados: evidencia de firma y confirmación de ciudad, pie y código de formato.
+- Vacaciones: quién aprueba las de quien ocupa la aprobación final; si la jerarquía jefe > director > gerente aplica también a permisos.
+- Operación: STARTTLS del correo interno, almacenamiento, respaldos, monitoreo y suplencias.
+- **Retención** de las filas de preparación de importaciones (datos personales y salarios), de la auditoría de peticiones y de sesiones/códigos vencidos.
+- Gobierno: activar la protección de `main` y exigir revisión de otra persona. CodeQL ya es un control real y con el repositorio público están activos el escaneo de secretos y Code scanning.
 
 ## 6. Deuda técnica y de seguridad conocida
 
@@ -78,9 +62,9 @@ Interfaz de módulos futuros (solicitudes, aprobaciones, documentos): ver `docs/
 
 ## 7. Estado del entorno local (no versionado)
 
-- Contenedores Docker `nomflow-*` con datos en volúmenes: base `nomflow` (desarrollo) y `nomflow_test` (pruebas y e2e).
-- Base de desarrollo: empresa `GA` registrada, catálogos `AREA` y `TIPO_CONTRATO` cargados, sin `CCOSTO`, `CARGO`, conceptos ni empleados reales, y un par de cuentas de prueba. **Las claves no se registran aquí**: recrear un administrador con `BOOTSTRAP_ADMIN_EMAIL=… BOOTSTRAP_ADMIN_PASSWORD="$CLAVE" npm run admin:bootstrap -w @nomflow/api`.
-- Archivos Excel de origen en la raíz del repositorio: ignorados por Git; **no subirlos**.
+- Contenedores Docker `nomflow-*` con datos en volúmenes con nombre: base `nomflow` (desarrollo, con datos reales cargados desde `initconfigdata`) y `nomflow_test` (pruebas y e2e). **Las claves no se registran aquí.** Nunca usar `docker volume prune` ni `system prune`.
+- `initconfigdata/` (Excel de origen y `volante_pago.pdf`, el modelo del volante con datos reales) está ignorado por Git: **no subirlo**. `nomina.xlsx` está allí y aún no se cargó en la base real.
+- Respaldos manuales en `~/nomflow-respaldos` (fuera del repositorio).
 - Puertos: web 3000, API 4000, Mailpit 8025, Garage S3 3900 y admin 3903. Las pruebas e2e usan 3100 y 4100.
 
 ## 8. Trampas conocidas (ya costaron tiempo)
@@ -109,6 +93,10 @@ Interfaz de módulos futuros (solicitudes, aprobaciones, documentos): ver `docs/
 - **Firma digital de certificados laborales**: los `.p12` de los firmantes se guardan cifrados con `SETTINGS_ENCRYPTION_KEY` (o `SESSION_SECRET`); cambiar esa clave los deja inservibles. `@signpdf/placeholder-plain` NO se usa (arrastra un pdfkit antiguo con `crypto-js` vulnerable): el espacio de firma lo reserva `apps/api/src/certificates/digital-signature.ts`. El campo `/Contents` lleva relleno de ceros: se recorta por el largo del DER, nunca quitando ceros del final.
 
 - **Registros**: `.gitignore` excluye directorios llamados `logs/` (por eso el módulo se llama `registros`). Vaciar `.run/*.log` solo es seguro porque `stack.sh` los abre con `>>`; los archivos gestionables se declaran en `LOG_FILES`. Las peticiones HTTP también se auditan, así que cualquier consulta añade filas: las pruebas cuentan solo lo que siembran.
+- **Variables de entorno entre comandos**: cada llamada de shell empieza sin `DATABASE_URL`; exportarla en la misma línea que las pruebas (`export DATABASE_URL=... && npm test`) o las pruebas de base de datos se omiten en silencio (aparecen como «skipped»).
+- **`docs/CHANGELOG.md` y los PR apilados**: casi todos los PR añaden una línea al final y chocan; resolver quitando las marcas de conflicto y conservando ambas líneas, y volver a esperar el CI sobre el commit nuevo.
+- **Carga de nómina**: el período y la liquidación salen de las columnas `PER` y `N_LIQ`; cada volante del archivo reemplaza al publicado y los demás de la liquidación se conservan. Un contenido idéntico se detecta al aplicar, no al validar.
+
 
 ## 9. Cierre de una tarea (definición de terminado)
 
