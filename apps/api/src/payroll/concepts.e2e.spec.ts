@@ -386,7 +386,7 @@ describe.skipIf(!url)('catálogo de conceptos de nómina (HTTP + PostgreSQL)', (
         });
       const text = await pdfText(res.body as Buffer);
       expect(text).toContain('15 horas');
-      expect(text).toContain('20.000 pesos');
+      expect(text).toContain('20,000 pesos');
       expect(text).toMatch(/Sin catálogo 3 /);
       expect(text).not.toContain('3 horas');
       expect(text).not.toContain('3 pesos');

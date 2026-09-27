@@ -240,7 +240,9 @@ test.describe('empresas y logo', () => {
     await expect(dialog.getByText('Encabezado cargado.')).toBeVisible();
     const img = dialog.getByRole('img', { name: /Encabezado actual/ });
     await expect(img).toBeVisible();
-    expect(await img.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(1200);
+    await expect
+      .poll(async () => img.evaluate((el: HTMLImageElement) => el.naturalWidth))
+      .toBe(1200);
 
     // una imagen demasiado alta para su ancho se rechaza con un mensaje claro
     await dialog.getByLabel(/Archivo PNG o JPEG del pie/).setInputFiles({

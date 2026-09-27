@@ -80,4 +80,5 @@
 - Catálogos: las acciones de cada fila (editar, historial, jefe y director) pasan a iconos en una sola fila.
 - Inicio: todas las tarjetas usan el mismo botón principal y el mismo acento de color.
 - Diálogo de clave temporal: el botón «Cerrar» no se parte y la explicación de activación va en un recuadro con su acción alineada.
+- Volante de pago: nuevo diseño en tamaño carta según el comprobante modelo (devengos y deducidos en dos bloques, neto en cifras y letras, fecha de generación, observaciones y firma); importes con formato $1,234.00.
 - Menú de administración: el grupo «Certificados» pasa a «Documentos» e incluye «Volantes de pago» (antes «Nómina publicada»).
