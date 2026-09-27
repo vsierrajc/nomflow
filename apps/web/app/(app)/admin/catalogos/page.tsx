@@ -38,6 +38,9 @@ interface Entry {
   active: boolean;
   version: number;
   updatedAt: string;
+  /** Solo en el catálogo de Áreas. */
+  manager?: string | null;
+  director?: string | null;
 }
 
 interface Page {
@@ -407,6 +410,8 @@ export default function CatalogsPage() {
                 <tr>
                   <th scope="col">Código</th>
                   <th scope="col">Nombre</th>
+                  {kind === 'AREA' ? <th scope="col">Jefe</th> : null}
+                  {kind === 'AREA' ? <th scope="col">Director</th> : null}
                   <th scope="col">Estado</th>
                   <th scope="col">Actualizado</th>
                   <th scope="col">Acciones</th>
@@ -417,6 +422,12 @@ export default function CatalogsPage() {
                   <tr key={e.id}>
                     <td>{e.code}</td>
                     <td>{e.name}</td>
+                    {kind === 'AREA' ? (
+                      <td>{e.manager ?? <span className="muted">- sin asignar -</span>}</td>
+                    ) : null}
+                    {kind === 'AREA' ? (
+                      <td>{e.director ?? <span className="muted">- sin asignar -</span>}</td>
+                    ) : null}
                     <td>
                       {e.active ? (
                         <Badge kind="ok">Activo</Badge>
@@ -450,7 +461,7 @@ export default function CatalogsPage() {
                 ))}
                 {data.items.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="muted">
+                    <td colSpan={kind === 'AREA' ? 7 : 5} className="muted">
                       No hay registros. Cree uno o importe el archivo Excel.
                     </td>
                   </tr>
@@ -517,6 +528,7 @@ export default function CatalogsPage() {
           onDone={(m) => {
             setApproversOf(null);
             setNotice(m);
+            void load();
           }}
         />
       ) : null}

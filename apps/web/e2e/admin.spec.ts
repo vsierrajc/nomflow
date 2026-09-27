@@ -369,6 +369,10 @@ test.describe('catálogos: áreas, centros de costo, cargos y tipos de contrato'
     await dialog.getByLabel('Director del área').fill(`${dir.nIde} - ${dir.name}`);
     await dialog.getByRole('button', { name: 'Guardar' }).click();
     await expect(page.getByText('Jefe y director del área 10300 actualizados.')).toBeVisible();
+    // la tabla muestra el jefe y el director vigentes como columnas
+    const row = page.getByRole('row', { name: /^10300/ });
+    await expect(row).toContainText(boss.name);
+    await expect(row).toContainText(dir.name);
 
     const rows = await query<{ role: string; n_ide: string }>(
       `select r.role, a.n_ide from role_assignments r join accounts a on a.id = r.account_id

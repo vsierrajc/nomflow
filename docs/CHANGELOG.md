@@ -85,3 +85,4 @@
 - Nómina: la carga toma PER y N_LIQ de cada fila (ya no se declaran), acepta N_LIQ de 1 a 9 y TERCERO opcional; cada volante del archivo reemplaza al publicado y los demás de la liquidación se conservan. «Salario Basico» del volante es el SLRIO de esa liquidación (el mayor si hay varios). Los volantes del empleado se agrupan por año.
 - Volante de pago: la columna Hrs muestra solo el valor de CANT, sin la unidad del catálogo de conceptos.
 - Documentación: nuevo PLAN.md con los pendientes por fases; STATUS, HANDOFF y la matriz de trazabilidad al día.
+- Catálogos > Áreas: la tabla muestra el jefe y el director vigentes de cada área como columnas.
