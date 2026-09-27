@@ -1036,7 +1036,41 @@ th.num {
 }
 
 .modal-head h2 {
+  min-width: 0;
   margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* El botón de cerrar nunca se parte en dos líneas ni se encoge */
+.modal-head button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* Recuadro de explicación dentro de un diálogo: texto y su acción, alineados */
+.callout {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+  padding: var(--space-4);
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+  border-radius: var(--radius-md);
+}
+
+.callout p {
+  margin: 0;
+}
+
+.callout.ok {
+  background: var(--color-ok-bg);
+  color: var(--color-ok-text);
+}
+
+.callout button {
+  white-space: normal;
 }
 
 /* Administración */

@@ -79,3 +79,4 @@
 - Definición de áreas: nueva acción «Jefe y director» para designar quién aprueba las vacaciones de cada área, sin pasar por la pantalla de roles.
 - Catálogos: las acciones de cada fila (editar, historial, jefe y director) pasan a iconos en una sola fila.
 - Inicio: todas las tarjetas usan el mismo botón principal y el mismo acento de color.
+- Diálogo de clave temporal: el botón «Cerrar» no se parte y la explicación de activación va en un recuadro con su acción alineada.

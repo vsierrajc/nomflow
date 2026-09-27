@@ -102,11 +102,13 @@ function SecretDialog({
           : 'No se pudo enviar el código por correo: la persona puede pedirlo de nuevo en la pantalla de activación.'}
       </p>
       {!activated ? (
-        <p>
-          Con esta clave la cuenta queda <strong>pendiente de activar</strong>: la persona no puede
-          ingresar directamente. {sent ? 'Debe activarla con el código del correo.' : ''} Si
-          prefiere, o si el correo no funciona, déjela <strong>activa</strong> ya con esta clave
-          (ingresa sin código y conviene que la cambie en «Mi cuenta»).{' '}
+        <div className="callout">
+          <p>
+            Con esta clave la cuenta queda <strong>pendiente de activar</strong>: la persona no
+            puede ingresar directamente. {sent ? 'Debe activarla con el código del correo.' : ''} Si
+            prefiere, o si el correo no funciona, déjela <strong>activa</strong> ya con esta clave
+            (ingresa sin código y conviene que la cambie en «Mi cuenta»).
+          </p>
           <button
             type="button"
             className="secondary"
@@ -114,10 +116,12 @@ function SecretDialog({
           >
             Activar la cuenta ahora con esta clave
           </button>
-        </p>
+        </div>
       ) : null}
       {activated ? (
-        <p role="status">La cuenta quedó activa: la persona ya puede ingresar con esta clave.</p>
+        <p role="status" className="callout ok">
+          La cuenta quedó activa: la persona ya puede ingresar con esta clave.
+        </p>
       ) : null}
       <div className="actions">
         <button
