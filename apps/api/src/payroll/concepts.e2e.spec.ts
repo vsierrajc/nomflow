@@ -331,7 +331,7 @@ describe.skipIf(!url)('catálogo de conceptos de nómina (HTTP + PostgreSQL)', (
       return Buffer.from(await wb.xlsx.writeBuffer());
     };
 
-    it('muestra la cantidad con su unidad, sin unidad si el concepto no está y avisa en la vista previa', async () => {
+    it('muestra la cantidad sin unidad en el volante y avisa en la vista previa los conceptos sin catálogo', async () => {
       await post('/admin/payroll-concepts', { code: '100', name: 'Salario', unit: 'HRS' });
       await post('/admin/payroll-concepts', { code: '101', name: 'Bono', unit: 'PES' });
       await db
@@ -385,11 +385,11 @@ describe.skipIf(!url)('catálogo de conceptos de nómina (HTTP + PostgreSQL)', (
           r.on('end', () => cb(null, Buffer.concat(chunks)));
         });
       const text = await pdfText(res.body as Buffer);
-      expect(text).toContain('15 horas');
-      expect(text).toContain('20,000 pesos');
+      // el volante muestra solo la cantidad, sin la unidad del catálogo
+      expect(text).toMatch(/Salario 15 /);
+      expect(text).toMatch(/Bono 20,000 /);
       expect(text).toMatch(/Sin catálogo 3 /);
-      expect(text).not.toContain('3 horas');
-      expect(text).not.toContain('3 pesos');
+      expect(text).not.toMatch(/horas|pesos|días/);
     });
   });
 });

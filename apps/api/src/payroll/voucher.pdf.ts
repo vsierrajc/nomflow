@@ -1,7 +1,6 @@
 import PDFDocument from 'pdfkit';
 import { ceilToInteger } from './decimal';
 import { pesosInWords } from './number-words';
-import { unitLabel } from './units';
 
 export type VoucherMode = 'SIN_AJUSTE' | 'ENTERO_SUPERIOR';
 
@@ -256,18 +255,16 @@ export function renderVoucherPdf(
         code: clean(a.cCon),
         name: clean(a.concepto),
         qty: a.cant === null ? '' : quantity(a.cant),
-        unit: a.cant === null ? null : unitLabel(a.unit),
         amount: a.dev === null ? '' : pesos(adjust(a.dev)),
       };
       const cellB = b && {
         code: clean(b.cCon),
         name: clean(b.concepto),
         qty: b.cant === null ? '' : quantity(b.cant),
-        unit: b.cant === null ? null : unitLabel(b.unit),
         amount: b.ded === null ? '' : pesos(adjust(b.ded)),
       };
       const h = Math.max(
-        cellA?.unit || cellB?.unit ? 24 : 15,
+        15,
         cellA ? heightOf(cellA.name, (C[1] ?? 0) - 6) + 6 : 0,
         cellB ? heightOf(cellB.name, (C[5] ?? 0) - 6) + 6 : 0,
       );
@@ -290,12 +287,6 @@ export function renderVoucherPdf(
           align: cell ? 'right' : 'left',
           size: qtySize,
         });
-        if (cell?.unit)
-          write(cell.unit, x(2) - 2, t + 10, w(2) + 4, {
-            align: 'right',
-            size: 6.5,
-            color: '#666666',
-          });
         write(cell ? cell.amount : fill, x(3), t, w(3), { align: 'right' });
       };
       put(cellA, 0);
@@ -367,7 +358,7 @@ export function renderVoucherPdf(
     doc
       .fillColor('#555')
       .text(
-        `Versión de nómina: v${data.version} - huella ${data.contentHash.slice(0, 12)}. Generado por NOMFLOW el ${stamp(now)} (no corresponde a la fecha de pago). La columna Hrs muestra la cantidad registrada del concepto, con su unidad cuando el catálogo de conceptos la define.`,
+        `Versión de nómina: v${data.version} - huella ${data.contentHash.slice(0, 12)}. Generado por NOMFLOW el ${stamp(now)} (no corresponde a la fecha de pago).`,
         X0,
         doc.y + 2,
         { width: FULL },
