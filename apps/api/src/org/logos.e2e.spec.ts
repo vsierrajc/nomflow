@@ -418,8 +418,9 @@ describe.skipIf(!url)('logo de la empresa (HTTP + PostgreSQL)', () => {
       );
       expect(before).toHaveLength(1);
       expect(before[0]).toMatchObject({ width: 400, height: 400 });
-      expect(before[0]?.x).toBeCloseTo(40, 0);
-      expect(before[0]?.w).toBeCloseTo(60, 0);
+      // dentro de la celda del logo (esquina superior izquierda del recuadro), ajustado a su alto
+      expect(before[0]?.x).toBeCloseTo(59, 0);
+      expect(before[0]?.w).toBeCloseTo(54, 0);
 
       await upload(png(100, 100, [10, 10, 200]));
       const after = await pdfImages(

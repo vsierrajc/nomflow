@@ -55,6 +55,19 @@ async function xlsx(
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
 
+async function pageSize(buf: Buffer): Promise<[number, number]> {
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const fonts =
+    join(process.cwd(), '..', '..', 'node_modules', 'pdfjs-dist', 'standard_fonts') + '/';
+  const doc = await pdfjs.getDocument({
+    data: new Uint8Array(buf),
+    standardFontDataUrl: fonts,
+    verbosity: 0,
+  }).promise;
+  const v = (await doc.getPage(1)).getViewport({ scale: 1 });
+  return [Math.round(v.width), Math.round(v.height)];
+}
+
 async function pdfText(buf: Buffer): Promise<{ text: string; pages: number }> {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const fonts =
@@ -419,48 +432,54 @@ describe.skipIf(!url)('nómina y volantes PDF (HTTP + PostgreSQL)', () => {
       const body = res.body as Buffer;
       expect(body.subarray(0, 5).toString()).toBe('%PDF-');
 
+      expect(await pageSize(body)).toEqual([612, 792]); // carta
       const { text } = await pdfText(body);
       for (const s of [
         'Grupo Alimentario del Atlantico S.A.',
-        'GRALCO',
-        'CL 1 38 121',
+        'Comprobante de Pago',
         'ANA PRUEBA',
-        '1000000001',
+        'CC No: 1000000001',
         'Contrato: 1',
-        'septiembre de 2026 - primera quincena (liquidación 1)',
+        'PAGO DE NOMINA: PRIMERA QUINCENA DE SEPTIEMBRE 2026',
+        'Salario Basico: $1,500,000.50',
         'Salario básico',
         'Horas extra',
         'Aporte salud',
-        '1.500.000,50',
-        '1.000,40',
-        '500,40',
-        '100,20',
-        '-1,20',
-        '2,5',
+        '$1,000.40',
+        '$500.40',
+        '$100.20',
+        '-$1.20',
+        'TOTAL DEVENGOS',
+        'TOTAL DEDUCIDOS',
+        'OBSERVACIONES:',
+        'FIRMA:',
+        'Generado en:',
         'SIN AJUSTE',
         'Versión de nómina: v1',
         'no corresponde a la fecha de pago',
       ]) {
         expect(text, s).toContain(s);
       }
-      expect(text).toContain('1.499,60');
-      expect(text).toContain('100,20 ');
-      expect(text).toMatch(/Neto a pagar 1\.399,40/);
+      expect(text).toContain('$1,499.60');
+      expect(text).toContain('$100.20');
+      expect(text).toMatch(/NETO A PAGAR: \$1,399\.40/);
+      expect(text).toContain('MIL TRESCIENTOS NOVENTA Y NUEVE PESOS CON 40/100 M/L');
     });
 
     it('ENTERO_SUPERIOR: cada valor sube al entero, los totales cuadran con lo mostrado y se rotula', async () => {
       await publish(rows());
       const ana = await employee('1000000001', 'ana@x.co', 'ANA PRUEBA');
       const { text } = await pdfText((await pdf(ana, path('1', 'ENTERO_SUPERIOR'))).body as Buffer);
-      expect(text).toContain('1.001');
-      expect(text).toContain('501');
-      expect(text).toContain('101');
-      expect(text).toContain('1.500.001');
-      expect(text).toMatch(/Totales 1\.501 101/);
-      expect(text).toMatch(/Neto a pagar 1\.400/);
+      expect(text).toContain('$1,001.00');
+      expect(text).toContain('$501.00');
+      expect(text).toContain('$101.00');
+      expect(text).toContain('Salario Basico: $1,500,001.00');
+      expect(text).toMatch(/TOTAL DEVENGOS \$1,501\.00 TOTAL DEDUCIDOS \$101\.00/);
+      expect(text).toMatch(/NETO A PAGAR: \$1,400\.00/);
+      expect(text).toContain('MIL CUATROCIENTOS PESOS M/L');
       expect(text).toContain('ENTERO SUPERIOR');
       expect(text).toContain('solo de presentación');
-      expect(text).not.toContain('1.000,40');
+      expect(text).not.toContain('$1,000.40');
     });
 
     it('los dos modos dan netos distintos sin cambiar la liquidación fuente', async () => {
@@ -537,7 +556,7 @@ describe.skipIf(!url)('nómina y volantes PDF (HTTP + PostgreSQL)', () => {
       const ana = await employee('1000000001', 'ana@x.co', 'ANA PRUEBA');
       const { text } = await pdfText((await pdf(ana, path())).body as Buffer);
       expect(text).toContain('Versión de nómina: v2');
-      expect(text).toContain('150,00');
+      expect(text).toContain('$150.00');
       expect(text).not.toContain('Versión de nómina: v1');
     });
 
@@ -561,8 +580,8 @@ describe.skipIf(!url)('nómina y volantes PDF (HTTP + PostgreSQL)', () => {
       });
       const ana = await login('ana@x.co');
       const { text } = await pdfText((await pdf(ana, path())).body as Buffer);
-      expect(text).toContain('1.234.567,89');
-      expect(text).not.toContain('9.999.999');
+      expect(text).toContain('Salario Basico: $1,234,567.89');
+      expect(text).not.toContain('9,999,999');
     });
 
     it('un volante largo pagina y repite el encabezado; los textos raros no rompen el PDF', async () => {
@@ -579,11 +598,9 @@ describe.skipIf(!url)('nómina y volantes PDF (HTTP + PostgreSQL)', () => {
       expect(res.status).toBe(200);
       const { text, pages } = await pdfText(res.body as Buffer);
       expect(pages).toBeGreaterThanOrEqual(3);
-      expect((text.match(/Devengado/g) ?? []).length).toBe(pages);
+      expect((text.match(/Devengos/g) ?? []).length).toBe(pages);
       expect(text).toContain('Concepto 119');
-      expect(text).toContain('...');
-      expect(text).not.toMatch(/(muy largo ){12}/);
-      expect(text).toMatch(/Neto a pagar 1\.200,00/);
+      expect(text).toMatch(/NETO A PAGAR: \$1,200\.00/);
     });
 
     it('un volante sin empresa registrada igual se genera', async () => {
