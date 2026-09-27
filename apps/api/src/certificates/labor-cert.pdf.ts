@@ -65,14 +65,21 @@ export function renderLaborCertificatePdf(
     const header = d.letterhead?.header ?? null;
     const footerImg = d.letterhead?.footer ?? null;
     const boxTop = 48;
-    const boxH = 42;
-    const boxX = 372;
-    const boxW = RIGHT - boxX;
+    // Ancho ajustado al texto más largo, en vez de un rótulo fijo que sobra de espacio.
+    const boxLines = [`Código: ${d.docCode}`, `Versión: ${d.docVersion}`];
+    if (d.docDate) boxLines.push(`Fecha: ${d.docDate}`);
+    doc.font('Helvetica-Bold').fontSize(8);
+    const boxTextW = Math.max(...boxLines.map((l) => doc.widthOfString(l)));
+    const boxPad = 10;
+    const boxW = Math.min(boxTextW + boxPad * 2 + 5, RIGHT - LEFT);
+    const lineH = 11.5;
+    const boxH = boxLines.length * lineH + 9;
     let ruleY = boxTop + boxH + 6;
     let usedImage = false;
+    // Con encabezado en imagen (el logo suele ir a la derecha, como en el membrete de GRALCO) el
+    // recuadro va a la izquierda, a la misma altura, para no superponerse a nada del membrete.
+    let boxX = LEFT;
     if (header) {
-      // Encabezado en imagen a todo el ancho; el recuadro de código y versión va encima, alineado
-      // con la misma banda superior que el logo, para que ambos se vean como un solo encabezado.
       try {
         doc.image(header.data, 0, 0, { width: PAGE_W });
         usedImage = true;
@@ -81,6 +88,7 @@ export function renderLaborCertificatePdf(
         // imagen ilegible: se usa el encabezado de texto
       }
     }
+    if (!usedImage) boxX = RIGHT - boxW; // sin imagen: logo y razón social a la izquierda, caja a la derecha
     if (!usedImage) {
       // Encabezado: logo y razón social a la izquierda, control del documento a la derecha.
       let textX = LEFT;
@@ -98,15 +106,20 @@ export function renderLaborCertificatePdf(
       doc.text(d.company.direccion, textX, doc.y + 2, { width: 250 });
     }
 
-    // Recuadro de control del documento: fondo claro y franja de acento para que se lea como una
-    // sola pieza con el encabezado, en vez de un rótulo suelto.
+    // Recuadro de control del documento: ajustado al texto y translúcido, para que se superponga al
+    // encabezado (imagen o logo) como una transparencia y no lo tape.
+    doc.save();
+    doc.fillOpacity(0.82);
     doc.roundedRect(boxX, boxTop, boxW, boxH, 3).fillAndStroke('#f4f7fb', '#c3ccd6');
     doc.roundedRect(boxX, boxTop, 4, boxH, 2).fill('#0b5cad');
-    doc.font('Helvetica-Bold').fontSize(8).fillColor('#0b3d6b');
-    doc.text(`Código: ${d.docCode}`, boxX + 11, boxTop + 7, { width: boxW - 17 });
-    doc.font('Helvetica').fontSize(8).fillColor('#333333');
-    doc.text(`Versión: ${d.docVersion}`, boxX + 11, boxTop + 19, { width: boxW - 17 });
-    if (d.docDate) doc.text(`Fecha: ${d.docDate}`, boxX + 11, boxTop + 31, { width: boxW - 17 });
+    doc.restore();
+    boxLines.forEach((line, i) => {
+      doc
+        .font(i === 0 ? 'Helvetica-Bold' : 'Helvetica')
+        .fontSize(8)
+        .fillColor(i === 0 ? '#0b3d6b' : '#333333');
+      doc.text(line, boxX + 11, boxTop + 6 + i * lineH, { width: boxW - 16, lineBreak: false });
+    });
     doc.fillColor('#111111');
 
     doc.moveTo(LEFT, ruleY).lineTo(RIGHT, ruleY).strokeColor('#222222').lineWidth(1).stroke();
