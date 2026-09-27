@@ -149,3 +149,36 @@ export async function resolveAreaManager(
     );
   return rows.length === 1 ? (rows[0]?.id ?? null) : null;
 }
+
+async function soleHolder(
+  db: Db,
+  role: 'AREA_DIRECTOR' | 'GENERAL_MANAGER',
+  cEmp: string,
+  cArea: string | null,
+  date: string,
+): Promise<string | null> {
+  const rows = await db
+    .select({ id: roleAssignments.accountId })
+    .from(roleAssignments)
+    .innerJoin(accounts, eq(accounts.id, roleAssignments.accountId))
+    .where(
+      and(
+        eq(roleAssignments.role, role),
+        eq(roleAssignments.companyCode, cEmp),
+        cArea === null ? sql`true` : eq(roleAssignments.areaCode, cArea),
+        lte(roleAssignments.validFrom, date),
+        or(isNull(roleAssignments.validTo), gte(roleAssignments.validTo, date)),
+        eq(accounts.status, 'ACTIVA'),
+      ),
+    );
+  const ids = [...new Set(rows.map((r) => r.id))];
+  return ids.length === 1 ? (ids[0] ?? null) : null;
+}
+
+/** Director del área: una sola persona con el rol AREA_DIRECTOR vigente para esa empresa y área. */
+export const resolveAreaDirector = (db: Db, cEmp: string, cArea: string, date: string) =>
+  soleHolder(db, 'AREA_DIRECTOR', cEmp, cArea, date);
+
+/** Gerente general de la empresa: una sola persona con el rol GENERAL_MANAGER vigente. */
+export const resolveGeneralManager = (db: Db, cEmp: string, date: string) =>
+  soleHolder(db, 'GENERAL_MANAGER', cEmp, null, date);

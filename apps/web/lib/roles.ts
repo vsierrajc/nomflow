@@ -9,6 +9,14 @@ export interface RoleView {
   approver: boolean;
 }
 
+/** Roles que deciden solicitudes de vacaciones y ven la pantalla de aprobaciones. */
+export const APPROVER_ROLES = [
+  'AREA_MANAGER',
+  'AREA_DIRECTOR',
+  'GENERAL_MANAGER',
+  'VACATION_FINAL_APPROVER',
+];
+
 const BASE: Record<string, { title: string; detail: string; approver: boolean }> = {
   EMPLOYEE: {
     title: 'Empleado',
@@ -18,6 +26,16 @@ const BASE: Record<string, { title: string; detail: string; approver: boolean }>
   AREA_MANAGER: {
     title: 'Jefe de área',
     detail: 'Persona responsable de un área de la empresa.',
+    approver: true,
+  },
+  AREA_DIRECTOR: {
+    title: 'Director de área',
+    detail: 'Aprueba las vacaciones del jefe de su área.',
+    approver: true,
+  },
+  GENERAL_MANAGER: {
+    title: 'Gerente general',
+    detail: 'Aprueba las vacaciones de los directores de área.',
     approver: true,
   },
   VACATION_FINAL_APPROVER: {

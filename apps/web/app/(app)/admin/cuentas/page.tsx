@@ -51,9 +51,14 @@ interface Manager {
 }
 
 const PAGE_SIZE = 25;
+/** Roles con alcance de empresa, y los que además lo tienen de área. */
+const AREA_ROLES = ['AREA_MANAGER', 'AREA_DIRECTOR'];
+const COMPANY_ROLES = [...AREA_ROLES, 'VACATION_FINAL_APPROVER', 'GENERAL_MANAGER'];
 const ROLE_LABELS: Record<string, string> = {
   EMPLOYEE: 'Empleado',
   AREA_MANAGER: 'Jefe de área',
+  AREA_DIRECTOR: 'Director de área',
+  GENERAL_MANAGER: 'Gerente general',
   VACATION_FINAL_APPROVER: 'Aprobador final de vacaciones',
   CERTIFICATE_APPROVER: 'Aprobador de certificados',
   HR_ADMIN: 'Administrador de Gestión Humana',
@@ -276,16 +281,15 @@ function RolesDialog({ account, onClose }: { account: Account; onClose: () => vo
     const v = (k: string) => String(f.get(k) ?? '').trim();
     setError(null);
     setOk(null);
-    if ((role === 'AREA_MANAGER' || role === 'VACATION_FINAL_APPROVER') && !cEmp)
-      return setError('Elija la empresa.');
-    if (role === 'AREA_MANAGER' && !areaCode) return setError('Elija el área de la lista.');
+    if (COMPANY_ROLES.includes(role) && !cEmp) return setError('Elija la empresa.');
+    if (AREA_ROLES.includes(role) && !areaCode) return setError('Elija el área de la lista.');
     const body: Record<string, string | null> = {
       role,
       validFrom: v('validFrom') || today(),
       validTo: v('validTo') || null,
     };
-    if (role === 'VACATION_FINAL_APPROVER') body.cEmp = cEmp;
-    if (role === 'AREA_MANAGER') {
+    if (role === 'VACATION_FINAL_APPROVER' || role === 'GENERAL_MANAGER') body.cEmp = cEmp;
+    if (AREA_ROLES.includes(role)) {
       body.cEmp = cEmp;
       body.areaCode = areaCode;
     }
@@ -443,7 +447,7 @@ function RolesDialog({ account, onClose }: { account: Account; onClose: () => vo
               onChange={setRole}
               options={roleOptions}
             />
-            {role === 'AREA_MANAGER' || role === 'VACATION_FINAL_APPROVER' ? (
+            {COMPANY_ROLES.includes(role) ? (
               <SelectField
                 label="Empresa"
                 name="cEmp"
@@ -456,7 +460,7 @@ function RolesDialog({ account, onClose }: { account: Account; onClose: () => vo
                 required
               />
             ) : null}
-            {role === 'AREA_MANAGER' ? (
+            {AREA_ROLES.includes(role) ? (
               <SelectField
                 label="Área"
                 name="areaCode"

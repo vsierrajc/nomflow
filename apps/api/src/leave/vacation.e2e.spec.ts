@@ -423,7 +423,7 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
     await request(srv()).get('/me/vacations').expect(401);
     await request(srv()).post(`/approvals/vacations/final/${id}/approve`).expect(401);
 
-    // el jefe pide sus propias vacaciones: no puede aprobarlas
+    // el jefe pide sus propias vacaciones: no las aprueba él; sin director del área no hay quién decida
     const [pm] = await db
       .insert(progVac)
       .values({
@@ -435,8 +435,69 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
         disp: 15,
       })
       .returning({ id: progVac.id });
-    const own = await submit('2026-05-04', [{ progVacId: pm?.id ?? '', days: 2 }], mgr).expect(201);
-    await send(mgr, 'post', `/approvals/vacations/manager/${own.body.id}/approve`).expect(403);
+    await submit('2026-05-04', [{ progVacId: pm?.id ?? '', days: 2 }], mgr).expect(422);
+  });
+
+  it('aprobación jerárquica: jefe → director → gerente general, y el gerente general se autoaprueba', async () => {
+    const dir = await person('700', 'd@x.co', [{ role: 'AREA_DIRECTOR', area: true }]);
+    const gm = await person('800', 'g@x.co', [{ role: 'GENERAL_MANAGER', company: 'GA' }], '99999');
+    const pv = async (nIde: string) =>
+      (
+        await db
+          .insert(progVac)
+          .values({
+            nIde,
+            nCont: '1',
+            perIni: '2025-01-01',
+            perFin: '2025-12-31',
+            dias: 15,
+            disp: 15,
+          })
+          .returning({ id: progVac.id })
+      )[0]?.id ?? '';
+    const first = async (id: string) =>
+      (await db.select().from(vacationRequests).where(eq(vacationRequests.id, id)))[0];
+
+    // empleado → jefe de área
+    const e = await submit('2026-03-02', [{ progVacId: p1, days: 1 }]).expect(201);
+    expect((await first(e.body.id))?.managerAccountId).toBe(mgr.id);
+    expect((await first(e.body.id))?.firstApproverRole).toBe('AREA_MANAGER');
+
+    // jefe → director del área: el director la ve y la aprueba; el jefe no puede
+    const m = await submit('2026-05-04', [{ progVacId: await pv('200'), days: 2 }], mgr).expect(
+      201,
+    );
+    expect((await first(m.body.id))?.managerAccountId).toBe(dir.id);
+    expect((await first(m.body.id))?.firstApproverRole).toBe('AREA_DIRECTOR');
+    await send(mgr, 'post', `/approvals/vacations/manager/${m.body.id}/approve`).expect(404);
+    const inbox = await send(dir, 'get', '/approvals/vacations/manager').expect(200);
+    expect(inbox.body).toHaveLength(1);
+    await send(dir, 'post', `/approvals/vacations/manager/${m.body.id}/approve`).expect(200);
+    expect(await status(m.body.id)).toBe('PENDIENTE_FINAL');
+    await send(fin, 'post', `/approvals/vacations/final/${m.body.id}/approve`).expect(200);
+
+    // director → gerente general
+    const d = await submit('2026-06-01', [{ progVacId: await pv('700'), days: 2 }], dir).expect(
+      201,
+    );
+    expect((await first(d.body.id))?.managerAccountId).toBe(gm.id);
+    expect((await first(d.body.id))?.firstApproverRole).toBe('GENERAL_MANAGER');
+    await send(dir, 'post', `/approvals/vacations/manager/${d.body.id}/approve`).expect(404);
+    await send(gm, 'post', `/approvals/vacations/manager/${d.body.id}/approve`).expect(200);
+    expect(await status(d.body.id)).toBe('PENDIENTE_FINAL');
+
+    // gerente general: su propia aprobación queda registrada y pasa a la aprobación final
+    const g = await submit('2026-07-06', [{ progVacId: await pv('800'), days: 2 }], gm).expect(201);
+    expect(await status(g.body.id)).toBe('PENDIENTE_FINAL');
+    const acts = await db
+      .select()
+      .from(vacationActions)
+      .where(eq(vacationActions.requestId, g.body.id))
+      .orderBy(vacationActions.at);
+    expect(acts.map((a) => a.action)).toEqual(['ENVIAR', 'APROBAR_JEFE']);
+    expect(acts[1]?.comment).toContain('Autoaprobación del gerente general');
+    await send(fin, 'post', `/approvals/vacations/final/${g.body.id}/approve`).expect(200);
+    expect(await status(g.body.id)).toBe('APROBADA');
   });
 
   it('el aprobador final es por empresa: solo ve y firma las solicitudes de sus empresas', async () => {
