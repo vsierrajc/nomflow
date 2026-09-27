@@ -64,27 +64,23 @@ export function renderLaborCertificatePdf(
 
     const header = d.letterhead?.header ?? null;
     const footerImg = d.letterhead?.footer ?? null;
-    let ruleY = 116;
-    let boxTop = 48;
-    let boxX = 372;
-    let boxW = RIGHT - boxX;
+    const boxTop = 48;
+    const boxH = 42;
+    const boxX = 372;
+    const boxW = RIGHT - boxX;
+    let ruleY = boxTop + boxH + 6;
+    let usedImage = false;
     if (header) {
-      // Encabezado en imagen a todo el ancho; el código y la versión van debajo, a la derecha.
-      let drawn = false;
+      // Encabezado en imagen a todo el ancho; el recuadro de código y versión va encima, alineado
+      // con la misma banda superior que el logo, para que ambos se vean como un solo encabezado.
       try {
         doc.image(header.data, 0, 0, { width: PAGE_W });
-        drawn = true;
+        usedImage = true;
+        ruleY = Math.max(header.heightPt, boxTop + boxH) + 6;
       } catch {
         // imagen ilegible: se usa el encabezado de texto
       }
-      if (drawn) {
-        boxTop = header.heightPt + 6;
-        boxX = 372;
-        boxW = RIGHT - boxX;
-        ruleY = boxTop + 46;
-      }
     }
-    const usedImage = header !== null && boxTop !== 48;
     if (!usedImage) {
       // Encabezado: logo y razón social a la izquierda, control del documento a la derecha.
       let textX = LEFT;
@@ -102,12 +98,16 @@ export function renderLaborCertificatePdf(
       doc.text(d.company.direccion, textX, doc.y + 2, { width: 250 });
     }
 
-    doc.rect(boxX, boxTop, boxW, 40).strokeColor('#888888').lineWidth(0.6).stroke();
-    doc.font('Helvetica-Bold').fontSize(8).fillColor('#111111');
-    doc.text(`Código: ${d.docCode}`, boxX + 6, boxTop + 6, { width: boxW - 12 });
-    doc.font('Helvetica').fontSize(8);
-    doc.text(`Versión: ${d.docVersion}`, boxX + 6, boxTop + 18, { width: boxW - 12 });
-    if (d.docDate) doc.text(`Fecha: ${d.docDate}`, boxX + 6, boxTop + 30, { width: boxW - 12 });
+    // Recuadro de control del documento: fondo claro y franja de acento para que se lea como una
+    // sola pieza con el encabezado, en vez de un rótulo suelto.
+    doc.roundedRect(boxX, boxTop, boxW, boxH, 3).fillAndStroke('#f4f7fb', '#c3ccd6');
+    doc.roundedRect(boxX, boxTop, 4, boxH, 2).fill('#0b5cad');
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('#0b3d6b');
+    doc.text(`Código: ${d.docCode}`, boxX + 11, boxTop + 7, { width: boxW - 17 });
+    doc.font('Helvetica').fontSize(8).fillColor('#333333');
+    doc.text(`Versión: ${d.docVersion}`, boxX + 11, boxTop + 19, { width: boxW - 17 });
+    if (d.docDate) doc.text(`Fecha: ${d.docDate}`, boxX + 11, boxTop + 31, { width: boxW - 17 });
+    doc.fillColor('#111111');
 
     doc.moveTo(LEFT, ruleY).lineTo(RIGHT, ruleY).strokeColor('#222222').lineWidth(1).stroke();
 
