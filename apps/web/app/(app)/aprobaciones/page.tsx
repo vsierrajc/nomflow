@@ -200,7 +200,9 @@ function Inbox({ mode }: { mode: Mode }) {
 
 export default function ApprovalsPage() {
   const { profile } = useAdmin();
-  const isManager = profile.roles.some((r) => r.role === 'AREA_MANAGER');
+  const isManager = profile.roles.some((r) =>
+    ['AREA_MANAGER', 'AREA_DIRECTOR', 'GENERAL_MANAGER'].includes(r.role),
+  );
   const isFinal = profile.roles.some((r) => r.role === 'VACATION_FINAL_APPROVER');
   const [mode, setMode] = useState<Mode>(isManager ? 'manager' : 'final');
   // Los permisos solo los decide el jefe de área; el aprobador final no interviene.

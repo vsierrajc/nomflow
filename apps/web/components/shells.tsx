@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '@/lib/api';
 import { isAdmin } from '@/lib/admin';
-import { displayName } from '@/lib/roles';
+import { APPROVER_ROLES, displayName } from '@/lib/roles';
 import type { Profile } from '@/lib/use-profile';
 
 export function BrandMark() {
@@ -164,7 +164,7 @@ function navFor(profile: Profile): NavItem[] {
     },
     { href: '/cuenta/clave', label: 'Mi cuenta', match: (p) => p.startsWith('/cuenta') },
   ];
-  if (profile.roles.some((r) => ['AREA_MANAGER', 'VACATION_FINAL_APPROVER'].includes(r.role)))
+  if (profile.roles.some((r) => APPROVER_ROLES.includes(r.role)))
     items.push({
       href: '/aprobaciones',
       label: 'Aprobaciones',

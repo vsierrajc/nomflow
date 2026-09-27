@@ -30,6 +30,8 @@ const GrantDto = z.object({
   role: z.enum([
     'EMPLOYEE',
     'AREA_MANAGER',
+    'AREA_DIRECTOR',
+    'GENERAL_MANAGER',
     'VACATION_FINAL_APPROVER',
     'CERTIFICATE_APPROVER',
     'HR_ADMIN',

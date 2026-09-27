@@ -440,7 +440,7 @@ export class MeVacationsController {
 /** Bandeja del jefe de área: solo solicitudes que le fueron asignadas y solo con el rol vigente. */
 @Controller('approvals/vacations/manager')
 @UseGuards(SessionGuard, RolesGuard)
-@Roles('AREA_MANAGER')
+@Roles('AREA_MANAGER', 'AREA_DIRECTOR', 'GENERAL_MANAGER')
 export class ManagerVacationsController {
   constructor(@Inject(DB) private readonly db: Db) {}
 

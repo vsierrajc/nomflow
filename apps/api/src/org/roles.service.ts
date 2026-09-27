@@ -92,12 +92,12 @@ export async function grantRole(
     .where(eq(accounts.id, targetId));
   if (!target) return fail('ACCOUNT_NOT_FOUND');
 
-  if (input.role === 'AREA_MANAGER') {
+  if (input.role === 'AREA_MANAGER' || input.role === 'AREA_DIRECTOR') {
     if (!input.cEmp || !input.areaCode) return fail('SCOPE_REQUIRED');
     if (!(await areaExists(db, input.cEmp, input.areaCode))) return fail('AREA_NOT_FOUND');
   }
-  if (input.role === 'VACATION_FINAL_APPROVER') {
-    // El aprobador final es por empresa: sin empresa no podría aprobar nada.
+  if (input.role === 'VACATION_FINAL_APPROVER' || input.role === 'GENERAL_MANAGER') {
+    // El aprobador final y el gerente general son por empresa: sin empresa no podría aprobar nada.
     if (!input.cEmp) return fail('SCOPE_REQUIRED');
     const [company] = await db
       .select({ id: companies.id })

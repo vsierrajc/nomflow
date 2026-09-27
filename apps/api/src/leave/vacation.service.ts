@@ -12,8 +12,12 @@ import {
   vacationRevisionAllocations,
   vacationRevisions,
 } from '../db/schema';
-import { activeCompaniesForRole, hasActiveRole } from '../auth/roles';
-import { resolveAreaManager } from '../org/area-managers.service';
+import { activeCompaniesForRole, hasActiveRole, type RoleName } from '../auth/roles';
+import {
+  resolveAreaDirector,
+  resolveAreaManager,
+  resolveGeneralManager,
+} from '../org/area-managers.service';
 import { PlanError, hashPlan, planLeave, prepareCalendars, type Allocation } from './leave-plan';
 import { internalState } from './prog-vac.service';
 
@@ -178,6 +182,36 @@ async function insertRevision(
   return rev.id;
 }
 
+type FirstApprover = {
+  accountId: string;
+  role: 'AREA_MANAGER' | 'AREA_DIRECTOR' | 'GENERAL_MANAGER';
+  /** El gerente general se autoaprueba (único caso en que quien pide y quien aprueba coinciden). */
+  self?: boolean;
+};
+
+/**
+ * Quién decide el primer paso: el jefe de área aprueba a su equipo; al jefe lo aprueba el director del
+ * área; al director, el gerente general; y el gerente general se autoaprueba. Todos pasan después por
+ * la aprobación final de Gestión Humana.
+ */
+async function firstApprover(
+  db: Db,
+  accountId: string,
+  cEmp: string,
+  cArea: string,
+  today: string,
+): Promise<FirstApprover | null> {
+  const general = await resolveGeneralManager(db, cEmp, today);
+  if (general === accountId) return { accountId, role: 'GENERAL_MANAGER', self: true };
+  const director = await resolveAreaDirector(db, cEmp, cArea, today);
+  if (director === accountId)
+    return general ? { accountId: general, role: 'GENERAL_MANAGER' } : null;
+  const manager = await resolveAreaManager(db, cEmp, cArea, today);
+  if (manager === accountId)
+    return director ? { accountId: director, role: 'AREA_DIRECTOR' } : null;
+  return manager ? { accountId: manager, role: 'AREA_MANAGER' } : null;
+}
+
 /** El empleado envía la solicitud y acepta con ello las fechas calculadas (revisión 1). */
 export async function submitRequest(
   db: Db,
@@ -189,8 +223,8 @@ export async function submitRequest(
   await prepareCalendars(db, accountId, input.start, input.allocations);
   const plan = await planLeave(db, c, input.start, input.allocations);
   const today = new Date().toISOString().slice(0, 10);
-  const manager = await resolveAreaManager(db, c.cEmp, c.cArea, today);
-  if (!manager) {
+  const approver = await firstApprover(db, accountId, c.cEmp, c.cArea, today);
+  if (!approver) {
     await audit(db, accountId, 'VACATION_SUBMIT', null, 'NO_MANAGER');
     throw new VacationError('NO_MANAGER');
   }
@@ -205,12 +239,25 @@ export async function submitRequest(
         nCont: c.nCont,
         cEmp: c.cEmp ?? '',
         cArea: c.cArea ?? '',
-        managerAccountId: manager,
+        managerAccountId: approver.accountId,
+        firstApproverRole: approver.role,
+        ...(approver.self ? { status: 'PENDIENTE_FINAL' } : {}),
       })
       .returning({ id: vacationRequests.id });
     if (!req) throw new Error('solicitud no creada');
     await insertRevision(tx, req.id, 1, plan, accountId, null);
     await record(tx, req.id, 1, accountId, 'ENVIAR', plan.contentHash);
+    if (approver.self)
+      // Caso especial: la solicitud del gerente general lleva solo su propia aprobación.
+      await record(
+        tx,
+        req.id,
+        1,
+        accountId,
+        'APROBAR_JEFE',
+        plan.contentHash,
+        'Autoaprobación del gerente general',
+      );
     return req.id;
   });
   await audit(db, accountId, 'VACATION_SUBMIT', id, 'SUCCESS');
@@ -414,7 +461,7 @@ async function transition(
 async function asManager(db: Runner, actor: string, req: typeof vacationRequests.$inferSelect) {
   if (req.managerAccountId !== actor) throw new VacationError('NOT_FOUND');
   if (req.accountId === actor) throw new VacationError('SELF_APPROVAL');
-  if (!(await hasActiveRole(db as Db, actor, ['AREA_MANAGER'])))
+  if (!(await hasActiveRole(db as Db, actor, [req.firstApproverRole as RoleName])))
     throw new VacationError('FORBIDDEN');
 }
 

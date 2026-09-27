@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Loading } from '@/components/ui';
 import { isAdmin } from '@/lib/admin';
 import { api } from '@/lib/api';
-import { displayName, roleView } from '@/lib/roles';
+import { APPROVER_ROLES, displayName, roleView } from '@/lib/roles';
 import { useReadyProfile } from '@/lib/use-profile';
 
 type Vouchers = { status: 'loading' } | { status: 'error' } | { status: 'ready'; count: number };
@@ -27,9 +27,7 @@ export function HomeView() {
   }, [loadVouchers]);
 
   const roles = profile.roles.map(roleView);
-  const vacationApprover = profile.roles.some((r) =>
-    ['AREA_MANAGER', 'VACATION_FINAL_APPROVER'].includes(r.role),
-  );
+  const vacationApprover = profile.roles.some((r) => APPROVER_ROLES.includes(r.role));
 
   return (
     <>

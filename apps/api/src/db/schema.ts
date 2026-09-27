@@ -32,6 +32,8 @@ export const accountStatus = pgEnum('account_status', [
 export const roleCode = pgEnum('role_code', [
   'EMPLOYEE',
   'AREA_MANAGER',
+  'AREA_DIRECTOR',
+  'GENERAL_MANAGER',
   'VACATION_FINAL_APPROVER',
   'CERTIFICATE_APPROVER',
   'HR_ADMIN',
@@ -585,6 +587,8 @@ export const vacationRequests = pgTable(
     managerAccountId: uuid('manager_account_id')
       .notNull()
       .references(() => accounts.id),
+    /** Rol con el que decide el primer paso: jefe de área, director de área o gerente general. */
+    firstApproverRole: text('first_approver_role').notNull().default('AREA_MANAGER'),
     /** PENDIENTE_JEFE, REVISION_EMPLEADO, PENDIENTE_FINAL, APROBADA, RECHAZADA, CANCELADA */
     status: text('status').notNull().default('PENDIENTE_JEFE'),
     currentRevision: integer('current_revision').notNull().default(1),
