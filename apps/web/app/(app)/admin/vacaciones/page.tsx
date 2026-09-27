@@ -9,6 +9,9 @@ import { NETWORK_ERROR } from '@/lib/api';
 import { useAdmin } from '@/lib/admin';
 
 type Estado = 'ACTIVA' | 'LIQUIDADA' | 'VENCIDA';
+type Source = 'MANUAL' | 'IMPORT' | 'AUTOMATICO';
+type SortBy = 'nombre' | 'nIde';
+type SortDir = 'asc' | 'desc';
 
 interface Period {
   id: string;
@@ -21,6 +24,7 @@ interface Period {
   disp: number;
   estado: Estado;
   estOrigen: string | null;
+  source: Source;
   version: number;
 }
 
@@ -44,9 +48,48 @@ const ESTADOS: { value: Estado | ''; label: string }[] = [
   { value: 'VENCIDA', label: 'Vencida' },
   { value: 'LIQUIDADA', label: 'Liquidada' },
 ];
+/** Aviso visual cuando falten pocos días para el fin del período (o ya haya pasado). */
+const SOON_DAYS = 30;
+
+const SOURCE_LABEL: Record<Source, string> = {
+  MANUAL: 'Manual',
+  IMPORT: 'Excel',
+  AUTOMATICO: 'Automática',
+};
 
 function label(e: { nIde: string; nombre: string | null }): string {
   return `${e.nIde} - ${e.nombre ?? 'Sin nombre'}`;
+}
+
+/** Días de calendario entre hoy y el fin del período; negativo si ya pasó. */
+function daysUntil(perFin: string): number {
+  const end = new Date(`${perFin}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((end.getTime() - today.getTime()) / 86_400_000);
+}
+
+function SortHeader({
+  label: text,
+  active,
+  dir,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  dir: SortDir;
+  onClick: () => void;
+}) {
+  return (
+    <th scope="col" aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button type="button" className="sort-header" onClick={onClick}>
+        {text}
+        <span aria-hidden="true" className="sort-arrow">
+          {active ? (dir === 'asc' ? '▲' : '▼') : '↕'}
+        </span>
+      </button>
+    </th>
+  );
 }
 
 export default function VacationPeriodsPage() {
@@ -59,6 +102,8 @@ export default function VacationPeriodsPage() {
   const [estado, setEstado] = useState<Estado | ''>('');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState<SortBy>('nIde');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [editing, setEditing] = useState<Period | null>(null);
   const [employees, setEmployees] = useState<EmployeeOption[] | null>(null);
   const [selected, setSelected] = useState('');
@@ -71,12 +116,14 @@ export default function VacationPeriodsPage() {
     if (q) params.set('q', q);
     if (estado) params.set('estado', estado);
     if (cEmp) params.set('cEmp', cEmp);
+    params.set('sortBy', sortBy);
+    params.set('sortDir', sortDir);
     const res = await call<Page>(`/admin/prog-vac?${params.toString()}`);
     if (res.status === 200 && res.data) {
       setData(res.data);
       setError(null);
     } else setError(NETWORK_ERROR);
-  }, [call, page, q, estado, cEmp]);
+  }, [call, page, q, estado, cEmp, sortBy, sortDir]);
 
   useEffect(() => {
     void load();
@@ -156,6 +203,25 @@ export default function VacationPeriodsPage() {
       await load();
     } else fail(res.status);
   }
+
+  function sortClick(col: SortBy) {
+    if (sortBy === col) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    else {
+      setSortBy(col);
+      setSortDir('asc');
+    }
+    setPage(1);
+  }
+
+  const exportUrl = (() => {
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (estado) params.set('estado', estado);
+    if (cEmp && companies.includes(cEmp)) params.set('cEmp', cEmp);
+    params.set('sortBy', sortBy);
+    params.set('sortDir', sortDir);
+    return `/api/admin/prog-vac/export?${params.toString()}`;
+  })();
 
   async function remove(p: Period) {
     setError(null);
@@ -328,6 +394,9 @@ export default function VacationPeriodsPage() {
         <button type="submit" className="secondary">
           Buscar
         </button>
+        <a className="button secondary" href={exportUrl} download>
+          Exportar a Excel
+        </a>
       </form>
 
       {data === null ? (
@@ -345,63 +414,87 @@ export default function VacationPeriodsPage() {
             <table>
               <thead>
                 <tr>
-                  <th scope="col">Empleado</th>
+                  <SortHeader
+                    label="Empleado"
+                    active={sortBy === 'nombre'}
+                    dir={sortDir}
+                    onClick={() => sortClick('nombre')}
+                  />
+                  <SortHeader
+                    label="Identificación"
+                    active={sortBy === 'nIde'}
+                    dir={sortDir}
+                    onClick={() => sortClick('nIde')}
+                  />
                   <th scope="col">Contrato</th>
                   <th scope="col">Período</th>
                   <th scope="col">Días</th>
                   <th scope="col">Disponibles</th>
                   <th scope="col">Estado</th>
+                  <th scope="col">Origen</th>
                   <th scope="col">Versión</th>
                   <th scope="col">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {data.items.map((p) => (
-                  <tr key={p.id}>
-                    <td>
-                      <strong>{p.nombre ?? 'Sin nombre'}</strong>
-                      <span className="muted"> - {p.nIde}</span>
-                    </td>
-                    <td>{p.nCont}</td>
-                    <td>
-                      {p.perIni} a {p.perFin}
-                    </td>
-                    <td className="num">{p.dias}</td>
-                    <td className="num">{p.disp}</td>
-                    <td>
-                      <Badge
-                        kind={
-                          p.estado === 'ACTIVA' ? 'ok' : p.estado === 'VENCIDA' ? 'warn' : 'off'
-                        }
-                      >
-                        {p.estado === 'ACTIVA'
-                          ? 'Activa'
-                          : p.estado === 'VENCIDA'
-                            ? 'Vencida'
-                            : 'Liquidada'}
-                      </Badge>
-                    </td>
-                    <td className="num">{p.version}</td>
-                    <td>
-                      <div className="row-actions">
-                        <IconButton
-                          icon="edit"
-                          label={`Ajustar período ${p.perIni} a ${p.perFin} de ${p.nombre ?? p.nIde}`}
-                          onClick={() => setEditing(p)}
-                        />
-                        <IconButton
-                          icon="delete"
-                          variant="danger"
-                          label={`Dar de baja período ${p.perIni} a ${p.perFin} de ${p.nombre ?? p.nIde}`}
-                          onClick={() => void remove(p)}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {data.items.map((p) => {
+                  const left = daysUntil(p.perFin);
+                  const soon = p.estado === 'ACTIVA' && left <= SOON_DAYS;
+                  return (
+                    <tr key={p.id} className={soon ? 'row-warn' : ''}>
+                      <td>
+                        <strong>{p.nombre ?? 'Sin nombre'}</strong>
+                      </td>
+                      <td>{p.nIde}</td>
+                      <td>{p.nCont}</td>
+                      <td>
+                        {p.perIni} a {p.perFin}
+                        {soon ? (
+                          <span className="muted" style={{ display: 'block' }}>
+                            {left >= 0 ? `Vence en ${left} días` : `Venció hace ${-left} días`}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="num">{p.dias}</td>
+                      <td className="num">{p.disp}</td>
+                      <td>
+                        <Badge
+                          kind={
+                            p.estado === 'ACTIVA' ? 'ok' : p.estado === 'VENCIDA' ? 'warn' : 'off'
+                          }
+                        >
+                          {p.estado === 'ACTIVA'
+                            ? 'Activa'
+                            : p.estado === 'VENCIDA'
+                              ? 'Vencida'
+                              : 'Liquidada'}
+                        </Badge>
+                      </td>
+                      <td>
+                        <span className="muted">{SOURCE_LABEL[p.source] ?? p.source}</span>
+                      </td>
+                      <td className="num">{p.version}</td>
+                      <td>
+                        <div className="row-actions">
+                          <IconButton
+                            icon="edit"
+                            label={`Ajustar período ${p.perIni} a ${p.perFin} de ${p.nombre ?? p.nIde}`}
+                            onClick={() => setEditing(p)}
+                          />
+                          <IconButton
+                            icon="delete"
+                            variant="danger"
+                            label={`Dar de baja período ${p.perIni} a ${p.perFin} de ${p.nombre ?? p.nIde}`}
+                            onClick={() => void remove(p)}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {data.items.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="muted">
+                    <td colSpan={10} className="muted">
                       No hay períodos que coincidan con el filtro.
                     </td>
                   </tr>

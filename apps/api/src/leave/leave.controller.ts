@@ -18,11 +18,13 @@ import {
   Put,
   Query,
   Req,
+  Res,
   ServiceUnavailableException,
   StreamableFile,
   UnprocessableEntityException,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { z } from 'zod';
 import { RecentAuthGuard, Roles, RolesGuard } from '../auth/guards';
 import { ADMIN_ROLES } from '../auth/roles';
@@ -43,11 +45,13 @@ import {
   adjustPeriod,
   createPeriod,
   deactivatePeriod,
+  exportPeriods,
   listAdjustments,
   listPeriods,
   myOpenPeriods,
   periodCompanies,
 } from './prog-vac.service';
+import { periodsWorkbook } from './prog-vac.export';
 import { HolidayApiError, getSettings, saveSettings, syncYear } from './holiday-api.service';
 import { archivedVacationRequestIds } from '../storage/archive.service';
 import { OBJECT_STORE, ObjectStoreError, type ObjectStore } from '../storage/object-store';
@@ -92,10 +96,14 @@ const AdjustDto = z.object({
   disp: z.number().int(),
   reason: z.string().trim().min(10).max(300),
 });
-const PeriodListDto = z.object({
+const PeriodFilterDto = z.object({
   q: z.string().trim().max(100).optional(),
   estado: z.enum(['ACTIVA', 'LIQUIDADA', 'VENCIDA']).optional(),
   cEmp: z.string().trim().max(30).optional(),
+  sortBy: z.enum(['nombre', 'nIde']).optional(),
+  sortDir: z.enum(['asc', 'desc']).optional(),
+});
+const PeriodListDto = PeriodFilterDto.extend({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
 });
@@ -248,6 +256,24 @@ export class AdminProgVacController {
   @Header('Cache-Control', 'no-store')
   companies() {
     return periodCompanies(this.db);
+  }
+
+  @Get('export')
+  @Header('Cache-Control', 'no-store')
+  async export(@Query() query: unknown, @Res({ passthrough: true }) res: Response) {
+    const dto = PeriodFilterDto.safeParse(query);
+    if (!dto.success) throw new BadRequestException();
+    const rows = await exportPeriods(this.db, dto.data);
+    const buf = await periodsWorkbook(rows);
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="periodos-vacaciones-${new Date().toISOString().slice(0, 10)}.xlsx"`,
+    );
+    return new StreamableFile(buf);
   }
 
   /** Lista de valores para el alta manual: empleados activos con su contrato vigente. */

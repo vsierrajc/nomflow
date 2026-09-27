@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import ExcelJS from 'exceljs';
 import { sql } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -207,6 +208,43 @@ describe.skipIf(!url)('festivos, PROG_VAC y cálculo previo (HTTP + PostgreSQL)'
       .set('Cookie', hr.cookie)
       .expect(200);
     expect(companies.body.sort()).toEqual(['GA', 'OT']);
+
+    // orden por nombre, descendente
+    const byNameDesc = await request(srv())
+      .get('/admin/prog-vac?sortBy=nombre&sortDir=desc')
+      .set('Cookie', hr.cookie)
+      .expect(200);
+    expect(byNameDesc.body.items.map((p: { nombre: string }) => p.nombre)).toEqual([
+      'LUIS PEREZ',
+      'ANA PEREZ',
+    ]);
+    // orden por cédula, descendente
+    const byIdeDesc = await request(srv())
+      .get('/admin/prog-vac?sortBy=nIde&sortDir=desc')
+      .set('Cookie', hr.cookie)
+      .expect(200);
+    expect(byIdeDesc.body.items.map((p: { nIde: string }) => p.nIde)).toEqual(['600', '500']);
+
+    // exportar a Excel respeta el mismo filtro y muestra el nombre, el estado y el origen
+    const xlsx = await request(srv())
+      .get('/admin/prog-vac/export?q=ana')
+      .set('Cookie', hr.cookie)
+      .buffer(true)
+      .parse((res, cb) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => cb(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+    expect(xlsx.headers['content-disposition']).toContain('periodos-vacaciones');
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(Buffer.from(xlsx.body as Buffer) as unknown as ExcelJS.Buffer);
+    const ws = wb.worksheets[0];
+    expect(ws?.getRow(1).getCell(2).value).toBe('Nombre');
+    expect(ws?.getRow(2).getCell(2).value).toBe('ANA PEREZ');
+    expect(ws?.getRow(2).getCell(8).value).toBe('Activa');
+    expect(ws?.getRow(2).getCell(9).value).toBe('Manual');
+    expect(ws?.rowCount).toBe(2); // encabezado + la única fila que coincide con "ana"
   });
 
   it('la lista de empleados del alta manual trae solo activos con su contrato vigente', async () => {
