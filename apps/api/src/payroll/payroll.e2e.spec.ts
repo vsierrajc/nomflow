@@ -241,27 +241,24 @@ describe.skipIf(!url)('nómina y volantes PDF (HTTP + PostgreSQL)', () => {
       expect(lines.filter((l) => l.dev === null)).toHaveLength(1);
     });
 
-    it('rechaza período o liquidación distintos a los declarados y N_LIQ vacío', async () => {
+    it('rechaza períodos inválidos, N_LIQ fuera de 1 a 9 y N_LIQ vacío', async () => {
       const up = await upload(
         await xlsx([
-          line({ PER: '202608' }),
-          line({ N_LIQ: 2 }),
+          line({ PER: '202613' }),
+          line({ PER: '2026' }),
+          line({ N_LIQ: 10 }),
           line({ N_LIQ: null }),
-          line({ N_LIQ: 3 }),
         ]),
       );
       expect(up.body.status).toBe('OBSERVADO');
       const rules = (await errorsOf(up.body.id)).map((e) => e.rule);
       expect(rules).toEqual(
         expect.arrayContaining([
-          'el período de la fila no coincide con el declarado para la carga',
-          'la liquidación de la fila no coincide con la declarada para la carga',
+          'PER debe ser AAAAMM válido',
           'valor obligatorio vacío',
-          'N_LIQ debe ser 1 o 2',
+          'N_LIQ debe ser un entero de 1 a 9',
         ]),
       );
-      expect((await apply(up.body.id)).status).toBe(409);
-      expect(await db.select().from(payrollVersions)).toHaveLength(0);
     });
 
     it('rechaza claves vacías, importes inválidos y salario negativo', async () => {
@@ -282,12 +279,12 @@ describe.skipIf(!url)('nómina y volantes PDF (HTTP + PostgreSQL)', () => {
       for (const secret of ['1,5', '1e3', '1.1234567', 'abc']) expect(dump).not.toContain(secret);
     });
 
-    it('marca para revisión un volante con SLRIO distintos y no elige uno', async () => {
+    it('un volante con SLRIO distintos no bloquea la carga: se advierte y se muestra el mayor', async () => {
       const up = await upload(
         await xlsx([line({ SLRIO: '1000000' }), line({ C_CON: '101', SLRIO: '1200000' })]),
       );
-      expect(up.body.status).toBe('OBSERVADO');
-      expect((await errorsOf(up.body.id))[0]?.rule).toContain('valores distintos de SLRIO');
+      expect(up.body.status).toBe('LISTO');
+      expect(up.body.stats.mixedSalary).toBe(1);
     });
 
     it('rechaza encabezados incorrectos, fórmulas, archivos vacíos y no-xlsx', async () => {
@@ -302,21 +299,92 @@ describe.skipIf(!url)('nómina y volantes PDF (HTTP + PostgreSQL)', () => {
       expect((await upload(Buffer.from('no es excel'))).status).toBe(400);
     });
 
-    it('valida el alcance declarado', async () => {
-      const buf = await xlsx([line()]);
-      expect((await upload(buf, { per: '202613' })).status).toBe(400);
-      expect((await upload(buf, { per: '2026' })).status).toBe(400);
-      expect((await upload(buf, { nLiq: '3' })).status).toBe(400);
-    });
-
     it('el mismo archivo o el mismo contenido no crean una segunda versión', async () => {
       const rows = [line(), line({ C_CON: '101', DEV: '5' })];
-      await publish(rows);
-      expect((await upload(await xlsx(rows))).status).toBe(409);
+      const file = await xlsx(rows);
+      const first = await upload(file);
+      expect((await apply(first.body.id)).status).toBe(200);
+      const same = await upload(file); // el mismo archivo, byte a byte
+      expect(same.status).toBe(409);
+      expect(same.body.code).toBe('DUPLICATE_FILE');
       const reordered = await upload(await xlsx([...rows].reverse(), NOMINA_COLUMNS, 'Otra hoja'));
-      expect(reordered.status).toBe(409);
-      expect(reordered.body.code).toBe('SAME_CONTENT');
+      expect(reordered.status).toBe(201); // archivo distinto: se valida...
+      const again = await apply(reordered.body.id); // ...pero no publica nada nuevo
+      expect(again.status).toBe(409);
+      expect(again.body.code).toBe('SAME_CONTENT');
       expect(await db.select().from(payrollVersions)).toHaveLength(1);
+    });
+
+    const NO_TERCERO = NOMINA_COLUMNS.filter((c) => c !== 'TERCERO');
+    const uploadPlain = async (buf: Buffer) =>
+      request(srv())
+        .post('/admin/imports/payroll')
+        .set('Cookie', hr.cookie)
+        .set('X-CSRF-Token', hr.csrf)
+        .field('sourceSystem', 'ERP')
+        .field('responsible', 'Nómina')
+        .attach('file', buf, { filename: 'NOMINA.xlsx' });
+
+    it('carga un archivo sin TERCERO con varios períodos y liquidaciones, sin declarar período ni N_LIQ', async () => {
+      const rows = [
+        line({ PER: '200003', N_LIQ: 1, C_CON: '001', DEV: 100, DED: 0 }),
+        line({ PER: '200003', N_LIQ: 1, C_CON: '002', DEV: 0, DED: 8 }),
+        line({ PER: '200003', N_LIQ: 2, C_CON: '001', DEV: 100, DED: 0 }),
+        line({ PER: '200004', N_LIQ: 3, C_CON: '001', DEV: 50, DED: 0 }),
+        line({ PER: '200004', N_LIQ: 7, C_CON: '003', DEV: 0, DED: 0 }),
+      ];
+      const up = await uploadPlain(await xlsx(rows, NO_TERCERO));
+      expect(up.status).toBe(201);
+      expect(up.body.status).toBe('LISTO');
+      expect(up.body.stats).toMatchObject({
+        scopes: 4,
+        perFrom: '200003',
+        perTo: '200004',
+        vouchers: 4,
+        totalDev: '250.000000',
+        totalDed: '8.000000',
+      });
+      expect((await apply(up.body.id)).status).toBe(200);
+      const versions = await db.select().from(payrollVersions);
+      expect(versions.map((v) => `${v.per}-${v.nLiq}:${v.status}`).sort()).toEqual([
+        '200003-1:PUBLICADA',
+        '200003-2:PUBLICADA',
+        '200004-3:PUBLICADA',
+        '200004-7:PUBLICADA',
+      ]);
+      const lines = await db.select().from(payrollLines);
+      // el 0 del lado que no aplica queda vacío; un concepto en cero en ambos se conserva como devengo de 0
+      const ded = lines.find((l) => l.cCon === '002');
+      expect(ded?.dev).toBeNull();
+      expect(Number(ded?.ded)).toBe(8);
+      const zero = lines.find((l) => l.cCon === '003');
+      expect(Number(zero?.dev)).toBe(0);
+      expect(zero?.ded).toBeNull();
+      expect(lines.filter((l) => l.cCon === '001').every((l) => l.ded === null)).toBe(true);
+    });
+
+    it('cada volante del archivo reemplaza al publicado y los demás de la liquidación se conservan', async () => {
+      await publish([
+        line({ N_IDE: '1000000001', NOMBRE: 'ANA', DEV: '100' }),
+        line({ N_IDE: '1000000002', NOMBRE: 'LUIS', DEV: '200' }),
+      ]);
+      // segundo archivo: solo Ana, con un valor corregido
+      await publish([line({ N_IDE: '1000000001', NOMBRE: 'ANA', DEV: '150' })]);
+      const versions = await db.select().from(payrollVersions).orderBy(payrollVersions.version);
+      expect(versions.map((v) => `${v.version}:${v.status}:${v.rowCount}`)).toEqual([
+        '1:REEMPLAZADA:2',
+        '2:PUBLICADA:2',
+      ]);
+      const current = versions[1];
+      const lines = await db
+        .select()
+        .from(payrollLines)
+        .where(sql`version_id = ${current?.id ?? ''}`);
+      expect(lines.map((l) => [l.nIde, Number(l.dev)]).sort()).toEqual([
+        ['1000000001', 150],
+        ['1000000002', 200],
+      ]);
+      expect(Number(current?.totalDev)).toBe(350);
     });
 
     it('una corrección crea la versión 2, deja una sola publicada y conserva la anterior', async () => {
@@ -407,6 +475,34 @@ describe.skipIf(!url)('nómina y volantes PDF (HTTP + PostgreSQL)', () => {
     ];
     const path = (contrato = '1', mode = 'SIN_AJUSTE') =>
       `/me/payroll/202609/1/${encodeURIComponent(contrato)}/pdf?mode=${mode}`;
+
+    it('«Salario Basico» es el SLRIO de esa liquidación y, si hay varios, el mayor; nunca el del perfil', async () => {
+      await db.insert(employeeSnapshots).values({
+        nIde: '1000000001',
+        nCont: '1',
+        email: 'ana@x.co',
+        est: 'V',
+        nombre: 'ANA PRUEBA',
+        cEmp: 'GA',
+        sAct: '9999999',
+      });
+      await db.insert(accounts).values({
+        nIde: '1000000001',
+        email: 'ana@x.co',
+        passwordHash: await hashPassword(PASSWORD),
+        status: 'ACTIVA',
+        mustChangePassword: false,
+      });
+      await publish([
+        line({ C_CON: '001', SLRIO: '1832503', DEV: '100' }),
+        line({ C_CON: '103', SLRIO: '1753591', DEV: null, DED: '4' }),
+      ]);
+      const ana = await login('ana@x.co');
+      const { text } = await pdfText((await pdf(ana, path())).body as Buffer);
+      expect(text).toContain('Salario Basico: $1,832,503.00');
+      expect(text).not.toContain('9,999,999');
+      expect(text).not.toContain('1,753,591');
+    });
 
     it('lista solo los volantes propios y sugiere el modo de la empresa', async () => {
       await publish([...rows(), line({ N_IDE: '1000000002', NOMBRE: 'LUIS' })]);

@@ -46,8 +46,6 @@ const MAX_BYTES = Number(process.env.IMPORT_MAX_BYTES ?? 10 * 1024 * 1024);
 const MAX_ROWS = Number(process.env.IMPORT_MAX_ROWS ?? 20000);
 
 const PayrollUploadDto = z.object({
-  per: z.string().regex(/^\d{6}$/),
-  nLiq: z.enum(['1', '2']).transform(Number),
   sheet: z.string().trim().min(1).max(100).optional(),
   sourceSystem: z.string().trim().min(1).max(100),
   responsible: z.string().trim().min(1).max(150),
@@ -180,8 +178,6 @@ export class ImportsController {
         buffer: file.buffer,
         fileName: file.originalname,
         sheet: dto.data.sheet,
-        per: dto.data.per,
-        nLiq: dto.data.nLiq,
         sourceSystem: dto.data.sourceSystem,
         responsible: dto.data.responsible,
         maxRows: MAX_ROWS,

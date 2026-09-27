@@ -39,7 +39,7 @@ const MONTHS = [
   'diciembre',
 ];
 const label = (per: string, nLiq: number) =>
-  `${MONTHS[Number(per.slice(4)) - 1] ?? per.slice(4)} de ${per.slice(0, 4)} - ${nLiq === 1 ? 'primera' : 'segunda'} quincena`;
+  `${MONTHS[Number(per.slice(4)) - 1] ?? per.slice(4)} de ${per.slice(0, 4)} - ${nLiq === 1 ? 'primera quincena' : nLiq === 2 ? 'segunda quincena' : `liquidación ${nLiq}`}`;
 const money = (v: string) =>
   new Intl.NumberFormat('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 6 }).format(
     Number(v),

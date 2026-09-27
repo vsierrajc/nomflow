@@ -482,11 +482,10 @@ test.describe('importaciones y volantes', () => {
 
     await page.goto('/admin/importaciones');
     await page.getByRole('tab', { name: 'Nómina' }).click();
-    const section = page.getByRole('region', {
-      name: /Importar una liquidación de nómina desde Excel/,
-    });
-    await section.getByLabel('Período (AAAAMM)').fill(per);
-    await section.getByLabel('Liquidación (1 o 2)').fill('1');
+    const section = page.getByRole('region', { name: /Importar nómina desde Excel/ });
+    // el período y la liquidación salen de las columnas del archivo: no se piden en la pantalla
+    await expect(section.getByLabel('Período (AAAAMM)')).toHaveCount(0);
+    await expect(section.getByLabel('Liquidación (1 o 2)')).toHaveCount(0);
     const rows = [
       [
         per,
@@ -538,6 +537,9 @@ test.describe('importaciones y volantes', () => {
       .getByLabel('Archivo Excel (.xlsx)')
       .setInputFiles(xlsxFile('NOMINA-reexportada.xlsx', reordered));
     await section.getByRole('button', { name: 'Validar archivo' }).click();
+    // el contenido repetido se detecta al aplicar: la vista previa no sabe qué hay publicado en cada liquidación
+    await expect(section.getByText('Lista para aplicar')).toBeVisible();
+    await section.getByRole('button', { name: 'Aplicar importación' }).click();
     await expect(section.getByText('Ese contenido ya está publicado')).toBeVisible();
 
     await page.goto('/admin/nomina');

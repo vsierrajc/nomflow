@@ -51,6 +51,13 @@ const STAT_LABELS: Record<string, string> = {
   unknownConcepts: 'Conceptos sin catálogo',
   withoutEmployee: 'Personas sin registro de empleado',
   per: 'Período',
+  scopes: 'Liquidaciones (período + N_LIQ)',
+  perFrom: 'Primer período',
+  perTo: 'Último período',
+  mixedSalary: 'Volantes con más de un SLRIO (se muestra el mayor)',
+  republished: 'Liquidaciones ya publicadas que se actualizan',
+  scopesPublished: 'Liquidaciones publicadas',
+  scopesUnchanged: 'Liquidaciones sin cambios',
   nLiq: 'Liquidación',
   cEmp: 'Empresa',
   units: 'Unidades',
@@ -139,7 +146,9 @@ export function ImportPanel({
     if (!batch) return;
     setBusy(true);
     setError(null);
-    const res = await call<Batch>(`/admin/imports/${batch.id}/apply`, { method: 'POST' });
+    const res = await call<Batch & { code?: string }>(`/admin/imports/${batch.id}/apply`, {
+      method: 'POST',
+    });
     setBusy(false);
     if (res.status === 200 && res.data) {
       setBatch(res.data);
@@ -147,7 +156,9 @@ export function ImportPanel({
       onApplied?.();
     } else if (res.status === 409)
       setError(
-        'Esta importación ya no se puede aplicar (cambió el estado o el contenido ya está publicado).',
+        res.data?.code === 'SAME_CONTENT'
+          ? 'Ese contenido ya está publicado: no hay nada nuevo que aplicar.'
+          : 'Esta importación ya no se puede aplicar (cambió el estado o el contenido ya está publicado).',
       );
     else if (res.status === 422)
       setError(

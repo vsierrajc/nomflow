@@ -360,7 +360,7 @@ test.describe('navegación según el rol', () => {
 });
 
 test.describe('volantes: estados y filtros', () => {
-  test('explica cada modo, muestra el filtro de año solo si hay varios y filtra', async ({
+  test('explica cada modo y agrupa los volantes por año, con el más reciente abierto', async ({
     page,
   }) => {
     const u = newUser('vol');
@@ -380,9 +380,12 @@ test.describe('volantes: estados y filtros', () => {
     await expect(
       page.getByText('Solo cambia la presentación, no la liquidación pagada.'),
     ).toBeVisible();
-    await expect(page.getByRole('link', { name: /Descargar PDF/ })).toHaveCount(2);
-    await page.getByLabel('Año').selectOption(String(Number(first.slice(0, 4)) + 60));
+    // agrupados por año: el más reciente abierto y el anterior plegado
+    const recent = String(Number(first.slice(0, 4)) + 60);
+    await expect(page.getByText(`${recent}`, { exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: /Descargar PDF/ })).toHaveCount(1);
+    await page.getByText(first.slice(0, 4), { exact: true }).click();
+    await expect(page.getByRole('link', { name: /Descargar PDF/ })).toHaveCount(2);
   });
 
   test('sin volantes muestra un estado vacío que explica cuándo aparecerán', async ({ page }) => {
