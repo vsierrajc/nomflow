@@ -18,6 +18,11 @@ DATABASE_URL=postgresql://nomflow:nomflow@localhost:5432/nomflow_test \
 - Las pruebas vacían las tablas: usar **siempre** la base `nomflow_test`, nunca `nomflow`. Un `DATABASE_URL=… cmd1 && cmd2` solo afecta a `cmd1`: exportar la variable (`export DATABASE_URL=…`) para toda la cadena. Las pruebas se niegan a correr si la base no termina en `_test`.
 - Correr `npx prettier --write .` antes de `format:check` (incluye migraciones generadas).
 
+## Registro de cambios (CHANGELOG)
+
+- Nunca editar `docs/CHANGELOG.md` directamente en un PR de una funcionalidad: es un archivo de solo-agregar y casi siempre choca entre ramas en paralelo.
+- Añadir en su lugar un archivo nuevo en `docs/changelog.d/` (uno por entrada; ver `docs/changelog.d/README.md`). De vez en cuando, en un commit aparte, correr `npm run changelog:compile` para volcarlos a `docs/CHANGELOG.md`.
+
 ## Datos y secretos
 
 - Nunca versionar ni imprimir datos reales de empleados, salarios, claves ni archivos Excel de origen (`*.xlsx` está ignorado).

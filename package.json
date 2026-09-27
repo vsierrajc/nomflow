@@ -19,6 +19,7 @@
     "graph": "graphify update .",
     "stack:up": "bash scripts/stack.sh up",
     "stack:down": "bash scripts/stack.sh down",
+    "changelog:compile": "node scripts/compile-changelog.mjs",
     "stack:status": "bash scripts/stack.sh status",
     "test:e2e": "npm run test:e2e -w @nomflow/web"
   },

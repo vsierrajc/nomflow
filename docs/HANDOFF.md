@@ -76,7 +76,7 @@ Higiene: la matriz `docs/traceability.md` se actualizó el 26 de septiembre de 2
 3. Drizzle: dentro de una subconsulta escrita con `sql`, las columnas de la tabla externa salen sin calificar y se comparan consigo mismas. Usar alias explícitos.
 4. Playwright: `getByLabel` coincide por subcadena también con `aria-label` de regiones (usar `exact: true`); el anunciador de rutas de Next es un `role="alert"` vacío (usar `p[role="alert"]`); al fallar una prueba el proceso se reinicia y se pierde el estado del módulo (`nextPeriod()` consulta la base por eso); ExcelJS incrusta la fecha, así que dos exportaciones del mismo contenido difieren.
 5. Chromium en WSL sin `sudo`: bajar `libnspr4`, `libnss3` y `libasound2t64` con `apt-get download`, extraer con `dpkg -x` y exportar `LD_LIBRARY_PATH` (ver `docs/local-stack.md`).
-6. GitHub: `gh pr edit` falla por Projects (classic); cambiar la base con `gh api -X PATCH repos/OWNER/REPO/pulls/N -f base=main`. Los PR apilados se integran en orden con **merge commit** (no squash) y casi siempre chocan en `docs/CHANGELOG.md` (archivo de solo añadir): conservar ambas líneas.
+6. GitHub: `gh pr edit` falla por Projects (classic); cambiar la base con `gh api -X PATCH repos/OWNER/REPO/pulls/N -f base=main`. Los PR apilados se integran en orden con **merge commit** (no squash).
 7. gitleaks marca ejemplos como falsos positivos: resolver con la huella en `.gitleaksignore` (`commit:archivo:regla:línea`) o, si es un patrón, con `.gitleaks.toml`; nunca desactivando el job.
 8. `pdfjs-dist` está fijado en `5.5.207` (solo pruebas) porque las versiones ≥ 5.6.83 y < 6.2.108 tienen una vulnerabilidad alta. `exceljs` arrastra un aviso moderado de `uuid`.
 9. `pkill -f` puede matar el propio shell si el patrón aparece en la orden; usar los archivos PID de `.run/` (`scripts/stack.sh`).
@@ -94,10 +94,10 @@ Higiene: la matriz `docs/traceability.md` se actualizó el 26 de septiembre de 2
 
 - **Registros**: `.gitignore` excluye directorios llamados `logs/` (por eso el módulo se llama `registros`). Vaciar `.run/*.log` solo es seguro porque `stack.sh` los abre con `>>`; los archivos gestionables se declaran en `LOG_FILES`. Las peticiones HTTP también se auditan, así que cualquier consulta añade filas: las pruebas cuentan solo lo que siembran.
 - **Variables de entorno entre comandos**: cada llamada de shell empieza sin `DATABASE_URL`; exportarla en la misma línea que las pruebas (`export DATABASE_URL=... && npm test`) o las pruebas de base de datos se omiten en silencio (aparecen como «skipped»).
-- **`docs/CHANGELOG.md` y los PR apilados**: casi todos los PR añaden una línea al final y chocan; resolver quitando las marcas de conflicto y conservando ambas líneas, y volver a esperar el CI sobre el commit nuevo.
+- **`docs/CHANGELOG.md` ya no se edita por PR**: cada cambio añade un archivo en `docs/changelog.d/` (ver su README) y de vez en cuando se corre `npm run changelog:compile` en un commit aparte. Si aun así aparece un conflicto en `CHANGELOG.md` (rama vieja, o alguien lo editó a mano), resolver quitando las marcas de conflicto y conservando ambas líneas.
 - **Carga de nómina**: el período y la liquidación salen de las columnas `PER` y `N_LIQ`; cada volante del archivo reemplaza al publicado y los demás de la liquidación se conservan. Un contenido idéntico se detecta al aplicar, no al validar.
 
 
 ## 9. Cierre de una tarea (definición de terminado)
 
-Criterios de aceptación cumplidos, pruebas para los riesgos reales, la verificación de §1 en verde, PR integrado, `docs/CHANGELOG.md`, `docs/traceability.md`, `docs/STATUS.md` y una bitácora nueva en `docs/sessions/`, y **este archivo actualizado**.
+Criterios de aceptación cumplidos, pruebas para los riesgos reales, la verificación de §1 en verde, PR integrado, un fragmento en `docs/changelog.d/`, `docs/traceability.md`, `docs/STATUS.md` y una bitácora nueva en `docs/sessions/`, y **este archivo actualizado**.
