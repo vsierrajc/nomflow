@@ -83,6 +83,50 @@ describe.skipIf(!url)(
       request(srv()).put(path).set('Cookie', s.cookie).set('X-CSRF-Token', s.csrf).send(body);
     const get = (path: string, s: Sess = hr) => request(srv()).get(path).set('Cookie', s.cookie);
 
+    it('la lista de áreas incluye el jefe y el director vigentes', async () => {
+      await post('/admin/catalogs/AREA', { cEmp: 'GA', code: '10300', name: 'FINANCIERA' });
+      const boss = await db
+        .insert(accounts)
+        .values({
+          nIde: '84069561',
+          email: 'jefe@x.co',
+          passwordHash: await hashPassword(PASSWORD),
+          status: 'ACTIVA',
+          mustChangePassword: false,
+        })
+        .returning({ id: accounts.id });
+      await db.insert(employeeSnapshots).values({
+        nIde: '84069561',
+        nCont: '1',
+        email: 'jefe@x.co',
+        est: 'V',
+        nombre: 'Juan Jefe',
+        cEmp: 'GA',
+      });
+      await db.insert(roleAssignments).values({
+        accountId: boss[0]?.id ?? '',
+        role: 'AREA_MANAGER',
+        companyCode: 'GA',
+        areaCode: '10300',
+        validFrom: '2020-01-01',
+      });
+      await db.insert(areaManagerAssignments).values({
+        cEmp: 'GA',
+        cArea: '10300',
+        managerAccountId: boss[0]?.id ?? '',
+        validFrom: '2020-01-01',
+        createdBy: hrId,
+      });
+      const res = await get('/admin/catalogs/AREA?cEmp=GA').expect(200);
+      const row = res.body.items.find((x: { code: string }) => x.code === '10300');
+      expect(row.manager).toBe('Juan Jefe');
+      expect(row.director).toBeNull();
+      // otro catálogo no lleva estas columnas
+      await post('/admin/catalogs/CCOSTO', { cEmp: 'GA', code: 'FA1403', name: 'PRODUCCION' });
+      const cc = await get('/admin/catalogs/CCOSTO?cEmp=GA').expect(200);
+      expect(cc.body.items[0].manager).toBeUndefined();
+    });
+
     describe.each([
       ['AREA', '10300', 'FINANCIERA', 'FINANCIERA Y CONTABLE'],
       ['CCOSTO', 'FA1403', 'PRODUCCION', 'PRODUCCION PLANTA 1'],
