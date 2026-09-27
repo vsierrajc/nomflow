@@ -1,31 +1,36 @@
 # Matriz de trazabilidad
 
-Estados: BACKLOG, READY, IN_PROGRESS, IN_REVIEW, BLOCKED, DONE.
+Actualizada el 26 de septiembre de 2026. Estados: BACKLOG, READY, IN_PROGRESS, IN_REVIEW, BLOCKED, PARCIAL, DONE. El plan por fases está en [PLAN.md](PLAN.md).
 
-| ID | Requisito (SSD) | Fase | Incidencia | PR/commit | Pruebas | Versión | Estado |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| ESS-AUTH-001 | Alta administrativa, clave temporal Argon2id, cambio obligatorio (3.1) | 1 | — | — | — | — | BACKLOG |
-| ESS-AUTH-002 | Verificación de correo por secreto de un solo uso vía SMTP (3.1) | 1 | — | — | — | — | BACKLOG |
-| ESS-AUTH-003 | Login, sesiones revocables, CSRF, reautenticación (3.1) | 1 | — | — | — | — | BACKLOG |
-| ESS-AUTH-004 | Roles con alcance y vigencia; autorización por N_IDE (3.1, 5) | 1 | — | PR #7 y ESS-ORG-002 | admin-accounts.e2e.spec.ts, org.e2e.spec.ts | — | IN_REVIEW |
-| ESS-AUD-001 | Auditoría sin datos sensibles (3.2, 5) | 1 | — | — | — | — | BACKLOG |
-| ESS-ORG-001 | CRUD Company/Area/CostCenter/JobPosition/ContractType, jefes con vigencia (9.6) | 2 | — | PR ESS-ORG-001 | catalogs.e2e.spec.ts | — | IN_REVIEW (parcial: empresas CRUD e importación; faltan CRUD de entradas y jefes) |
-| ESS-IMPORT-001 | Importación Excel por lotes, staging, idempotencia, reversión (9.2-9.3) | 2 | — | — | — | — | BLOCKED (datos origen) |
-| ESS-IMPORT-002 | Importación EMPLEADOS con EST V/C y contrato único vigente (9.1) | 2 | — | PR ESS-IMPORT-002 | imports.e2e.spec.ts | — | IN_REVIEW (datos reales aún con EST=A) |
-| ESS-PAY-001 | Volantes PDF, SLRIO histórico, modos SIN_AJUSTE/ENTERO_SUPERIOR (9.2, 9.4) | 3 | — | PR ESS-PAY-001 | payroll.e2e.spec.ts, decimal.spec.ts, e2e/volantes.spec.ts | — | IN_REVIEW (sin muestra real de NOMINA) |
-| ESS-CERT-001 | Plantillas de certificado versionadas (6.1.1) | 3 | — | — | — | — | BACKLOG |
-| ESS-CERT-002 | Certificado laboral: aprobación, firma, código de validación (6.1, 6.1.2) | 3 | — | — | — | — | BACKLOG |
-| ESS-TAX-001 | Certificados tributarios PDF por N_IDE+año (6.3) | 3 | `apps/api/src/tax` | `tax.e2e.spec` | — | — | HECHO |
-| ESS-EXIT-001 | Aviso previo a baja, ZIP, revocación con EST=C (3.1, 6.3) | 3 | — | — | — | — | BACKLOG |
-| ESS-LEAVE-001 | PROG_VAC: carga y CRUD, DISP, LIQUIDADA (6.2) | 4 | `apps/api/src/leave` | `leave.e2e.spec`, `prog-vac.import.e2e.spec`, `vacaciones.spec` | — | — | HECHO |
-| ESS-LEAVE-002 | Solicitud multi-período, cálculo de fechas y retorno (6.2) | 4 | `business-days.ts`, `/me/vacations/preview` | `business-days.spec`, `leave.e2e.spec` | — | — | PARCIAL (solicitud, revisiones y aprobaciones listas; falta el PDF con firmas) |
-| ESS-LEAVE-003 | Revisiones, aprobación jefe y final, VACACIONES, PDF con firmas (6.2) | 4 | `vacation.service.ts`, `leave-plan.ts` | `vacation.e2e.spec`, `vacaciones-solicitud.spec` | — | — | PARCIAL (falta el PDF con firmas visuales) |
-| ESS-HOL-001 | Calendario de festivos: API, Excel, CRUD, respaldo local (6.2.1) | 4 | `holidays.service.ts` | `leave.e2e.spec`, `vacaciones.spec` | — | — | PARCIAL (CRUD, borradores, publicación y consulta a la API con configuración de URL y clave; falta la carga por Excel y el reintento programado) |
-| ESS-PERM-001 | Permisos por tipo, sin consumir DISP (6.2) | 4 | `permit.service.ts` | `permit.e2e.spec`, `permisos.spec` | — | — | HECHO (solo decide el jefe de área) |
-| ESS-OPS-001 | Endurecimiento, respaldo/restauración, despliegue, monitoreo (8, 11) | 5 | — | — | — | — | BACKLOG |
-| ESS-ORG-002 | Asignación de jefe de área con vigencia e historial (5, 9.1) | 2 | — | PR ESS-ORG-002 | org.e2e.spec.ts | — | IN_REVIEW |
-| ESS-AUTH-006 | Cambio de clave por el propio usuario (3.1) | 1 | — | PR ESS-AUTH-006 | change-password.e2e.spec.ts | — | IN_REVIEW |
-| ESS-WEB-001 | Pantallas de acceso: ingreso, activación, cambio de clave, inicio | 1 | — | PR ESS-WEB-001 | profile.e2e.spec.ts (API); apps/web/e2e/acceso.spec.ts (Playwright) | — | IN_REVIEW |
-| ESS-ADM-001 | Módulo administrativo: catálogos, conceptos, logo, empleados, cuentas, auditoría de peticiones (5, 9.6, 3.2) | 2 | — | PR ESS-ADM-001 | concepts/logos/catalog-crud/employees/admin-support/admin-access/audit .e2e.spec.ts | — | IN_REVIEW (API) |
-| ESS-ADM-002 | Interfaz web del módulo administrativo, solo administradores (9.6, 3.1) | 2 | — | PR ESS-ADM-002 | e2e/admin.spec.ts, e2e/admin-gestion.spec.ts | — | IN_REVIEW |
-| ESS-UX-001 | Rediseño profesional de la interfaz web según DisenhoUIX.md (accesibilidad, contraste, móvil, estados) | 1-2 | — | PR ESS-UX-001 | e2e/interfaz.spec.ts (24), acceso.spec.ts, volantes.spec.ts | — | IN_REVIEW |
+| ID | Requisito (SSD) | Fase SSD | PR | Pruebas | Estado |
+| --- | --- | --- | --- | --- | --- |
+| ESS-AUTH-001 | Alta administrativa, clave temporal Argon2id, cambio obligatorio; restablecer y mostrar la clave asignada (3.1) | 1 | #7, #36, #51, #52 | admin-accounts.e2e.spec.ts, e2e/admin-gestion.spec.ts | DONE |
+| ESS-AUTH-002 | Verificación de correo por secreto de un solo uso vía SMTP (3.1) | 1 | #6 | e2e/acceso.spec.ts, e2e/correo.spec.ts | DONE (falta STARTTLS del servidor interno) |
+| ESS-AUTH-003 | Login, sesiones revocables, CSRF, reautenticación opcional, doble paso opcional, sesión caducada (3.1) | 1 | #3-#5, #36, #55, #60 | auth e2e, e2e/doble-paso.spec.ts, e2e/sesion-expirada.spec.ts | DONE (falta límite por IP) |
+| ESS-AUTH-004 | Roles con alcance y vigencia; autorización por N_IDE (3.1, 5) | 1 | #7, #10, #53, #67 | org.e2e.spec.ts, admin-access.e2e.spec.ts | DONE (roles AREA_DIRECTOR y GENERAL_MANAGER incluidos) |
+| ESS-AUTH-006 | Cambio de clave por el propio usuario (3.1) | 1 | #5 | change-password.e2e.spec.ts | DONE |
+| ESS-AUD-001 | Auditoría sin datos sensibles (3.2, 5) | 1 | #17 | audit e2e | DONE (falta correlacionar con eventos de negocio y política de retención) |
+| ESS-ORG-001 | CRUD de Company/Area/CostCenter/JobPosition/ContractType (9.6) | 2 | #9, #17, #47, #63, #68 | catalogs.e2e.spec.ts, logos.e2e.spec.ts, letterhead.e2e.spec.ts | DONE |
+| ESS-ORG-002 | Jefe y director de área con vigencia e historial (5, 9.1) | 2 | #10, #68 | org.e2e.spec.ts | DONE (faltan suplencias) |
+| ESS-IMPORT-001 | Importación Excel por lotes, staging, idempotencia, reversión (9.2-9.3) | 2 | #8, #16, #75 | imports.e2e.spec.ts, payroll.e2e.spec.ts | DONE |
+| ESS-IMPORT-002 | Importación EMPLEADOS con EST V/C y contrato único vigente (9.1) | 2 | #8, #47 | imports.e2e.spec.ts | DONE (datos reales cargados) |
+| ESS-PAY-001 | Volantes PDF carta según el modelo, SLRIO por liquidación, modos SIN_AJUSTE/ENTERO_SUPERIOR, carga por PER y N_LIQ (9.2, 9.4) | 3 | #16, #74, #75, #76 | payroll.e2e.spec.ts, number-words.spec.ts, e2e/volantes.spec.ts | DONE (falta cargar `nomina.xlsx` real y retiro de publicación) |
+| ESS-TAX-001 | Certificados tributarios PDF por N_IDE+año, por carpeta y desde el navegador (6.3) | 3 | #22, #69 | tax.e2e.spec.ts, e2e/retenciones.spec.ts | DONE (falta política de retención) |
+| ESS-CERT-001 | Plantillas de certificado versionadas (6.1.1) | 3 | #49 | labor-cert.e2e.spec.ts, template-engine.spec.ts | DONE |
+| ESS-CERT-002 | Certificado laboral: firmantes designados, firma imagen y digital, código de formato, historial, encabezado y pie en imagen (6.1, 6.1.2) | 3 | #49, #57, #63, #64 | labor-cert.e2e.spec.ts, digital-signature.spec.ts, e2e/certificado-laboral.spec.ts | DONE (falta validación pública, sellado de tiempo y firmas de los firmantes) |
+| ESS-EXIT-001 | Aviso previo a baja, ZIP, revocación con EST=C (3.1, 6.3) | 3 | - | - | BACKLOG (fase 2 del plan) |
+| ESS-LEAVE-001 | PROG_VAC: carga y CRUD, DISP, LIQUIDADA (6.2) | 4 | #26, #61, #62 | leave.e2e.spec.ts, prog-vac.import.e2e.spec.ts, e2e/vacaciones.spec.ts | DONE |
+| ESS-LEAVE-002 | Solicitud multi-período, cálculo de fechas y retorno (6.2) | 4 | #28, #65 | business-days.spec.ts, e2e/vacaciones-solicitud.spec.ts | DONE (falta corrección de disfrutes) |
+| ESS-LEAVE-003 | Revisiones, aprobación jerárquica (jefe, director, gerente general), aprobación final, VACACIONES, constancia PDF (6.2) | 4 | #29, #33, #34, #67 | vacation.e2e.spec.ts, e2e/vacaciones-solicitud.spec.ts | PARCIAL (falta el PDF con firmas visuales y las suplencias) |
+| ESS-HOL-001 | Calendario de festivos: API, Excel, CRUD, respaldo local (6.2.1) | 4 | #28 | holiday-api.e2e.spec.ts, e2e/vacaciones.spec.ts | PARCIAL (falta reintento y credencial/región definitivas) |
+| ESS-PERM-001 | Permisos por tipo, sin consumir DISP (6.2) | 4 | #30 | permit.e2e.spec.ts, e2e/permisos.spec.ts | DONE (decide solo el jefe de área; faltan reglas por tipo) |
+| ESS-WEB-001 | Pantallas de acceso: ingreso, activación, cambio de clave, inicio, menús | 1 | #14, #46, #56, #58, #71, #73 | e2e/acceso.spec.ts, e2e/interfaz.spec.ts | DONE |
+| ESS-ADM-001 | Módulo administrativo: catálogos, conceptos, logo, empleados, cuentas, auditoría (5, 9.6, 3.2) | 2 | #17, #39 | concepts/logos/catalog-crud/employees/admin-support/admin-access/audit e2e | DONE |
+| ESS-ADM-002 | Interfaz web del módulo administrativo, solo administradores (9.6, 3.1) | 2 | #18, #64, #70, #72 | e2e/admin.spec.ts, e2e/admin-gestion.spec.ts | DONE |
+| ESS-UX-001 | Rediseño profesional de la interfaz (accesibilidad, contraste, móvil, estados) | 1-2 | #19, #54, #66, #71 | e2e/interfaz.spec.ts, acceso.spec.ts, volantes.spec.ts | DONE |
+| ESS-NOTIF-001 | Bandeja de entrada y avisos por correo del flujo, recordatorio a los 3 días | 4 | #48 | inbox e2e, e2e/bandeja.spec.ts, e2e/notificaciones.spec.ts | DONE |
+| ESS-STORE-001 | Almacenamiento de objetos cifrado en Garage (ADR-003) | 5 | #40, #41 | storage e2e | DONE (falta custodia y rotación de la clave) |
+| ESS-ARCH-001 | Archivo histórico en la nube, descarga transparente (ADR-004) | 5 | #43, #50 | archive.e2e.spec.ts, e2e/archivo.spec.ts | DONE (falta prueba real contra el bucket) |
+| ESS-HEALTH-001 | Salud del sistema y alertas configurables | 5 | #42 | health e2e, e2e/salud.spec.ts | DONE |
+| ESS-LOG-001 | Gestión de registros: ver, exportar, histórico en la nube, depurar y vaciar (ADR-006) | 5 | #58, #59 | logs.e2e.spec.ts, e2e/registros.spec.ts | DONE (falta política automática de retención) |
+| ESS-OPS-001 | Endurecimiento, respaldo/restauración, despliegue, monitoreo (8, 11) | 5 | #1, #2, #12, #38 | - | PARCIAL (CI y stack local; faltan imágenes, despliegue, restauración probada y monitoreo de servidor) |

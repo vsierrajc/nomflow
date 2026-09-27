@@ -1,46 +1,46 @@
 # Estado del proyecto NOMFLOW
 
-- Versión: 0.0.0 (pre-lanzamiento; sin despliegue en producción)
-- **Traspaso para la próxima sesión: [HANDOFF.md](HANDOFF.md)** (pendientes, próximos pasos y trampas conocidas).
-- Última bitácora: [2026-09-24-doble-paso](sessions/2026-09-24-doble-paso.md)
-- `main` contiene los PR #1 a #35 integrados; el PR #36 (clave asignada y doble paso) se integra con esta actualización.
+- Versión: 0.0.0 (pre-lanzamiento; sin despliegue en producción). Actualizado el 26 de septiembre de 2026.
+- **Plan por fases: [PLAN.md](PLAN.md)**. Traspaso para la próxima sesión: [HANDOFF.md](HANDOFF.md).
+- `main` contiene los PR #1 a #76 integrados; no hay PR abiertos.
 - Revisión por otra persona: ninguno de los PR fue revisado por alguien distinto del autor y `main` no tiene protección de rama (la SSD, sección 11, la exige).
-- Pruebas: 292 de API y 97 de navegador en verde; CI completo (incluido CodeQL) sin alertas abiertas. Ver [README](../README.md) para la visión general.
+- Pruebas: 400 de API y unas 115 de navegador en verde; CI completo (CodeQL, secretos, e2e) sin alertas abiertas. Ver [README](../README.md).
 
 | módulo | estado | PR | siguiente acción |
 | --- | --- | --- | --- |
-| Monorepo, CI y ADR-001/002 (ESS-OPS-001) | DONE | #1, #2 | CodeQL sube a Code scanning (repositorio público) y el job falla si hay hallazgos |
-| Cuentas, login y sesiones (ESS-AUTH-001/003) | DONE | #3, #4, #5, #36 | Límite por IP en los endpoints públicos |
-| Verificación SMTP y activación (ESS-AUTH-002) | DONE | #6 | Habilitar STARTTLS en el Postfix 192.168.1.44 |
-| Alta por API, roles y reautenticación (ESS-AUTH-004/005/006) | DONE | #7, #11 | Revisión de otra persona |
-| Importación de EMPLEADOS (ESS-IMPORT-002) | DONE (código); BLOQUEADO (datos: EST = A) | #8 | Recibir exportación con EST V/C |
-| Empresas y catálogos (ESS-ORG-001) | DONE | #9, #17 | Corregir CCOSTOS y CARGOS en el origen |
-| Roles con alcance y jefes de área (ESS-ORG-002) | DONE | #10 | Suplencias |
-| Stack local, Graphify y pruebas de navegador | DONE | #12, #13, #15 | — |
-| Acceso web (ESS-WEB-001) | DONE | #14 | — |
-| Volantes de pago PDF (ESS-PAY-001) | DONE (código); sin datos reales | #16 | Muestra anonimizada de NOMINA |
-| Módulo administrativo, API e interfaz (ESS-ADM-001/002) | DONE | #17, #18 | Cargar los archivos reales por la interfaz |
-| Rediseño de la interfaz (ESS-UX-001) | DONE | #19 | Conmutador de tema, lectores de pantalla reales |
-| Certificados de retención (ESS-TAX-001) | DONE | #22 | Política de retención de los PDF |
-| Vacaciones: `PROG_VAC`, festivos, solicitud y aprobaciones (ESS-LEAVE-001/002/003, ESS-HOL-001) | DONE (sin PDF con firmas) | #26, #28, #29, #33, #34 | PDF con firmas, suplencias, corrección de disfrutes, reintento de la API de festivos |
-| Permisos (ESS-PERM-001) | DONE (decide solo el jefe de área) | #30 | Reglas por tipo si Gestión Humana las define |
-| Correo saliente configurable | DONE | #35 | Habilitar STARTTLS en el servidor interno |
-| Clave asignada por el administrador y doble paso opcional | DONE | #36 | Límite por IP |
-| Almacenamiento de objetos con Garage (ADR-003) | DONE | (este PR) | Rotación de OBJECT_ENCRYPTION_KEY, política de retención |
-| Salud del sistema y alertas (almacenamiento, BD, errores, correo) | DONE | (este PR) | Métricas de CPU/memoria del servidor, alertas por otros canales |
-| Archivo histórico en la nube (Google Cloud Storage) | DONE (probado con almacenes simulados; falta la primera prueba real contra el bucket) | (este PR) | Configurar el bucket y las claves HMAC en /admin/archivo |
-| Bandeja de entrada y avisos por correo del flujo (vacaciones y permisos) | DONE | (este PR) | El flujo de aprobación de certificados aún no existe (el rol se registra) |
-| Certificado laboral de autoservicio (plantillas, historial, código de formato) | DONE | (este PR) | Designar a los firmantes y que carguen su firma; confirmar ciudad, pie y código del formato; validación pública, sellado de tiempo y HSM como mejora |
-| Gestión de registros (exportar, histórico en la nube, depurar, vaciar) | DONE (nube simulada en pruebas; falta la primera prueba real contra el bucket) | (este PR) | Activar la política automática cuando se defina la retención |
-| Aviso de baja y ZIP | BACKLOG | — | Fases 3 y 4 de la SSD |
+| Monorepo, CI y ADR-001/002 (ESS-OPS-001) | DONE | #1, #2 | Job e2e obligatorio; protección de `main` |
+| Cuentas, login, sesiones, clave asignada y doble paso (ESS-AUTH-001/003) | DONE | #3-#5, #36, #51, #52, #60 | Límite por IP |
+| Verificación SMTP y activación (ESS-AUTH-002) | DONE | #6 | STARTTLS en el servidor interno |
+| Alta por API, roles y reautenticación opcional (ESS-AUTH-004/005/006) | DONE | #7, #11, #55 | Revisión de otra persona |
+| Importación de EMPLEADOS (ESS-IMPORT-002) | DONE | #8, #47 | Datos ya cargados desde `initconfigdata` |
+| Empresas, catálogos y logo (ESS-ORG-001) | DONE | #9, #17, #63 | Logo de GA cargado; encabezado y pie en imagen disponibles |
+| Roles con alcance, jefes y directores de área (ESS-ORG-002) | DONE | #10, #53, #68 | Asignar director por área y gerente general; suplencias |
+| Stack local, Graphify, scripts de inicio y pruebas de navegador | DONE | #12, #13, #15, #38 | - |
+| Acceso web y menús (ESS-WEB-001) | DONE | #14, #46, #56, #58, #73 | - |
+| Volantes de pago PDF (ESS-PAY-001) | DONE; diseño carta según el modelo; carga por PER/N_LIQ del archivo | #16, #74-#76 | Cargar `nomina.xlsx` real; retiro de publicación |
+| Módulo administrativo, API e interfaz (ESS-ADM-001/002) | DONE | #17, #18, #39, #64, #70, #72 | - |
+| Rediseño de la interfaz (ESS-UX-001) | DONE | #19, #54, #66, #71 | Conmutador de tema, lectores de pantalla reales |
+| Certificados de retención (ESS-TAX-001) | DONE (carpeta y carga desde el navegador) | #22, #69 | Política de retención |
+| Vacaciones: `PROG_VAC`, festivos, solicitud y aprobaciones (ESS-LEAVE-001/002/003, ESS-HOL-001) | DONE; aprobación jerárquica jefe > director > gerente > aprobación final | #26, #28, #29, #33, #34, #61, #62, #65, #67 | PDF con firmas, suplencias, corrección de disfrutes |
+| Permisos (ESS-PERM-001) | DONE (decide solo el jefe de área) | #30 | Reglas por tipo |
+| Correo saliente configurable | DONE | #35 | STARTTLS |
+| Almacenamiento de objetos con Garage (ADR-003) | DONE | #40, #41 | Custodia y rotación de `OBJECT_ENCRYPTION_KEY` |
+| Salud del sistema y alertas | DONE | #42 | CPU/memoria, otros canales |
+| Archivo histórico en la nube (ADR-004) | DONE (conexión verificada; falta enviar datos reales) | #43, #50 | Primera prueba real de «Enviar al histórico» |
+| Bandeja de entrada y avisos por correo del flujo | DONE | #48 | - |
+| Certificado laboral de autoservicio (ADR-005), firma imagen y digital, encabezado y pie en imagen | DONE | #49, #57, #63 | Firmas de los tres firmantes; ciudad, pie y código de formato |
+| Gestión de registros (ADR-006) | DONE | #58, #59 | Prueba real contra el bucket; política automática |
+| Aviso de baja y ZIP (ESS-EXIT-001) | BACKLOG | - | Fase 2 del plan |
+| Despliegue en producción (ESS-OPS-001) | BACKLOG | - | Fase 4 del plan |
 
-## Bloqueos
-- `EMPLEADOS.xlsx` trae `EST = A` en las 240 filas; sin `V`/`C` no se pueden importar empleados reales ni crear cuentas.
-- `CCOSTOS.xlsx` (1 código con dos descripciones) y `CARGOS.xlsx` (17 códigos) no se pueden publicar hasta corregirlos en el origen o definir clave oficial; 22 empleados usan centro de costo ambiguo y 80 cargo ambiguo.
-- Falta definir la política de retención de las filas de preparación con datos personales y de la auditoría de peticiones.
-- Restantes de la sección 12 de la SSD: baja y conservación de documentos, firmantes de certificados y operación de producción.
-- El servidor de correo interno (192.168.1.44:25) no tiene TLS: los códigos viajan sin cifrar dentro de la red.
+## Bloqueos y decisiones abiertas
+- Cargar la nómina real (`nomina.xlsx`) y `PROG_VAC`: dependen de aprobación explícita (escriben datos reales).
+- Asignar el director de cada área y el gerente general; definir quién aprueba las vacaciones de quien tiene la aprobación final.
+- Firmantes del certificado laboral: solo la Directora de Gestión Humana tiene firma cargada.
+- Política de retención de las filas de preparación con datos personales, de la auditoría de peticiones y de los PDF/ZIP.
+- Sección 12 de la SSD: baja y conservación de documentos, códigos de `EST` y fecha de corte de `PROG_VAC`, credencial y región de la API de festivos, evidencia de firma.
+- El servidor de correo interno no tiene TLS: los códigos viajan sin cifrar dentro de la red.
 
 ## Entorno de desarrollo
-- Base de desarrollo `nomflow` y de pruebas `nomflow_test` (las pruebas vacían las tablas: usar siempre `DATABASE_URL=.../nomflow_test`).
-- Stack local: `npm run stack:up` (ver [local-stack](local-stack.md)).
+- Base de desarrollo `nomflow` y de pruebas `nomflow_test` (las pruebas vacían las tablas: exportar siempre `DATABASE_URL=.../nomflow_test`).
+- Stack local: `./iniciar_app.sh` y `./detener_app.sh` (ver [local-stack](local-stack.md)).
