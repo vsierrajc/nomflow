@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { IconButton } from '@/components/icon-button';
 import { ImportPanel } from '@/components/import-panel';
 import {
   Badge,
@@ -423,34 +424,25 @@ export default function CatalogsPage() {
                         <Badge kind="off">Inactivo</Badge>
                       )}
                     </td>
-                    <td>{formatDate(e.updatedAt)}</td>
+                    <td className="nowrap">{formatDate(e.updatedAt)}</td>
                     <td>
                       <div className="row-actions">
-                        <button
-                          type="button"
-                          className="secondary small"
+                        <IconButton
+                          icon="edit"
+                          label={`Editar ${e.code}`}
                           onClick={() => setEditing(e)}
-                          aria-label={`Editar ${e.code}`}
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary small"
+                        />
+                        <IconButton
+                          icon="history"
+                          label={`Historial de ${e.code}`}
                           onClick={() => void openHistory(e)}
-                          aria-label={`Historial de ${e.code}`}
-                        >
-                          Historial
-                        </button>
+                        />
                         {kind === 'AREA' ? (
-                          <button
-                            type="button"
-                            className="secondary small"
+                          <IconButton
+                            icon="team"
+                            label={`Jefe y director del área ${e.code}`}
                             onClick={() => setApproversOf(e)}
-                            aria-label={`Jefe y director del área ${e.code}`}
-                          >
-                            Jefe y director
-                          </button>
+                          />
                         ) : null}
                       </div>
                     </td>
