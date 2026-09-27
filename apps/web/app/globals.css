@@ -1599,3 +1599,28 @@ th.num {
 td.nowrap {
   white-space: nowrap;
 }
+
+/* Tarjetas del inicio: mismo acento y misma respuesta al pasar el cursor en todas */
+.task-card {
+  border-top: 3px solid var(--color-action);
+  transition:
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.task-card:hover,
+.task-card:focus-within {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-card {
+    transition: none;
+  }
+
+  .task-card:hover,
+  .task-card:focus-within {
+    transform: none;
+  }
+}

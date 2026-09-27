@@ -109,7 +109,7 @@ export function HomeView() {
           <h3>Mi cuenta</h3>
           <p>Revise sus datos de acceso y cambie su clave cuando lo necesite.</p>
           <div className="actions">
-            <Link className="button secondary" href="/cuenta/clave">
+            <Link className="button" href="/cuenta/clave">
               Cambiar mi clave
             </Link>
           </div>
@@ -122,7 +122,7 @@ export function HomeView() {
               auditoría.
             </p>
             <div className="actions">
-              <Link className="button secondary" href="/admin">
+              <Link className="button" href="/admin">
                 Abrir administración
               </Link>
             </div>
