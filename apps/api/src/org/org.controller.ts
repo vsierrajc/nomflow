@@ -5,6 +5,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Header,
   HttpCode,
   Inject,
   NotFoundException,
@@ -22,6 +23,7 @@ import { ADMIN_ROLES } from '../auth/roles';
 import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
 import type { Db } from '../db/client';
 import { DB } from '../db/db.module';
+import { getAreaApprovers, setAreaApprovers } from './area-approvers.service';
 import { assignAreaManager, endAreaManager, listAreaManagers } from './area-managers.service';
 import { OrgError, endRole, grantRole, listRoles } from './roles.service';
 
@@ -50,6 +52,10 @@ const AssignDto = z.object({
   validTo: date.nullable().optional(),
 });
 const EndDto = z.object({ validTo: date });
+const ApproversDto = z.object({
+  managerAccountId: z.string().uuid().nullable().optional(),
+  directorAccountId: z.string().uuid().nullable().optional(),
+});
 const EndRoleDto = z.object({ validTo: date.optional() });
 
 function map(e: unknown): never {
@@ -123,6 +129,34 @@ export class OrgController {
     if (!dto.success) throw new BadRequestException();
     try {
       await endAreaManager(this.db, req.auth.accountId, id, dto.data.validTo);
+    } catch (e) {
+      map(e);
+    }
+  }
+
+  @Get('areas/:cEmp/:cArea/approvers')
+  @Header('Cache-Control', 'no-store')
+  async approvers(@Param('cEmp') cEmp: string, @Param('cArea') cArea: string) {
+    try {
+      return await getAreaApprovers(this.db, cEmp, cArea);
+    } catch (e) {
+      return map(e);
+    }
+  }
+
+  @Put('areas/:cEmp/:cArea/approvers')
+  @HttpCode(204)
+  @UseGuards(RecentAuthGuard)
+  async setApprovers(
+    @Param('cEmp') cEmp: string,
+    @Param('cArea') cArea: string,
+    @Body() body: unknown,
+    @Req() req: AuthedRequest,
+  ): Promise<void> {
+    const dto = ApproversDto.safeParse(body);
+    if (!dto.success) throw new BadRequestException();
+    try {
+      await setAreaApprovers(this.db, req.auth.accountId, cEmp, cArea, dto.data);
     } catch (e) {
       map(e);
     }

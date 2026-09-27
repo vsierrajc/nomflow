@@ -231,4 +231,87 @@ describe.skipIf(!url)('roles con alcance y jefes de área (HTTP + PostgreSQL)', 
       expect(await resolveAreaManager(db, 'GA', '10300', '2026-06-01')).toBeNull();
     });
   });
+
+  describe('jefe y director del área desde la definición del área', () => {
+    let dir = '';
+    let other = '';
+    const put = (body: object, s: Sess = hr, area = '10300') =>
+      request(srv())
+        .put(`/admin/areas/GA/${area}/approvers`)
+        .set('Cookie', s.cookie)
+        .set('X-CSRF-Token', s.csrf)
+        .send(body);
+    const today = () => new Date().toISOString().slice(0, 10);
+    const roleOn = async (id: string, role: string) =>
+      (
+        await db
+          .select()
+          .from(roleAssignments)
+          .where(sql`account_id = ${id} and role = ${role}`)
+      ).some((r) => r.validTo === null || r.validTo >= today());
+
+    beforeEach(async () => {
+      dir = await account('dir@x.co', 'DIR1');
+      other = await account('otro@x.co', 'OTR1');
+      for (const [nIde, email, nombre] of [
+        ['84069561', 'jefe@x.co', 'Juan Jefe'],
+        ['DIR1', 'dir@x.co', 'Diana Directora'],
+        ['OTR1', 'otro@x.co', 'Oscar Otro'],
+      ] as const)
+        await db
+          .insert(employeeSnapshots)
+          .values({ nIde, nCont: '1', email, est: 'V', nombre, cEmp: 'GA', cArea: '10300' });
+    });
+
+    it('designa jefe y director, muestra los vigentes y cambia de titular sin dejar dos vigentes', async () => {
+      await put({ managerAccountId: boss, directorAccountId: dir }).expect(204);
+      const t = today();
+      expect(await resolveAreaManager(db, 'GA', '10300', t)).toBe(boss);
+      expect(await roleOn(boss, 'AREA_MANAGER')).toBe(true);
+      expect(await roleOn(dir, 'AREA_DIRECTOR')).toBe(true);
+
+      const got = await request(srv())
+        .get('/admin/areas/GA/10300/approvers')
+        .set('Cookie', hr.cookie)
+        .expect(200);
+      expect(got.body.manager.name).toBe('Juan Jefe');
+      expect(got.body.director.name).toBe('Diana Directora');
+      expect(got.body.candidates.map((c: { nIde: string }) => c.nIde)).toContain('OTR1');
+
+      // repetir lo mismo no cambia nada
+      await put({ managerAccountId: boss, directorAccountId: dir }).expect(204);
+      expect(await resolveAreaManager(db, 'GA', '10300', t)).toBe(boss);
+
+      // cambiar de jefe: el anterior deja de serlo y pierde el rol de esa área
+      await put({ managerAccountId: other }).expect(204);
+      expect(await resolveAreaManager(db, 'GA', '10300', t)).toBe(other);
+      expect(await roleOn(other, 'AREA_MANAGER')).toBe(true);
+      expect(await roleOn(boss, 'AREA_MANAGER')).toBe(false);
+      expect(await roleOn(dir, 'AREA_DIRECTOR')).toBe(true); // el director no se tocó
+
+      // quitar al director
+      await put({ directorAccountId: null }).expect(204);
+      expect(await roleOn(dir, 'AREA_DIRECTOR')).toBe(false);
+      expect(
+        (await db.select().from(auditLogs)).some(
+          (l) => l.action === 'AREA_APPROVERS_SET' && l.result === 'SUCCESS',
+        ),
+      ).toBe(true);
+    });
+
+    it('rechaza la misma persona en los dos cargos, cuentas inactivas y áreas inexistentes', async () => {
+      await put({ managerAccountId: boss, directorAccountId: boss }).expect(422);
+      expect(await roleOn(boss, 'AREA_MANAGER')).toBe(false);
+      const pend = await account('pend@x.co', 'PEN1', undefined, 'PENDIENTE_VERIFICACION');
+      await put({ managerAccountId: pend }).expect(422);
+      await put({ managerAccountId: boss }, hr, 'NOEXISTE').expect(404);
+      await put({ managerAccountId: hr.id }).expect(403); // nadie se designa a sí mismo
+      await put({ managerAccountId: 'no-es-uuid' }).expect(400);
+    });
+
+    it('solo un administrador puede designarlos', async () => {
+      const emp = await login('jefe@x.co');
+      await put({ managerAccountId: boss }, emp).expect(403);
+    });
+  });
 });
