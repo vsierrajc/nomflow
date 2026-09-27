@@ -114,7 +114,12 @@ async function loadVoucher(
     ? await db.select().from(companies).where(eq(companies.cEmp, emp.cEmp))
     : [];
   const units = await conceptUnits(db, [...new Set(lines.map((l) => l.cCon))]);
-  const salary = lines.find((l) => l.slrio !== null)?.slrio ?? null;
+  // SLRIO es el salario mensual del contrato en esa liquidación; si las filas traen más de uno, el mayor
+  const salary = lines.reduce<bigint | null>((max, l) => {
+    if (l.slrio === null) return max;
+    const v = parseDecimal(l.slrio);
+    return max === null || v > max ? v : max;
+  }, null);
   return {
     per,
     nLiq,
@@ -124,7 +129,7 @@ async function loadVoucher(
     company: company
       ? { nombre: company.nombre, sigla: company.sigla, direccion: company.direccion }
       : null,
-    salary: salary === null ? null : parseDecimal(salary),
+    salary,
     version: version.version,
     contentHash: version.contentHash,
     logo: await logoForCompanyCode(db, emp?.cEmp),

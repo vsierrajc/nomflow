@@ -114,32 +114,18 @@ export default function ImportsPage() {
       ) : (
         <ImportPanel
           key="nom"
-          title="Importar una liquidación de nómina desde Excel"
+          title="Importar nómina desde Excel"
           endpoint="/admin/imports/payroll"
           defaultResponsible={profile.email}
-          extraFields={[
-            {
-              name: 'per',
-              label: 'Período (AAAAMM)',
-              required: true,
-              pattern: '\\d{6}',
-              maxLength: 6,
-              hint: 'Por ejemplo 202609.',
-            },
-            {
-              name: 'nLiq',
-              label: 'Liquidación (1 o 2)',
-              required: true,
-              pattern: '[12]',
-              maxLength: 1,
-            },
-          ]}
           onApplied={() => void load()}
         >
           <p className="muted">
-            El archivo debe traer <strong>todas</strong> las filas de esa liquidación. Se compara el
-            conteo y las sumas de devengado y deducido antes de publicar; una corrección crea una
-            versión nueva y conserva la anterior.
+            El período y la liquidación salen de las columnas <code>PER</code> y <code>N_LIQ</code>{' '}
+            de cada fila: el archivo puede traer una o varias liquidaciones. Columnas: PER, N_LIQ,
+            N_IDE, CONTRATO, NOMBRE, C_CON, CONCEPTO, SLRIO, CANT, DED y DEV; TERCERO es opcional.
+            Cada volante que trae el archivo reemplaza al publicado y crea una versión nueva; los
+            demás volantes de esa liquidación se conservan. Se compara el conteo y las sumas de
+            devengado y deducido antes de publicar.
           </p>
         </ImportPanel>
       )}

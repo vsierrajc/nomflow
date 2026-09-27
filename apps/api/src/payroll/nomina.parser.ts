@@ -17,6 +17,11 @@ export const NOMINA_COLUMNS = [
   'TERCERO',
 ] as const;
 
+/** Columnas que el archivo debe traer; TERCERO es opcional (puede faltar o venir vacía). */
+export const REQUIRED_COLUMNS = NOMINA_COLUMNS.filter((c) => c !== 'TERCERO');
+/** Liquidaciones admitidas dentro de un período: 1 y 2 (quincenas) y de 3 a 9 (adicionales). */
+export const MAX_N_LIQ = 9;
+
 export interface PayrollRow {
   rowNumber: number;
   per: string;
@@ -53,7 +58,7 @@ export { validPer };
 
 export async function parseNominaWorkbook(
   buffer: Buffer,
-  opts: { per: string; nLiq: number; sheet?: string | undefined; maxRows: number },
+  opts: { sheet?: string | undefined; maxRows: number },
 ): Promise<NominaParseResult> {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buffer as unknown as ExcelJS.Buffer);
@@ -78,7 +83,7 @@ export async function parseNominaWorkbook(
       errors.push({ row: 1, column: name, value: null, rule: 'columna duplicada' });
     else cols.set(name, c);
   }
-  for (const name of NOMINA_COLUMNS) {
+  for (const name of REQUIRED_COLUMNS) {
     if (!cols.has(name))
       errors.push({ row: 1, column: name, value: null, rule: 'columna obligatoria ausente' });
   }
@@ -100,7 +105,12 @@ export async function parseNominaWorkbook(
     let empty = true;
     let bad = false;
     for (const name of NOMINA_COLUMNS) {
-      const { raw, problem } = readCell(excelRow.getCell(cols.get(name) ?? 0).value);
+      const at = cols.get(name);
+      if (at === undefined) {
+        cells.set(name, null); // columna opcional que el archivo no trae
+        continue;
+      }
+      const { raw, problem } = readCell(excelRow.getCell(at).value);
       if (problem) {
         errors.push(issue(r, name, null, problem));
         bad = true;
@@ -172,25 +182,11 @@ export async function parseNominaWorkbook(
     if (per !== null && !validPer(per)) {
       errors.push(issue(r, 'PER', null, 'PER debe ser AAAAMM válido'));
       bad = true;
-    } else if (per !== null && per !== opts.per) {
-      errors.push(
-        issue(r, 'PER', null, 'el período de la fila no coincide con el declarado para la carga'),
-      );
-      bad = true;
     }
     const nLiqText = text('N_LIQ', true);
-    if (nLiqText !== null && nLiqText !== '1' && nLiqText !== '2') {
-      errors.push(issue(r, 'N_LIQ', nLiqText, 'N_LIQ debe ser 1 o 2'));
-      bad = true;
-    } else if (nLiqText !== null && Number(nLiqText) !== opts.nLiq) {
-      errors.push(
-        issue(
-          r,
-          'N_LIQ',
-          nLiqText,
-          'la liquidación de la fila no coincide con la declarada para la carga',
-        ),
-      );
+    const nLiq = nLiqText === null ? NaN : Number(nLiqText);
+    if (nLiqText !== null && !(Number.isInteger(nLiq) && nLiq >= 1 && nLiq <= MAX_N_LIQ)) {
+      errors.push(issue(r, 'N_LIQ', nLiqText, `N_LIQ debe ser un entero de 1 a ${MAX_N_LIQ}`));
       bad = true;
     }
 
@@ -202,13 +198,20 @@ export async function parseNominaWorkbook(
     const tercero = text('TERCERO', false);
     const slrio = amount('SLRIO', true);
     const cant = amount('CANT');
-    const ded = amount('DED');
-    const dev = amount('DEV');
-    if (bad || !per || !nIde || !contrato || !cCon) continue;
+    let ded = amount('DED');
+    let dev = amount('DEV');
+    // El origen escribe 0 en el lado que no corresponde: un concepto es devengo o deducción, no ambos.
+    // Un concepto en cero en los dos lados se conserva como devengo de 0.
+    const isZero = (v: string | null) => v !== null && parseDecimal(v) === 0n;
+    if (dev !== null && ded !== null) {
+      if (isZero(ded)) ded = null;
+      else if (isZero(dev)) dev = null;
+    }
+    if (bad || !per || !nIde || !contrato || !cCon || Number.isNaN(nLiq)) continue;
     rows.push({
       rowNumber: r,
       per,
-      nLiq: opts.nLiq,
+      nLiq,
       nIde,
       contrato,
       nombre,
@@ -224,22 +227,18 @@ export async function parseNominaWorkbook(
   return { sheetName: ws.name, rows, errors, warnings };
 }
 
-export function validatePayrollRows(rows: PayrollRow[]): ImportIssue[] {
-  const errors: ImportIssue[] = [];
-  const salaryByVoucher = new Map<string, string>();
+/**
+ * Volantes (período + liquidación + persona + contrato) cuyas filas traen más de un SLRIO. El salario
+ * que se muestra en el volante es el mayor de ellos; el caso solo se advierte en la vista previa.
+ */
+export function countMixedSalary(rows: PayrollRow[]): number {
+  const salaries = new Map<string, Set<string>>();
   for (const row of rows) {
     if (row.slrio === null) continue;
-    const key = `${row.nIde}\u0000${row.contrato}`;
-    const known = salaryByVoucher.get(key);
-    if (known === undefined) salaryByVoucher.set(key, row.slrio);
-    else if (known !== row.slrio) {
-      errors.push({
-        row: row.rowNumber,
-        column: 'SLRIO',
-        value: null,
-        rule: 'valores distintos de SLRIO en un mismo volante: revisar el origen',
-      });
-    }
+    const key = `${row.per}\u0000${row.nLiq}\u0000${row.nIde}\u0000${row.contrato}`;
+    const set = salaries.get(key);
+    if (set) set.add(row.slrio);
+    else salaries.set(key, new Set([row.slrio]));
   }
-  return errors;
+  return [...salaries.values()].filter((v) => v.size > 1).length;
 }

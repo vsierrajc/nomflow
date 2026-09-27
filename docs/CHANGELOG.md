@@ -82,3 +82,4 @@
 - Diálogo de clave temporal: el botón «Cerrar» no se parte y la explicación de activación va en un recuadro con su acción alineada.
 - Volante de pago: nuevo diseño en tamaño carta según el comprobante modelo (devengos y deducidos en dos bloques, neto en cifras y letras, fecha de generación, observaciones y firma); importes con formato $1,234.00.
 - Menú de administración: el grupo «Certificados» pasa a «Documentos» e incluye «Volantes de pago» (antes «Nómina publicada»).
+- Nómina: la carga toma PER y N_LIQ de cada fila (ya no se declaran), acepta N_LIQ de 1 a 9 y TERCERO opcional; cada volante del archivo reemplaza al publicado y los demás de la liquidación se conservan. «Salario Basico» del volante es el SLRIO de esa liquidación (el mayor si hay varios). Los volantes del empleado se agrupan por año.

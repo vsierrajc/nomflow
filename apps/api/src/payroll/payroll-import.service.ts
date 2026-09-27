@@ -17,12 +17,7 @@ import {
 } from '../imports/imports.service';
 import { conceptUnits } from './concepts.service';
 import { parseDecimal, toDecimalString } from './decimal';
-import {
-  parseNominaWorkbook,
-  validPer,
-  validatePayrollRows,
-  type PayrollRow,
-} from './nomina.parser';
+import { countMixedSalary, parseNominaWorkbook, type PayrollRow } from './nomina.parser';
 
 export const PAYROLL_TYPE = 'NOMINA';
 const CHUNK = 500;
@@ -31,8 +26,6 @@ export interface PayrollUploadInput {
   buffer: Buffer;
   fileName: string;
   sheet?: string | undefined;
-  per: string;
-  nLiq: number;
   sourceSystem: string;
   responsible: string;
   maxRows: number;
@@ -103,19 +96,33 @@ async function publishedVersion(db: Pick<Db, 'select'>, per: string, nLiq: numbe
   return row ?? null;
 }
 
+const scopeKey = (per: string, nLiq: number) => `${per}|${nLiq}`;
+const voucherKey = (nIde: string, contrato: string) => `${nIde}\u0000${contrato}`;
+
+function groupByScope(rows: PayrollRow[]): Map<string, PayrollRow[]> {
+  const groups = new Map<string, PayrollRow[]>();
+  for (const r of rows) {
+    const k = scopeKey(r.per, r.nLiq);
+    const list = groups.get(k);
+    if (list) list.push(r);
+    else groups.set(k, [r]);
+  }
+  return groups;
+}
+
+/**
+ * Carga de nómina: el período y la liquidación salen de las columnas PER y N_LIQ de cada fila, de modo que
+ * un mismo archivo puede traer una o muchas liquidaciones. Cada volante (persona + contrato) que viene en
+ * el archivo reemplaza al publicado; los demás volantes de esa liquidación se conservan.
+ */
 export async function uploadPayroll(
   db: Db,
   actorId: string,
   input: PayrollUploadInput,
 ): Promise<BatchSummary> {
-  if (!validPer(input.per) || (input.nLiq !== 1 && input.nLiq !== 2))
-    throw new ImportError('INVALID_SCOPE');
   if (!isZip(input.buffer)) throw new ImportError('NOT_XLSX');
 
-  const fileHash = createHash('sha256')
-    .update(input.buffer)
-    .update(`|${input.per}|${input.nLiq}`)
-    .digest('hex');
+  const fileHash = createHash('sha256').update(input.buffer).digest('hex');
   const [applied] = await db
     .select({ id: importBatches.id })
     .from(importBatches)
@@ -135,8 +142,6 @@ export async function uploadPayroll(
   let parsed;
   try {
     parsed = await parseNominaWorkbook(input.buffer, {
-      per: input.per,
-      nLiq: input.nLiq,
       sheet: input.sheet,
       maxRows: input.maxRows,
     });
@@ -145,7 +150,7 @@ export async function uploadPayroll(
     throw new ImportError('NOT_XLSX');
   }
 
-  const errors = [...parsed.errors, ...validatePayrollRows(parsed.rows)];
+  const errors = [...parsed.errors];
   if (errors.length === 0 && parsed.rows.length === 0) {
     errors.push({
       row: 0,
@@ -155,15 +160,22 @@ export async function uploadPayroll(
     });
   }
   const hash = canonicalHash(parsed.rows);
-  const published = await publishedVersion(db, input.per, input.nLiq);
-  if (errors.length === 0 && published?.contentHash === hash) {
-    await audit(db, actorId, 'IMPORT_UPLOAD', null, 'SAME_CONTENT');
-    throw new ImportError('SAME_CONTENT');
-  }
 
   const totals = sumAmounts(parsed.rows);
   const people = [...new Set(parsed.rows.map((r) => r.nIde))];
-  const vouchers = new Set(parsed.rows.map((r) => `${r.nIde}\u0000${r.contrato}`)).size;
+  const scopes = groupByScope(parsed.rows);
+  const pers = [...new Set(parsed.rows.map((r) => r.per))].sort();
+  const vouchers = new Set(
+    parsed.rows.map((r) => `${r.per}\u0000${r.nLiq}\u0000${voucherKey(r.nIde, r.contrato)}`),
+  ).size;
+  let republished = 0;
+  if (scopes.size > 0) {
+    const published = await db
+      .select({ per: payrollVersions.per, nLiq: payrollVersions.nLiq })
+      .from(payrollVersions)
+      .where(and(eq(payrollVersions.status, 'PUBLICADA'), inArray(payrollVersions.per, pers)));
+    republished = published.filter((v) => scopes.has(scopeKey(v.per, v.nLiq))).length;
+  }
   const known = people.length
     ? await db
         .select({ nIde: employeeSnapshots.nIde })
@@ -176,9 +188,10 @@ export async function uploadPayroll(
   const unknownConcepts = codes.filter((c) => !knownConcepts.has(c)).length;
   const warnings = parsed.warnings.length;
   const stats = {
-    per: input.per,
-    nLiq: input.nLiq,
     sheet: parsed.sheetName,
+    scopes: scopes.size,
+    perFrom: pers[0] ?? '',
+    perTo: pers.at(-1) ?? '',
     people: people.length,
     vouchers,
     totalDev: toDecimalString(totals.dev),
@@ -187,15 +200,9 @@ export async function uploadPayroll(
     contentHash: hash,
     withoutEmployee: people.filter((p) => !knownSet.has(p)).length,
     unknownConcepts,
+    mixedSalary: countMixedSalary(parsed.rows),
     warnings,
-    replaces: published
-      ? {
-          version: published.version,
-          rowCount: published.rowCount,
-          totalDev: published.totalDev,
-          totalDed: published.totalDed,
-        }
-      : null,
+    republished,
   };
   const status = errors.length === 0 ? 'LISTO' : 'OBSERVADO';
   const [batch] = await db
@@ -246,19 +253,10 @@ export async function applyPayrollBatch(
   const [head] = await db.select().from(importBatches).where(eq(importBatches.id, batchId));
   if (!head) throw new ImportError('NOT_FOUND');
   if (head.status !== 'LISTO') throw new ImportError('NOT_READY');
-  const stats = head.stats as {
-    per: string;
-    nLiq: number;
-    totalDev: string;
-    totalDed: string;
-    contentHash: string;
-  };
+  const stats = head.stats as { totalDev: string; totalDed: string };
 
   try {
     await db.transaction(async (tx) => {
-      await tx.execute(
-        sql`SELECT pg_advisory_xact_lock(hashtext(${`payroll:${stats.per}:${stats.nLiq}`}))`,
-      );
       const claimed = await tx
         .update(importBatches)
         .set({ status: 'APLICANDO' })
@@ -282,72 +280,28 @@ export async function applyPayrollBatch(
         throw new ImportError('APPLY_FAILED');
       }
 
-      const current = await publishedVersion(tx, stats.per, stats.nLiq);
-      if (current?.contentHash === stats.contentHash) throw new ImportError('SAME_CONTENT');
-      const [{ next } = { next: 1 }] = await tx
-        .select({ next: sql<number>`coalesce(max(${payrollVersions.version}), 0)::int + 1` })
-        .from(payrollVersions)
-        .where(and(eq(payrollVersions.per, stats.per), eq(payrollVersions.nLiq, stats.nLiq)));
-      if (current) {
-        await tx
-          .update(payrollVersions)
-          .set({ status: 'REEMPLAZADA' })
-          .where(eq(payrollVersions.id, current.id));
+      // Las liquidaciones se bloquean y se procesan en orden fijo para que dos cargas no se crucen
+      const scopes = [...groupByScope(rows).entries()].sort(([a], [b]) => a.localeCompare(b));
+      let changed = 0;
+      for (const [key, fileRows] of scopes) {
+        const [per = '', nLiqText = '0'] = key.split('|');
+        const nLiq = Number(nLiqText);
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`payroll:${per}:${nLiq}`}))`);
+        if (await applyScope(tx, batchId, per, nLiq, fileRows)) changed++;
       }
-      const [version] = await tx
-        .insert(payrollVersions)
-        .values({
-          per: stats.per,
-          nLiq: stats.nLiq,
-          version: Number(next),
-          status: 'PUBLICADA',
-          contentHash: stats.contentHash,
-          batchId,
-          rowCount: rows.length,
-          totalDev: stats.totalDev,
-          totalDed: stats.totalDed,
-        })
-        .returning({ id: payrollVersions.id });
-      if (!version) throw new Error('versión no creada');
-
-      for (let i = 0; i < rows.length; i += CHUNK) {
-        await tx.insert(payrollLines).values(
-          rows.slice(i, i + CHUNK).map((r, k) => ({
-            versionId: version.id,
-            rowIndex: i + k,
-            nIde: r.nIde,
-            contrato: r.contrato,
-            cCon: r.cCon,
-            concepto: r.concepto,
-            slrio: r.slrio,
-            cant: r.cant,
-            ded: r.ded,
-            dev: r.dev,
-            tercero: r.tercero,
-            nombreOrigen: r.nombre,
-          })),
-        );
-      }
-
-      const [check] = await tx
-        .select({
-          n: sql<number>`count(*)::int`,
-          dev: sql<string>`coalesce(sum(${payrollLines.dev}), 0)::text`,
-          ded: sql<string>`coalesce(sum(${payrollLines.ded}), 0)::text`,
-        })
-        .from(payrollLines)
-        .where(eq(payrollLines.versionId, version.id));
-      if (
-        !check ||
-        Number(check.n) !== head.rowCount ||
-        parseDecimal(check.dev) !== sums.dev ||
-        parseDecimal(check.ded) !== sums.ded
-      ) {
-        throw new ImportError('APPLY_FAILED');
-      }
+      if (changed === 0) throw new ImportError('SAME_CONTENT');
       await tx
         .update(importBatches)
-        .set({ status: 'APLICADO', confirmedBy: actorId, appliedAt: new Date() })
+        .set({
+          status: 'APLICADO',
+          confirmedBy: actorId,
+          appliedAt: new Date(),
+          stats: {
+            ...(head.stats as object),
+            scopesPublished: changed,
+            scopesUnchanged: scopes.length - changed,
+          },
+        })
         .where(eq(importBatches.id, batchId));
     });
   } catch (e) {
@@ -360,6 +314,112 @@ export async function applyPayrollBatch(
   }
   await audit(db, actorId, 'IMPORT_APPLY', batchId, 'SUCCESS');
   return getBatch(db, batchId);
+}
+
+/**
+ * Publica una liquidación: los volantes que trae el archivo reemplazan a los publicados y los demás se
+ * copian tal cual. Devuelve false si el resultado es idéntico a la versión vigente (no crea versión).
+ */
+async function applyScope(
+  tx: Pick<Db, 'select' | 'insert' | 'update'>,
+  batchId: string,
+  per: string,
+  nLiq: number,
+  fileRows: PayrollRow[],
+): Promise<boolean> {
+  const current = await publishedVersion(tx, per, nLiq);
+  const replaced = new Set(fileRows.map((r) => voucherKey(r.nIde, r.contrato)));
+  const kept: PayrollRow[] = [];
+  if (current) {
+    const old = await tx
+      .select()
+      .from(payrollLines)
+      .where(eq(payrollLines.versionId, current.id))
+      .orderBy(payrollLines.rowIndex);
+    for (const l of old) {
+      if (replaced.has(voucherKey(l.nIde, l.contrato))) continue;
+      const dec = (v: string | null) => (v === null ? null : toDecimalString(parseDecimal(v)));
+      kept.push({
+        rowNumber: l.rowIndex,
+        per,
+        nLiq,
+        nIde: l.nIde,
+        contrato: l.contrato,
+        nombre: l.nombreOrigen,
+        cCon: l.cCon,
+        concepto: l.concepto,
+        slrio: dec(l.slrio),
+        cant: dec(l.cant),
+        ded: dec(l.ded),
+        dev: dec(l.dev),
+        tercero: l.tercero,
+      });
+    }
+  }
+  const merged = [...kept, ...fileRows];
+  const contentHash = canonicalHash(merged);
+  if (current?.contentHash === contentHash) return false;
+  const sums = sumAmounts(merged);
+  const [{ next } = { next: 1 }] = await tx
+    .select({ next: sql<number>`coalesce(max(${payrollVersions.version}), 0)::int + 1` })
+    .from(payrollVersions)
+    .where(and(eq(payrollVersions.per, per), eq(payrollVersions.nLiq, nLiq)));
+  if (current) {
+    await tx
+      .update(payrollVersions)
+      .set({ status: 'REEMPLAZADA' })
+      .where(eq(payrollVersions.id, current.id));
+  }
+  const [version] = await tx
+    .insert(payrollVersions)
+    .values({
+      per,
+      nLiq,
+      version: Number(next),
+      status: 'PUBLICADA',
+      contentHash,
+      batchId,
+      rowCount: merged.length,
+      totalDev: toDecimalString(sums.dev),
+      totalDed: toDecimalString(sums.ded),
+    })
+    .returning({ id: payrollVersions.id });
+  if (!version) throw new Error('versión no creada');
+  for (let i = 0; i < merged.length; i += CHUNK) {
+    await tx.insert(payrollLines).values(
+      merged.slice(i, i + CHUNK).map((r, k) => ({
+        versionId: version.id,
+        rowIndex: i + k,
+        nIde: r.nIde,
+        contrato: r.contrato,
+        cCon: r.cCon,
+        concepto: r.concepto,
+        slrio: r.slrio,
+        cant: r.cant,
+        ded: r.ded,
+        dev: r.dev,
+        tercero: r.tercero,
+        nombreOrigen: r.nombre,
+      })),
+    );
+  }
+  const [check] = await tx
+    .select({
+      n: sql<number>`count(*)::int`,
+      dev: sql<string>`coalesce(sum(${payrollLines.dev}), 0)::text`,
+      ded: sql<string>`coalesce(sum(${payrollLines.ded}), 0)::text`,
+    })
+    .from(payrollLines)
+    .where(eq(payrollLines.versionId, version.id));
+  if (
+    !check ||
+    Number(check.n) !== merged.length ||
+    parseDecimal(check.dev) !== sums.dev ||
+    parseDecimal(check.ded) !== sums.ded
+  ) {
+    throw new ImportError('APPLY_FAILED');
+  }
+  return true;
 }
 
 export async function listPayrollVersions(db: Db, per?: string) {

@@ -46,8 +46,9 @@ const MONTHS = [
 /** «PAGO DE NOMINA: PRIMERA QUINCENA DE SEPTIEMBRE 2026», como en el comprobante modelo. */
 export function periodBanner(per: string, nLiq: number): string {
   const month = MONTHS[Number(per.slice(4)) - 1] ?? per.slice(4);
-  const quincena = nLiq === 1 ? 'PRIMERA' : 'SEGUNDA';
-  return `PAGO DE NOMINA: ${quincena} QUINCENA DE ${month} ${per.slice(0, 4)}`;
+  const what =
+    nLiq === 1 ? 'PRIMERA QUINCENA' : nLiq === 2 ? 'SEGUNDA QUINCENA' : `LIQUIDACION ${nLiq}`;
+  return `PAGO DE NOMINA: ${what} DE ${month} ${per.slice(0, 4)}`;
 }
 
 const clean = (v: string) =>
