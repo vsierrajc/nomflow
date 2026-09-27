@@ -1,12 +1,14 @@
 import { and, eq, gte, ilike, isNull, or, sql, type SQL } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import {
+  accounts,
   areaManagerAssignments,
   auditLogs,
   catalogEntries,
   catalogEntryHistory,
   companies,
   employeeSnapshots,
+  roleAssignments,
 } from '../db/schema';
 import { CATALOGS, type CatalogKind } from './catalog.parser';
 
@@ -75,7 +77,66 @@ export async function listEntries(db: Db, kind: CatalogKind, query: EntryListQue
     .orderBy(catalogEntries.code)
     .limit(query.pageSize)
     .offset((query.page - 1) * query.pageSize);
-  return { total: Number(total), page: query.page, pageSize: query.pageSize, items };
+  if (kind !== 'AREA' || items.length === 0)
+    return { total: Number(total), page: query.page, pageSize: query.pageSize, items };
+  const withApprovers = await attachAreaApprovers(db, query.cEmp ?? '', items);
+  return { total: Number(total), page: query.page, pageSize: query.pageSize, items: withApprovers };
+}
+
+/** Jefe y director vigentes de cada área, en una sola consulta por rol (para la lista de Áreas). */
+async function attachAreaApprovers<T extends { code: string }>(
+  db: Db,
+  cEmp: string,
+  items: T[],
+): Promise<(T & { manager: string | null; director: string | null })[]> {
+  const t = new Date().toISOString().slice(0, 10);
+  const managers = await db
+    .select({
+      cArea: areaManagerAssignments.cArea,
+      nIde: accounts.nIde,
+      nombre: employeeSnapshots.nombre,
+    })
+    .from(areaManagerAssignments)
+    .innerJoin(accounts, eq(accounts.id, areaManagerAssignments.managerAccountId))
+    .leftJoin(
+      employeeSnapshots,
+      and(eq(employeeSnapshots.nIde, accounts.nIde), eq(employeeSnapshots.est, 'V')),
+    )
+    .where(
+      and(
+        eq(areaManagerAssignments.cEmp, cEmp),
+        gte(sql`coalesce(${areaManagerAssignments.validTo}, ${t})`, t),
+        sql`${areaManagerAssignments.validFrom} <= ${t}`,
+      ),
+    );
+  const directors = await db
+    .select({
+      cArea: roleAssignments.areaCode,
+      nIde: accounts.nIde,
+      nombre: employeeSnapshots.nombre,
+    })
+    .from(roleAssignments)
+    .innerJoin(accounts, eq(accounts.id, roleAssignments.accountId))
+    .leftJoin(
+      employeeSnapshots,
+      and(eq(employeeSnapshots.nIde, accounts.nIde), eq(employeeSnapshots.est, 'V')),
+    )
+    .where(
+      and(
+        eq(roleAssignments.role, 'AREA_DIRECTOR'),
+        eq(roleAssignments.companyCode, cEmp),
+        gte(sql`coalesce(${roleAssignments.validTo}, ${t})`, t),
+        sql`${roleAssignments.validFrom} <= ${t}`,
+      ),
+    );
+  const label = (r: { nombre: string | null; nIde: string }) => r.nombre ?? r.nIde;
+  const managerByArea = new Map(managers.map((m) => [m.cArea, label(m)]));
+  const directorByArea = new Map(directors.map((d) => [d.cArea, label(d)]));
+  return items.map((it) => ({
+    ...it,
+    manager: managerByArea.get(it.code) ?? null,
+    director: directorByArea.get(it.code) ?? null,
+  }));
 }
 
 export async function createEntry(

@@ -21,6 +21,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
 import { applyProgVacBatch, uploadProgVac } from '../leave/prog-vac.import';
+import { applyAreaApproversBatch, uploadAreaApprovers } from '../org/area-approvers.import';
 import { applyConceptsBatch, uploadConcepts } from '../payroll/concepts.service';
 import { CATALOGS, isCatalogKind } from './catalog.parser';
 import {
@@ -163,6 +164,30 @@ export class ImportsController {
     }
   }
 
+  @Post('area-approvers')
+  @HttpCode(201)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_BYTES, files: 1 } }))
+  async uploadAreaApprovers(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() body: unknown,
+    @Req() req: AuthedRequest,
+  ): Promise<BatchSummary> {
+    const dto = UploadDto.safeParse(body);
+    if (!file || !dto.success) throw new BadRequestException();
+    try {
+      return await uploadAreaApprovers(this.db, req.auth.accountId, {
+        buffer: file.buffer,
+        fileName: file.originalname,
+        sheet: dto.data.sheet,
+        sourceSystem: dto.data.sourceSystem,
+        responsible: dto.data.responsible,
+        maxRows: MAX_ROWS,
+      });
+    } catch (e) {
+      return mapError(e);
+    }
+  }
+
   @Post('payroll')
   @HttpCode(201)
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_BYTES, files: 1 } }))
@@ -270,6 +295,8 @@ export class ImportsController {
         return await applyProgVacBatch(this.db, req.auth.accountId, id);
       if (batch.type === 'CONCEPTO')
         return await applyConceptsBatch(this.db, req.auth.accountId, id);
+      if (batch.type === 'AREA_APPROVERS')
+        return await applyAreaApproversBatch(this.db, req.auth.accountId, id);
       return isCatalogKind(batch.type)
         ? await applyCatalogBatch(this.db, req.auth.accountId, id)
         : await applyEmployeesBatch(this.db, req.auth.accountId, id);

@@ -86,3 +86,5 @@
 - Volante de pago: la columna Hrs muestra solo el valor de CANT, sin la unidad del catálogo de conceptos.
 - Documentación: nuevo PLAN.md con los pendientes por fases; STATUS, HANDOFF y la matriz de trazabilidad al día.
 - Vacaciones: nuevo ciclo automático de causación cada 360 días desde el inicio del contrato (15 días), con tope de 3 acumulados y vencimiento del más antiguo al superarlo (ADR-007).
+- Catálogos > Áreas: la tabla muestra el jefe y el director vigentes de cada área como columnas.
+- Nuevo cargador «Jefe y director de las áreas» desde Excel (columnas CDGO_AREA, CDGO_EMPRSA, NMBRE_AREA, JEFE, DIRECTOR), en Catálogos > Áreas, con vista previa de lo que se puede asignar.
