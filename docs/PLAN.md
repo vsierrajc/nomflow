@@ -42,7 +42,7 @@ Decisiones de esta fase: plazos de retención y quién custodia la clave de obje
 | 2.1 | **Aviso previo a la baja** (`PRE_BAJA_AVISO_DIAS`), cola de trabajos y bloqueo al pasar a `EST = C` | ESS-EXIT-001 |
 | 2.2 | **ZIP** con todos los volantes, certificados tributarios y constancias del empleado, con manifiesto y caducidad | ESS-EXIT-001 |
 | 2.3 | **Retiro de publicación** de una versión de nómina, con motivo y auditoría | ESS-PAY-001 |
-| 2.4 | Cambio de correo de un empleado con cuenta mediante resolución administrativa; que una importación no pise correcciones manuales | Seguridad |
+| 2.4 | ~~Cambio de correo de un empleado con cuenta mediante resolución administrativa; que una importación no pise correcciones manuales~~ DONE: `POST admin/employees/:id/email-resolution` cambia el correo, exige nueva verificación (`PENDIENTE_VERIFICACION`) y revoca sesiones; la importación conserva un correo corregido manualmente (`source = MANUAL`) y avisa en el reporte del lote | ESS-EMP-002 |
 
 Decisiones de esta fase: valor inicial de `PRE_BAJA_AVISO_DIAS`, si cuenta días hábiles o calendario, canal del aviso y entrega a ex empleados.
 

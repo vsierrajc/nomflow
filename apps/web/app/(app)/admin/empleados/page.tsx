@@ -71,6 +71,7 @@ const ACTIONS: Record<string, string> = {
   UPDATE: 'Modificación',
   DEACTIVATE: 'Baja',
   REACTIVATE: 'Reactivación',
+  EMAIL_RESOLUTION: 'Corrección de correo (resolución administrativa)',
 };
 const FIELD_LABELS: Record<string, string> = {
   nombre: 'Nombre',
@@ -471,6 +472,84 @@ function StatusDialog({
   );
 }
 
+function EmailResolutionDialog({
+  employee,
+  onDone,
+  onClose,
+}: {
+  employee: Row;
+  onDone: (m: string) => void;
+  onClose: () => void;
+}) {
+  const { call } = useAdmin();
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    const email = String(f.get('email') ?? '').trim();
+    const reason = String(f.get('reason') ?? '').trim();
+    setBusy(true);
+    setError(null);
+    const res = await call<{ issues?: string[] }>(
+      `/admin/employees/${employee.id}/email-resolution`,
+      { method: 'POST', body: { version: employee.version, email, reason } },
+    );
+    setBusy(false);
+    if (res.status === 200)
+      onDone(
+        'Correo corregido. La cuenta quedó pendiente de verificar y se envió un código al correo nuevo.',
+      );
+    else if (res.status === 422)
+      setError(res.data?.issues?.join(' ') ?? 'El correo no es válido o pertenece a otra persona.');
+    else if (res.status === 409)
+      setError('Otra persona modificó este registro. Cierre y vuelva a abrirlo.');
+    else if (res.status === 400) setError('Escriba un motivo de al menos 10 caracteres.');
+    else if (res.status === 403) setError('Se canceló la confirmación de identidad.');
+    else setError(NETWORK_ERROR);
+  }
+
+  return (
+    <Modal
+      title={`Cambiar el correo de ${employee.nombre} (resolución administrativa)`}
+      onClose={onClose}
+    >
+      <p>
+        Esta acción cambia el correo de la cuenta ya existente, la deja pendiente de verificar y
+        envía un código al correo nuevo: la persona no podrá ingresar hasta comprobar que lo
+        controla. Úsela solo cuando el correo importado esté mal y la corrección normal no la deje
+        (porque la persona ya tiene cuenta).
+      </p>
+      {error ? <Notice kind="error">{error}</Notice> : null}
+      <form onSubmit={onSubmit} noValidate>
+        <Field
+          label="Correo nuevo"
+          name="email"
+          type="email"
+          defaultValue={employee.email}
+          required
+          maxLength={254}
+        />
+        <div className="field">
+          <label htmlFor="email-resolution-reason">
+            Motivo (obligatorio, mínimo 10 caracteres)
+          </label>
+          <textarea id="email-resolution-reason" name="reason" rows={2} required maxLength={500} />
+        </div>
+        <div className="actions">
+          <button type="submit" disabled={busy}>
+            Confirmar cambio de correo
+          </button>
+          <button type="button" className="secondary" onClick={onClose}>
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 function DetailDialog({ id, onClose }: { id: string; onClose: () => void }) {
   const { call } = useAdmin();
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -563,6 +642,7 @@ export default function EmployeesPage() {
   const [editing, setEditing] = useState<Detail | 'new' | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
   const [status, setStatus] = useState<Row | null>(null);
+  const [emailResolution, setEmailResolution] = useState<Row | null>(null);
 
   const load = useCallback(async () => {
     const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
@@ -672,6 +752,13 @@ export default function EmployeesPage() {
                           label={`${r.est === 'V' ? 'Dar de baja' : 'Reactivar'} ${r.nombre}`}
                           onClick={() => setStatus(r)}
                         />
+                        {r.hasAccount ? (
+                          <IconButton
+                            icon="mail"
+                            label={`Cambiar correo de ${r.nombre} (resolución administrativa)`}
+                            onClick={() => setEmailResolution(r)}
+                          />
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -709,6 +796,17 @@ export default function EmployeesPage() {
           onClose={() => setStatus(null)}
           onDone={(m) => {
             setStatus(null);
+            setNotice(m);
+            void load();
+          }}
+        />
+      ) : null}
+      {emailResolution ? (
+        <EmailResolutionDialog
+          employee={emailResolution}
+          onClose={() => setEmailResolution(null)}
+          onDone={(m) => {
+            setEmailResolution(null);
             setNotice(m);
             void load();
           }}

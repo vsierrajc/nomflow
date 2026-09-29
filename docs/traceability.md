@@ -14,6 +14,7 @@ Actualizada el 26 de septiembre de 2026. Estados: BACKLOG, READY, IN_PROGRESS, I
 | ESS-ORG-002 | Jefe y director de área con vigencia e historial (5, 9.1) | 2 | #10, #68 | org.e2e.spec.ts | DONE (faltan suplencias) |
 | ESS-IMPORT-001 | Importación Excel por lotes, staging, idempotencia, reversión (9.2-9.3) | 2 | #8, #16, #75 | imports.e2e.spec.ts, payroll.e2e.spec.ts | DONE |
 | ESS-IMPORT-002 | Importación EMPLEADOS con EST V/C y contrato único vigente (9.1) | 2 | #8, #47 | imports.e2e.spec.ts | DONE (datos reales cargados) |
+| ESS-EMP-002 | Cambio de correo por resolución administrativa; la importación conserva una corrección manual (9.3) | 2 | en revisión (`feat/ESS-EMP-email-resolucion-administrativa`) | employees.e2e.spec.ts, imports.e2e.spec.ts | IN_REVIEW (falta revisión de otra persona) |
 | ESS-PAY-001 | Volantes PDF carta según el modelo, SLRIO por liquidación, modos SIN_AJUSTE/ENTERO_SUPERIOR, carga por PER y N_LIQ (9.2, 9.4) | 3 | #16, #74, #75, #76 | payroll.e2e.spec.ts, number-words.spec.ts, e2e/volantes.spec.ts | DONE (falta cargar `nomina.xlsx` real y retiro de publicación) |
 | ESS-TAX-001 | Certificados tributarios PDF por N_IDE+año, por carpeta y desde el navegador (6.3) | 3 | #22, #69 | tax.e2e.spec.ts, e2e/retenciones.spec.ts | DONE (falta política de retención) |
 | ESS-CERT-001 | Plantillas de certificado versionadas (6.1.1) | 3 | #49 | labor-cert.e2e.spec.ts, template-engine.spec.ts | DONE |

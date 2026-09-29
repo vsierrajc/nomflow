@@ -324,6 +324,35 @@ describe.skipIf(!url)('importación de EMPLEADOS (HTTP + PostgreSQL)', () => {
     expect(up.body.status).toBe('OBSERVADO');
   });
 
+  it('conserva un correo corregido manualmente y actualiza el resto de la fila, con advertencia', async () => {
+    await db.insert(employeeSnapshots).values({
+      nIde: '1000000001',
+      nCont: '1',
+      email: 'manual@prueba.co',
+      est: 'V',
+      celular: '3000000000',
+      source: 'MANUAL',
+    });
+    const up = await upload(await xlsx([base({ CELULAR: '3999999999' })]));
+    expect(up.body.status).toBe('LISTO');
+    expect((await apply(up.body.id)).status).toBe(200);
+
+    const [row] = await db.select().from(employeeSnapshots);
+    expect(row).toMatchObject({
+      email: 'manual@prueba.co',
+      celular: '3999999999',
+      source: 'MANUAL',
+    });
+
+    const errs = await errorsOf(up.body.id);
+    expect(errs.body.errors).toContainEqual(
+      expect.objectContaining({
+        column: 'EMAIL',
+        rule: expect.stringContaining('se conserva'),
+      }),
+    );
+  });
+
   it('aplicar dos veces en paralelo solo deja un resultado y el conteo cuadra', async () => {
     const up = await upload(
       await xlsx([base(), base({ N_IDE: '1000000002', EMAIL: 'luis@prueba.co' })]),
