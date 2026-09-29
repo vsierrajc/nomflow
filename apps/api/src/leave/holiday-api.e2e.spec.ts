@@ -17,6 +17,7 @@ import {
   holidayCalendars,
   progVac,
   roleAssignments,
+  shifts,
 } from '../db/schema';
 import { resetAutoLoadState } from './holiday-api.service';
 import { open, seal } from '../security/secret-box';
@@ -90,7 +91,9 @@ describe.skipIf(!url)('API de festivos: configuración y sincronización (HTTP +
   });
 
   async function person(nIde: string, email: string, role?: 'HR_ADMIN'): Promise<Sess> {
-    await db.insert(employeeSnapshots).values({ nIde, nCont: '1', email, est: 'V', nombre: nIde });
+    await db
+      .insert(employeeSnapshots)
+      .values({ nIde, nCont: '1', email, est: 'V', nombre: nIde, turno: '01' });
     const [a] = await db
       .insert(accounts)
       .values({
@@ -128,8 +131,17 @@ describe.skipIf(!url)('API de festivos: configuración y sincronización (HTTP +
       { date: '2031-05-01', name_es: 'Día del Trabajo' },
     ];
     await db.execute(
-      sql`TRUNCATE prog_vac, holiday_api_settings, holidays, holiday_calendars, audit_logs, sessions, role_assignments, accounts, employee_snapshots CASCADE`,
+      sql`TRUNCATE prog_vac, holiday_api_settings, holidays, holiday_calendars, audit_logs, sessions, role_assignments, accounts, employee_snapshots, shifts CASCADE`,
     );
+    await db.insert(shifts).values({
+      code: '01',
+      name: 'Turno 01',
+      monday: true,
+      tuesday: true,
+      wednesday: true,
+      thursday: true,
+      friday: true,
+    });
     hr = await person('ADM', 'adm@x.co', 'HR_ADMIN');
     emp = await person('100', 'e@x.co');
   });

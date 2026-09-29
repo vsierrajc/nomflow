@@ -422,6 +422,44 @@ async function applyScope(
   return true;
 }
 
+export type RetireErrorCode = 'NOT_FOUND' | 'NOT_PUBLISHED';
+
+export class RetireError extends Error {
+  constructor(readonly code: RetireErrorCode) {
+    super(code);
+  }
+}
+
+/** Retira una versión publicada, sin borrarla: deja de ofrecerse, pero queda auditable. */
+export async function retirePayrollVersion(
+  db: Db,
+  actorId: string,
+  versionId: string,
+  reason: string,
+) {
+  const [current] = await db
+    .select()
+    .from(payrollVersions)
+    .where(eq(payrollVersions.id, versionId));
+  if (!current) throw new RetireError('NOT_FOUND');
+  const rows = await db
+    .update(payrollVersions)
+    .set({ status: 'RETIRADA' })
+    .where(and(eq(payrollVersions.id, versionId), eq(payrollVersions.status, 'PUBLICADA')))
+    .returning();
+  const row = rows[0];
+  if (!row) throw new RetireError('NOT_PUBLISHED');
+  await db.insert(auditLogs).values({
+    actorAccountId: actorId,
+    action: 'PAYROLL_VERSION_RETIRE',
+    resource: 'payroll_version',
+    resourceId: versionId,
+    result: 'SUCCESS',
+    context: { per: row.per, nLiq: row.nLiq, version: row.version, reason },
+  });
+  return row;
+}
+
 export async function listPayrollVersions(db: Db, per?: string) {
   return db
     .select({

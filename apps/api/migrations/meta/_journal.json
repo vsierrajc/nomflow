@@ -225,6 +225,20 @@
       "when": 1790467155919,
       "tag": "0031_aprobacion_jerarquica",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790692613672,
+      "tag": "0032_aviso_baja_exportacion",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790709362777,
+      "tag": "0033_turnos",
+      "breakpoints": true
     }
   ]
 }

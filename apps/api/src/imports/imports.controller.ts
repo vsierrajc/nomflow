@@ -25,8 +25,10 @@ import { applyAreaApproversBatch, uploadAreaApprovers } from '../org/area-approv
 import { applyConceptsBatch, uploadConcepts } from '../payroll/concepts.service';
 import { CATALOGS, isCatalogKind } from './catalog.parser';
 import {
+  RetireError,
   applyPayrollBatch,
   listPayrollVersions,
+  retirePayrollVersion,
   uploadPayroll,
 } from '../payroll/payroll-import.service';
 import { applyCatalogBatch, listCatalog, uploadCatalog } from './catalogs.service';
@@ -217,6 +219,26 @@ export class ImportsController {
   async payrollVersions(@Query('per') per: string | undefined) {
     if (per !== undefined && !/^\d{6}$/.test(per)) throw new BadRequestException();
     return listPayrollVersions(this.db, per);
+  }
+
+  @Post('payroll/versions/:id/retire')
+  @HttpCode(200)
+  async retirePayrollVersion(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('reason') reason: unknown,
+    @Req() req: AuthedRequest,
+  ) {
+    const why = z.string().trim().min(10).max(500).safeParse(reason);
+    if (!why.success) throw new BadRequestException();
+    try {
+      return await retirePayrollVersion(this.db, req.auth.accountId, id, why.data);
+    } catch (e) {
+      if (e instanceof RetireError) {
+        if (e.code === 'NOT_FOUND') throw new NotFoundException();
+        throw new ConflictException({ code: e.code });
+      }
+      throw e;
+    }
   }
 
   @Post('catalogs/:kind')

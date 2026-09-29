@@ -60,6 +60,8 @@ export default defineConfig({
         REQUIRE_RECENT_AUTH: 'true',
         NOTIFICATIONS_MONITOR: 'off',
         ARCHIVE_SCHEDULER: 'off',
+        EXIT_MONITOR: 'off',
+        EXIT_EXPORT_MONITOR: 'off',
         SESSION_SECRET: 'e2e-secret-e2e-secret-e2e-secret-12345',
         SMTP_HOST: 'localhost',
         SMTP_PORT: '1025',

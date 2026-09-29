@@ -18,9 +18,12 @@ export function isValidIsoDate(iso: string): boolean {
 /** 0 = domingo … 6 = sábado. */
 const weekday = (iso: string): number => new Date(toUtc(iso)).getUTCDay();
 
-export function isBusinessDay(iso: string, holidays: ReadonlySet<string>): boolean {
-  const w = weekday(iso);
-  return w !== 0 && w !== 6 && !holidays.has(iso);
+export function isBusinessDay(
+  iso: string,
+  holidays: ReadonlySet<string>,
+  workDays: ReadonlySet<number>,
+): boolean {
+  return workDays.has(weekday(iso)) && !holidays.has(iso);
 }
 
 export type LeaveErrorCode = 'START_NOT_BUSINESS_DAY' | 'INVALID_DAYS' | 'INVALID_DATE';
@@ -49,32 +52,33 @@ export class LeaveCalcError extends Error {
 }
 
 /**
- * Desde `start` (inclusive, debe ser hábil) suma solo lunes a viernes no festivos hasta completar
- * `businessDays`. Sábados, domingos y festivos intermedios extienden el intervalo sin consumir días.
+ * Desde `start` (inclusive, debe ser hábil) suma solo los días laborales del turno (`workDays`) sin
+ * festivos hasta completar `businessDays`. Los demás días de la semana y los festivos intermedios
+ * extienden el intervalo sin consumir días.
  */
 export function computeLeave(
   start: string,
   businessDays: number,
   holidays: ReadonlySet<string>,
+  workDays: ReadonlySet<number>,
 ): LeaveDates {
   if (!isValidIsoDate(start)) throw new LeaveCalcError('INVALID_DATE');
   if (!Number.isInteger(businessDays) || businessDays < 1 || businessDays > 90)
     throw new LeaveCalcError('INVALID_DAYS');
-  if (!isBusinessDay(start, holidays)) throw new LeaveCalcError('START_NOT_BUSINESS_DAY');
+  if (!isBusinessDay(start, holidays, workDays)) throw new LeaveCalcError('START_NOT_BUSINESS_DAY');
 
   const counted: string[] = [];
   const skippedHolidays: string[] = [];
   let cursor = start;
   while (counted.length < businessDays) {
-    if (isBusinessDay(cursor, holidays)) counted.push(cursor);
-    else if (holidays.has(cursor) && ![0, 6].includes(weekday(cursor)))
-      skippedHolidays.push(cursor);
+    if (isBusinessDay(cursor, holidays, workDays)) counted.push(cursor);
+    else if (holidays.has(cursor) && workDays.has(weekday(cursor))) skippedHolidays.push(cursor);
     if (counted.length < businessDays) cursor = addDays(cursor, 1);
   }
   const end = cursor;
   let ret = addDays(end, 1);
-  while (!isBusinessDay(ret, holidays)) {
-    if (holidays.has(ret) && ![0, 6].includes(weekday(ret))) skippedHolidays.push(ret);
+  while (!isBusinessDay(ret, holidays, workDays)) {
+    if (holidays.has(ret) && workDays.has(weekday(ret))) skippedHolidays.push(ret);
     ret = addDays(ret, 1);
   }
   return {

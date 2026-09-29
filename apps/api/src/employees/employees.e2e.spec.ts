@@ -469,6 +469,49 @@ describe.skipIf(!url)('CRUD de empleados (HTTP + PostgreSQL)', () => {
     });
   });
 
+  describe('cambio de turno (acción rápida)', () => {
+    it('exige motivo, cambia el turno, sube la versión y registra el historial', async () => {
+      const c = await post('/admin/employees', newEmp());
+      expect(c.body.turno ?? null).toBeNull();
+
+      const short = await post(`/admin/employees/${c.body.id}/shift`, {
+        turno: '02',
+        version: c.body.version,
+        reason: 'corto',
+      });
+      expect(short.status).toBe(400);
+
+      const res = await post(`/admin/employees/${c.body.id}/shift`, {
+        turno: '02',
+        version: c.body.version,
+        reason: 'Se confirmó con Gestión Humana el turno real del empleado.',
+      });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ turno: '02', version: 2, source: 'MANUAL' });
+
+      const hist = (await get(`/admin/employees/${c.body.id}/history`)).body;
+      expect(hist.at(-1)).toMatchObject({ action: 'SHIFT_CHANGE' });
+      expect(hist.at(-1).changes).toMatchObject({ turno: { from: null, to: '02' } });
+    });
+
+    it('rechaza sin cambios y con versión desactualizada', async () => {
+      const c = await post('/admin/employees', newEmp({ turno: '01' }));
+      const same = await post(`/admin/employees/${c.body.id}/shift`, {
+        turno: '01',
+        version: c.body.version,
+        reason: 'Intento sin cambios reales en el turno.',
+      });
+      expect(same.status).toBe(422);
+
+      const stale = await post(`/admin/employees/${c.body.id}/shift`, {
+        turno: '02',
+        version: 999,
+        reason: 'Motivo válido pero con versión desactualizada.',
+      });
+      expect(stale.status).toBe(409);
+    });
+  });
+
   describe('baja y reactivación', () => {
     it('EST = C cierra las sesiones y bloquea el ingreso; conserva el historial', async () => {
       const c = await post('/admin/employees', newEmp());

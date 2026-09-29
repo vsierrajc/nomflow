@@ -8,7 +8,7 @@ import { hashPassword } from '../accounts/password.service';
 import { AppModule } from '../app.module';
 import { createDb } from '../db/client';
 import { runMigrations } from '../db/migrate';
-import { accounts, employeeSnapshots, progVac, roleAssignments } from '../db/schema';
+import { accounts, employeeSnapshots, progVac, roleAssignments, shifts } from '../db/schema';
 
 const url = process.env.DATABASE_URL;
 const PASSWORD = 'Clave-Definitiva-1';
@@ -42,7 +42,7 @@ describe.skipIf(!url)('festivos, PROG_VAC y cálculo previo (HTTP + PostgreSQL)'
   async function person(nIde: string, email: string, role?: 'HR_ADMIN') {
     await db
       .insert(employeeSnapshots)
-      .values({ nIde, nCont: '1', email, est: 'V', nombre: nIde, cEmp: 'GA' });
+      .values({ nIde, nCont: '1', email, est: 'V', nombre: nIde, cEmp: 'GA', turno: '01' });
     const [a] = await db
       .insert(accounts)
       .values({
@@ -75,8 +75,17 @@ describe.skipIf(!url)('festivos, PROG_VAC y cálculo previo (HTTP + PostgreSQL)'
 
   beforeEach(async () => {
     await db.execute(
-      sql`TRUNCATE prog_vac_adjustments, prog_vac, holidays, holiday_calendars, audit_logs, sessions, role_assignments, accounts, employee_snapshots CASCADE`,
+      sql`TRUNCATE prog_vac_adjustments, prog_vac, holidays, holiday_calendars, audit_logs, sessions, role_assignments, accounts, employee_snapshots, shifts CASCADE`,
     );
+    await db.insert(shifts).values({
+      code: '01',
+      name: 'Turno 01',
+      monday: true,
+      tuesday: true,
+      wednesday: true,
+      thursday: true,
+      friday: true,
+    });
     hr = await person('ADM', 'hr@x.co', 'HR_ADMIN');
     emp = await person('100', 'e@x.co');
   });

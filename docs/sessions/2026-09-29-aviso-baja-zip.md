@@ -1,0 +1,28 @@
+# Sesión: 2026-09-29 - Aviso de baja y exportación ZIP (ESS-EXIT-001)
+- Responsable / agente: Claude Code (Sonnet 5), con revisión y decisiones del usuario en el chat.
+- Objetivo e incidencias: Implementar ESS-EXIT-001 (fase 2 del plan): aviso previo a la baja con `PRE_BAJA_AVISO_DIAS` y exportación ZIP de los documentos del empleado antes de aplicar `EST = C`.
+- Rama y commit inicial: `feat/ESS-EXIT-001-aviso-baja-zip`, creada desde `main` en `49a92d4`.
+- Cambios realizados (rutas y comportamiento):
+  - Esquema: `apps/api/src/db/schema.ts` — tablas nuevas `exitSettings`, `employeeExitSchedules`, `documentExports`, `documentExportDownloads`. Migración `apps/api/migrations/0032_aviso_baja_exportacion.sql`.
+  - Backend nuevo en `apps/api/src/exit/`: `exit-settings.service.ts`, `exit-schedule.service.ts`, `exit-compliance.service.ts`, `exit-notice.service.ts` + `exit-notice.monitor.ts` (job periódico en proceso, sin cola de trabajos), `export-zip.service.ts` + `export-zip.monitor.ts` (arma el ZIP con `archiver`), `exit.controller.ts` (`/admin/exit/...`), `my-exit.controller.ts` (`/me/exit/...`), `exit.module.ts` (registrado en `app.module.ts`).
+  - `apps/api/src/employees/employees.service.ts` e `imports.service.ts`: al aplicar `EST = C` se llama `checkExitNoticeCompliance`, que cierra la baja programada (`EJECUTADO`) si hubo aviso o registra `EXIT_NO_NOTICE_INCUMPLIMIENTO` en auditoría si no lo hubo. La revocación de sesión (ya existente) no cambia.
+  - Web: `apps/web/app/(app)/admin/bajas/page.tsx` (ajustes, programar baja, listado, exportar/descargar), `apps/web/app/(app)/mi-baja/page.tsx` (autoservicio del empleado), enlaces añadidos en `admin/layout.tsx` y `components/shells.tsx`.
+  - Dependencia nueva: `archiver@5.3.2` (fijada exacta; la 8.x es ESM-only y rompe la compilación CommonJS del proyecto) y `@types/archiver@^5.3.4`.
+- Decisiones / ADR / cambios al SRS:
+  - Fecha prevista de baja: la ingresa el administrador manualmente (no depende de una columna de importación).
+  - Generación del ZIP: job liviano en proceso (patrón de `health-monitor.ts`), no se introdujo Redis/BullMQ.
+  - `PRE_BAJA_AVISO_DIAS` inicial: 15 días calendario. Caducidad del ZIP: 7 días, descargas ilimitadas dentro de ese plazo.
+  - Suplente de jefe de área = director de área (confirmado por el usuario; ya existía en el código, no requirió cambios).
+  - Códigos `EST` de `PROG_VAC` siguen sin interpretarse (decisión abierta de la SSD, no se tocó en esta sesión).
+- Pruebas y evidencia (comando, resultado, entorno):
+  - `apps/api/src/exit/exit.e2e.spec.ts` (6 casos, HTTP + PostgreSQL real): programar/duplicar baja, aviso + exportación pendiente, ZIP listo + descarga + caducidad, incumplimiento de aviso vs. aviso enviado, exportación a pedido con motivo auditado, aislamiento del autoservicio.
+  - `DATABASE_URL=.../nomflow_test npm run format:check && npm run lint && npm run typecheck && npm run build && npm test && npm run audit:deps` → todo en verde. `npm test`: 422 pruebas de API (antes 400), 0 fallos, 0 vulnerabilidades.
+  - Smoke manual en el stack local (`./iniciar_app.sh`): `/admin/exit/settings` responde 401 sin sesión (ruta protegida activa); `/admin/bajas` y `/mi-baja` cargan (200) en el navegador.
+- Migraciones, configuración y datos de ejemplo necesarios: migración `0032_aviso_baja_exportacion.sql` (aplicada automáticamente por `db:migrate` al iniciar el stack). Sin variables de entorno nuevas obligatorias; opcionales `EXIT_MONITOR`, `EXIT_MONITOR_INTERVAL_MS`, `EXIT_EXPORT_MONITOR`, `EXIT_EXPORT_MONITOR_INTERVAL_MS` para ajustar los jobs (siguen el patrón de `HEALTH_MONITOR`).
+- Bloqueos y riesgos:
+  - Sin pruebas de navegador (Playwright) para `/admin/bajas` ni `/mi-baja` todavía.
+  - El renderizado de volantes históricos ocurre en el momento de armar el ZIP (reutiliza `renderVoucherPdf`); puede ser lento con historiales muy largos, sin medir aún con datos reales.
+  - Falta abrir PR y obtener revisión de otra persona (gobierno de Git, pendiente de forma explícita hasta el cierre de todas las fases según el usuario).
+- Estado final (hecho / parcial / pendiente): **parcial**. Backend completo y probado; interfaz web construida y compilando, sin pruebas de navegador ni PR abierto.
+- Rama, commit final y PR: `feat/ESS-EXIT-001-aviso-baja-zip`, sin commit creado todavía en esta sesión (cambios en el árbol de trabajo), sin PR.
+- Próximo paso exacto y responsable: crear el commit, escribir pruebas Playwright de `/admin/bajas` y `/mi-baja`, abrir el PR con revisión de otra persona antes de integrar a `main`.

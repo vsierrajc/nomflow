@@ -21,6 +21,7 @@ import {
   progVac,
   progVacAdjustments,
   roleAssignments,
+  shifts,
   vacaciones,
   vacationDocuments,
   vacationActions,
@@ -94,9 +95,16 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
     roles: { role: Role; area?: boolean; company?: string }[] = [],
     cArea = '10300',
   ): Promise<Sess> {
-    await db
-      .insert(employeeSnapshots)
-      .values({ nIde, nCont: '1', email, est: 'V', nombre: `Persona ${nIde}`, cEmp: 'GA', cArea });
+    await db.insert(employeeSnapshots).values({
+      nIde,
+      nCont: '1',
+      email,
+      est: 'V',
+      nombre: `Persona ${nIde}`,
+      cEmp: 'GA',
+      cArea,
+      turno: '01',
+    });
     const [a] = await db
       .insert(accounts)
       .values({
@@ -148,8 +156,17 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
     raw.objects.clear();
     raw.down = false;
     await db.execute(
-      sql`TRUNCATE vacation_documents, companies, vacaciones, vacation_actions, vacation_revision_allocations, vacation_revisions, vacation_requests, prog_vac_adjustments, prog_vac, holidays, holiday_calendars, area_manager_assignments, audit_logs, sessions, role_assignments, accounts, employee_snapshots CASCADE`,
+      sql`TRUNCATE vacation_documents, companies, vacaciones, vacation_actions, vacation_revision_allocations, vacation_revisions, vacation_requests, prog_vac_adjustments, prog_vac, holidays, holiday_calendars, area_manager_assignments, audit_logs, sessions, role_assignments, accounts, employee_snapshots, shifts CASCADE`,
     );
+    await db.insert(shifts).values({
+      code: '01',
+      name: 'Turno 01',
+      monday: true,
+      tuesday: true,
+      wednesday: true,
+      thursday: true,
+      friday: true,
+    });
     adm = await person('ADM', 'adm@x.co', [{ role: 'HR_ADMIN' }], '99999');
     emp = await person('100', 'e@x.co');
     mgr = await person('200', 'm@x.co', [{ role: 'AREA_MANAGER', area: true }]);
@@ -358,6 +375,46 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
 
     await db.delete(areaManagerAssignments);
     await submit('2026-06-01', [{ progVacId: p1, days: 1 }]).expect(422); // sin jefe vigente
+  });
+
+  it('sin turno asignado, o con un turno que no existe en el catálogo, se bloquea con SHIFT_MISSING', async () => {
+    await db
+      .update(employeeSnapshots)
+      .set({ turno: null })
+      .where(eq(employeeSnapshots.nIde, '100'));
+    const noShift = await submit('2026-03-02', [{ progVacId: p1, days: 1 }]).expect(422);
+    expect(noShift.body.code).toBe('SHIFT_MISSING');
+
+    await db
+      .update(employeeSnapshots)
+      .set({ turno: 'NO_EXISTE' })
+      .where(eq(employeeSnapshots.nIde, '100'));
+    const unknownShift = await submit('2026-03-02', [{ progVacId: p1, days: 1 }]).expect(422);
+    expect(unknownShift.body.code).toBe('SHIFT_MISSING');
+  });
+
+  it('un turno con sábado laboral permite incluir el sábado en el disfrute', async () => {
+    await db.insert(shifts).values({
+      code: '02',
+      name: 'Turno 02',
+      monday: true,
+      tuesday: true,
+      wednesday: true,
+      thursday: true,
+      friday: true,
+      saturday: true,
+    });
+    await db
+      .update(employeeSnapshots)
+      .set({ turno: '02' })
+      .where(eq(employeeSnapshots.nIde, '100'));
+    // 2026-03-02 es lunes; con turno 02, 6 días hábiles alcanzan el sábado 2026-03-07.
+    await submit('2026-03-02', [
+      { progVacId: p1, days: 5 },
+      { progVacId: p2, days: 1 },
+    ]).expect(201);
+    const mine = await send(emp, 'get', '/me/vacations').expect(200);
+    expect(mine.body[0]).toMatchObject({ end: '2026-03-07', returnDate: '2026-03-09' });
   });
 
   it('el jefe rechaza con motivo o propone cambios que el empleado debe aceptar', async () => {

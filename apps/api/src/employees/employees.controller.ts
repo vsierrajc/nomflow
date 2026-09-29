@@ -31,6 +31,7 @@ import {
   getEmployee,
   listEmployees,
   resolveEmployeeEmail,
+  setEmployeeShift,
   setEmployeeStatus,
   updateEmployee,
 } from './employees.service';
@@ -76,6 +77,11 @@ const EmailResolutionDto = z.object({
 });
 const StatusDto = z.object({
   est: z.enum(['V', 'C']),
+  version: z.number().int().positive(),
+  reason: Reason,
+});
+const ShiftChangeDto = z.object({
+  turno: text(30).nullable(),
   version: z.number().int().positive(),
   reason: Reason,
 });
@@ -210,6 +216,30 @@ export class EmployeesController {
         id,
         dto.data.est,
         dto.data.version,
+        dto.data.reason,
+      );
+    } catch (e) {
+      return map(e);
+    }
+  }
+
+  @Post(':id/shift')
+  @HttpCode(200)
+  @UseGuards(RecentAuthGuard)
+  async shift(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+    @Req() req: AuthedRequest,
+  ) {
+    const dto = ShiftChangeDto.safeParse(body);
+    if (!dto.success) throw new BadRequestException();
+    try {
+      return await setEmployeeShift(
+        this.db,
+        req.auth.accountId,
+        id,
+        dto.data.version,
+        dto.data.turno && dto.data.turno.trim() !== '' ? dto.data.turno.trim() : null,
         dto.data.reason,
       );
     } catch (e) {
