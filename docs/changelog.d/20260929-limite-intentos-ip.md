@@ -1,0 +1,1 @@
+Seguridad: límite de peticiones por IP en los endpoints públicos de autenticación (login, activación, reenvío de verificación) y configuración de `TRUST_PROXY` para leer la IP real detrás de un proxy reverso.

@@ -9,7 +9,7 @@
 | módulo | estado | PR | siguiente acción |
 | --- | --- | --- | --- |
 | Monorepo, CI y ADR-001/002 (ESS-OPS-001) | DONE | #1, #2 | Job e2e obligatorio; protección de `main` |
-| Cuentas, login, sesiones, clave asignada y doble paso (ESS-AUTH-001/003) | DONE | #3-#5, #36, #51, #52, #60 | Límite por IP |
+| Cuentas, login, sesiones, clave asignada y doble paso (ESS-AUTH-001/003) | DONE; límite de peticiones por IP en los endpoints públicos (`AUTH_RATE_LIMIT_MAX`/`_WINDOW_MS`) y `TRUST_PROXY` para leer la IP real detrás de un proxy | #3-#5, #36, #51, #52, #60, #90 | - |
 | Verificación SMTP y activación (ESS-AUTH-002) | DONE | #6 | STARTTLS en el servidor interno |
 | Alta por API, roles y reautenticación opcional (ESS-AUTH-004/005/006) | DONE | #7, #11, #55 | Revisión de otra persona |
 | Importación de EMPLEADOS (ESS-IMPORT-002) | DONE | #8, #47 | Datos ya cargados desde `initconfigdata` |
