@@ -45,9 +45,18 @@ import { VacationCycleMonitor } from './leave/vacation-cycle-monitor';
 import { AdminNotificationsController } from './inbox/notification.controller';
 import { NotificationService } from './inbox/notification.service';
 import { SystemHealthModule } from './health/health.module';
+import { ExitModule } from './exit/exit.module';
 
 @Module({
-  imports: [DbModule, MailModule, StorageModule, ArchiveModule, LogsModule, SystemHealthModule],
+  imports: [
+    DbModule,
+    MailModule,
+    StorageModule,
+    ArchiveModule,
+    LogsModule,
+    SystemHealthModule,
+    ExitModule,
+  ],
   controllers: [
     HealthController,
     AuthController,
