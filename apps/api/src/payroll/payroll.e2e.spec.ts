@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import ExcelJS from 'exceljs';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { hashPassword } from '../accounts/password.service';
@@ -11,6 +11,7 @@ import { createDb } from '../db/client';
 import { runMigrations } from '../db/migrate';
 import {
   accounts,
+  auditLogs,
   companies,
   employeeSnapshots,
   importBatchRows,
@@ -719,5 +720,85 @@ describe.skipIf(!url)('nómina y volantes PDF (HTTP + PostgreSQL)', () => {
         .from(importBatchRows)
         .where(sql`batch_id = ${id}`),
     ).toHaveLength(2);
+  });
+
+  describe('retiro de publicación', () => {
+    const rows = (): Row[] => [line()];
+    const path = () => '/me/payroll/202609/1/1/pdf?mode=SIN_AJUSTE';
+    const retire = (versionId: string, reason = 'Se detectó un error grave en la liquidación.') =>
+      request(srv())
+        .post(`/admin/imports/payroll/versions/${versionId}/retire`)
+        .set('Cookie', hr.cookie)
+        .set('X-CSRF-Token', hr.csrf)
+        .send({ reason });
+
+    it('retira una versión publicada, sin borrarla, y queda auditado', async () => {
+      await publish(rows());
+      const [v] = await db.select().from(payrollVersions);
+      const id = v?.id ?? '';
+
+      const res = await retire(id, 'Se corrigió el archivo de origen tras publicar por error.');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('RETIRADA');
+
+      const [row] = await db.select().from(payrollVersions).where(eq(payrollVersions.id, id));
+      expect(row?.status).toBe('RETIRADA');
+      expect(row?.rowCount).toBe(v?.rowCount);
+
+      const [log] = await db
+        .select()
+        .from(auditLogs)
+        .where(eq(auditLogs.action, 'PAYROLL_VERSION_RETIRE'));
+      expect(log).toMatchObject({
+        resource: 'payroll_version',
+        resourceId: id,
+        result: 'SUCCESS',
+        context: expect.objectContaining({
+          per: '202609',
+          nLiq: 1,
+          reason: 'Se corrigió el archivo de origen tras publicar por error.',
+        }),
+      });
+    });
+
+    it('rechaza un motivo corto, un id inexistente y una segunda retirada', async () => {
+      await publish(rows());
+      const [v] = await db.select().from(payrollVersions);
+      const id = v?.id ?? '';
+
+      expect((await retire(id, 'corto')).status).toBe(400);
+      expect((await retire('00000000-0000-0000-0000-000000000000')).status).toBe(404);
+
+      expect((await retire(id)).status).toBe(200);
+      expect((await retire(id)).status).toBe(409);
+    });
+
+    it('tras retirar, el empleado ya no ve ni descarga el volante; el admin sigue viendo su historial', async () => {
+      await publish(rows());
+      const [v] = await db.select().from(payrollVersions);
+      const id = v?.id ?? '';
+      const ana = await employee('1000000001', 'ana@x.co', 'ANA PRUEBA');
+
+      expect((await pdf(ana, path())).status).toBe(200);
+      expect((await retire(id)).status).toBe(200);
+      expect((await pdf(ana, path())).status).toBe(404);
+
+      const list = await request(srv())
+        .get('/admin/imports/payroll/versions')
+        .set('Cookie', hr.cookie);
+      expect(list.body).toContainEqual(
+        expect.objectContaining({ id, status: 'RETIRADA', rowCount: v?.rowCount }),
+      );
+    });
+
+    it('tras retirar, se puede publicar una versión nueva para la misma liquidación', async () => {
+      await publish(rows());
+      const [v] = await db.select().from(payrollVersions);
+      expect((await retire(v?.id ?? '')).status).toBe(200);
+
+      await publish([line({ DEV: '999.99' })]);
+      const versions = await db.select().from(payrollVersions).orderBy(payrollVersions.version);
+      expect(versions.map((x) => x.status)).toEqual(['RETIRADA', 'PUBLICADA']);
+    });
   });
 });

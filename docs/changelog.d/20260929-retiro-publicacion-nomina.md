@@ -1,0 +1,1 @@
+Nómina: el administrador puede retirar la publicación de una liquidación desde `/admin/nomina`, con motivo obligatorio y quedando auditado; la versión no se borra, solo deja de ofrecerse a los empleados.
