@@ -1,10 +1,10 @@
 # Estado del proyecto NOMFLOW
 
-- Versión: 0.0.0 (pre-lanzamiento; sin despliegue en producción). Actualizado el 26 de septiembre de 2026.
-- **Plan por fases: [PLAN.md](PLAN.md)**. Traspaso para la próxima sesión: [HANDOFF.md](HANDOFF.md).
-- `main` contiene los PR #1 a #76 integrados; no hay PR abiertos.
+- Versión: 0.0.0 (pre-lanzamiento; sin despliegue en producción). Actualizado el 29 de septiembre de 2026.
+- **Plan por fases: [PLAN.md](PLAN.md)**. Traspaso para la próxima sesión: [HANDOFF.md](HANDOFF.md). Última bitácora: [sessions/2026-09-29-aviso-baja-zip-2.md](sessions/2026-09-29-aviso-baja-zip-2.md).
+- `main` contiene los PR #1 a #84 integrados; en revisión [PR #85](https://github.com/vsierrajc/nomflow/pull/85) (`feat/ESS-EXIT-001-aviso-baja-zip`).
 - Revisión por otra persona: ninguno de los PR fue revisado por alguien distinto del autor y `main` no tiene protección de rama (la SSD, sección 11, la exige).
-- Pruebas: 420 de API y unas 115 de navegador en verde; CI completo (CodeQL, secretos, e2e) sin alertas abiertas. Ver [README](../README.md).
+- Pruebas: 422 de API y unas 115 de navegador en verde; CI completo (CodeQL, secretos, e2e) sin alertas abiertas. Ver [README](../README.md).
 
 | módulo | estado | PR | siguiente acción |
 | --- | --- | --- | --- |
@@ -30,7 +30,7 @@
 | Bandeja de entrada y avisos por correo del flujo | DONE | #48 | - |
 | Certificado laboral de autoservicio (ADR-005), firma imagen y digital, encabezado y pie en imagen | DONE | #49, #57, #63 | Firmas de los tres firmantes; ciudad, pie y código de formato |
 | Gestión de registros (ADR-006) | DONE | #58, #59 | Prueba real contra el bucket; política automática |
-| Aviso de baja y ZIP (ESS-EXIT-001) | BACKLOG | - | Fase 2 del plan |
+| Aviso de baja y ZIP (ESS-EXIT-001) | EN REVISIÓN; backend y web completos, probados con vitest e2e y Playwright | [PR #85](https://github.com/vsierrajc/nomflow/pull/85) | Revisión de otra persona antes de integrar |
 | Despliegue en producción (ESS-OPS-001) | BACKLOG | - | Fase 4 del plan |
 
 ## Bloqueos y decisiones abiertas
