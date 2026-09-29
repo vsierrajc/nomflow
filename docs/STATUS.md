@@ -17,7 +17,7 @@
 | Roles con alcance, jefes y directores de área (ESS-ORG-002) | DONE | #10, #53, #68 | Asignar director por área y gerente general; suplencias |
 | Stack local, Graphify, scripts de inicio y pruebas de navegador | DONE | #12, #13, #15, #38 | - |
 | Acceso web y menús (ESS-WEB-001) | DONE | #14, #46, #56, #58, #73 | - |
-| Volantes de pago PDF (ESS-PAY-001) | DONE; diseño carta según el modelo; carga por PER/N_LIQ del archivo | #16, #74-#76 | Cargar `nomina.xlsx` real; retiro de publicación |
+| Volantes de pago PDF (ESS-PAY-001) | DONE; diseño carta según el modelo; carga por PER/N_LIQ del archivo; retiro de publicación con motivo y auditoría | #16, #74-#76, en revisión (`feat/ESS-PAY-001-retiro-publicacion-nomina`) | Cargar `nomina.xlsx` real |
 | Módulo administrativo, API e interfaz (ESS-ADM-001/002) | DONE | #17, #18, #39, #64, #70, #72 | - |
 | Rediseño de la interfaz (ESS-UX-001) | DONE | #19, #54, #66, #71 | Conmutador de tema, lectores de pantalla reales |
 | Certificados de retención (ESS-TAX-001) | DONE (carpeta y carga desde el navegador) | #22, #69 | Política de retención |

@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
-import { Badge, Notice, PageHeader, SelectField, formatDate } from '@/components/admin-ui';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Badge, Modal, Notice, PageHeader, SelectField, formatDate } from '@/components/admin-ui';
 import { Field } from '@/components/ui';
 import { NETWORK_ERROR } from '@/lib/api';
 import { useAdmin } from '@/lib/admin';
@@ -45,6 +45,63 @@ const money = (v: string) =>
     Number(v),
   );
 
+function RetireModal({
+  version,
+  onDone,
+  onClose,
+}: {
+  version: Version;
+  onDone: (m: string) => void;
+  onClose: () => void;
+}) {
+  const { call } = useAdmin();
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const reason = String(new FormData(e.currentTarget).get('reason') ?? '').trim();
+    setBusy(true);
+    setError(null);
+    const res = await call(`/admin/imports/payroll/versions/${version.id}/retire`, {
+      method: 'POST',
+      body: { reason },
+    });
+    setBusy(false);
+    if (res.status === 200) onDone('Publicación retirada.');
+    else if (res.status === 409) setError('Esa versión ya no está publicada.');
+    else if (res.status === 400) setError('Escriba un motivo de al menos 10 caracteres.');
+    else setError(NETWORK_ERROR);
+  }
+
+  return (
+    <Modal
+      title={`Retirar la publicación de ${label(version.per, version.nLiq)}`}
+      onClose={onClose}
+    >
+      <p>
+        Los empleados dejarán de ver y descargar los volantes de esta liquidación. La versión no se
+        borra: queda en el historial, auditada, y puede publicarse una nueva más adelante.
+      </p>
+      {error ? <Notice kind="error">{error}</Notice> : null}
+      <form onSubmit={onSubmit} noValidate>
+        <div className="field">
+          <label htmlFor="retire-reason">Motivo (obligatorio, mínimo 10 caracteres)</label>
+          <textarea id="retire-reason" name="reason" rows={2} required maxLength={500} />
+        </div>
+        <div className="actions">
+          <button type="submit" className="danger" disabled={busy}>
+            Confirmar retiro
+          </button>
+          <button type="button" className="secondary" onClick={onClose}>
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 export default function PayrollPage() {
   const { call, download } = useAdmin();
   const [versions, setVersions] = useState<Version[] | null>(null);
@@ -55,14 +112,17 @@ export default function PayrollPage() {
   const [mode, setMode] = useState('SIN_AJUSTE');
   const [reason, setReason] = useState('');
   const [ok, setOk] = useState<string | null>(null);
+  const [toRetire, setToRetire] = useState<Version | null>(null);
+
+  const load = useCallback(async () => {
+    const res = await call<Version[]>('/admin/imports/payroll/versions');
+    if (res.status === 200 && res.data) setVersions(res.data);
+    else setError(NETWORK_ERROR);
+  }, [call]);
 
   useEffect(() => {
-    void (async () => {
-      const res = await call<Version[]>('/admin/imports/payroll/versions');
-      if (res.status === 200 && res.data) setVersions(res.data);
-      else setError(NETWORK_ERROR);
-    })();
-  }, [call]);
+    void load();
+  }, [load]);
 
   async function lookup(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -112,6 +172,7 @@ export default function PayrollPage() {
     <>
       <PageHeader title="Volantes de pago" />
       {error ? <Notice kind="error">{error}</Notice> : null}
+      {ok ? <Notice kind="ok">{ok}</Notice> : null}
       {versions === null ? (
         error ? null : (
           <p className="muted">Cargando…</p>
@@ -136,6 +197,7 @@ export default function PayrollPage() {
                 <th scope="col">Total devengado</th>
                 <th scope="col">Total deducido</th>
                 <th scope="col">Publicada</th>
+                <th scope="col"></th>
               </tr>
             </thead>
             <tbody>
@@ -148,7 +210,11 @@ export default function PayrollPage() {
                       <Badge kind="ok">Publicada</Badge>
                     ) : (
                       <Badge kind="off">
-                        {v.status === 'REEMPLAZADA' ? 'Reemplazada' : v.status}
+                        {v.status === 'REEMPLAZADA'
+                          ? 'Reemplazada'
+                          : v.status === 'RETIRADA'
+                            ? 'Retirada'
+                            : v.status}
                       </Badge>
                     )}
                   </td>
@@ -156,11 +222,18 @@ export default function PayrollPage() {
                   <td className="num">{money(v.totalDev)}</td>
                   <td className="num">{money(v.totalDed)}</td>
                   <td>{formatDate(v.publishedAt)}</td>
+                  <td>
+                    {v.status === 'PUBLICADA' ? (
+                      <button type="button" onClick={() => setToRetire(v)}>
+                        Retirar publicación
+                      </button>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
               {versions.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="muted">
+                  <td colSpan={8} className="muted">
                     Todavía no hay nómina publicada. Impórtela desde «Importaciones».
                   </td>
                 </tr>
@@ -177,7 +250,6 @@ export default function PayrollPage() {
           Cada acceso exige un motivo y queda registrado en la auditoría.
         </p>
         {lookupError ? <Notice kind="error">{lookupError}</Notice> : null}
-        {ok ? <Notice kind="ok">{ok}</Notice> : null}
         <form onSubmit={lookup} className="toolbar" noValidate>
           <Field label="Identificación del empleado" name="nIde" required maxLength={30} />
           <button type="submit">Buscar volantes</button>
@@ -230,6 +302,18 @@ export default function PayrollPage() {
           )
         ) : null}
       </section>
+
+      {toRetire ? (
+        <RetireModal
+          version={toRetire}
+          onClose={() => setToRetire(null)}
+          onDone={(m) => {
+            setToRetire(null);
+            setOk(m);
+            void load();
+          }}
+        />
+      ) : null}
     </>
   );
 }

@@ -41,7 +41,7 @@ Decisiones de esta fase: plazos de retención y quién custodia la clave de obje
 | --- | --- | --- |
 | 2.1 | ~~**Aviso previo a la baja** (`PRE_BAJA_AVISO_DIAS`), cola de trabajos y bloqueo al pasar a `EST = C`~~ DONE: `PRE_BAJA_AVISO_DIAS` configurable (15 días calendario por omisión), programación manual de la baja por N_IDE, job periódico en proceso (sin Redis) que envía el aviso y registra incumplimiento si `EST = C` llega sin aviso previo | ESS-EXIT-001 |
 | 2.2 | ~~**ZIP** con todos los volantes, certificados tributarios y constancias del empleado, con manifiesto y caducidad~~ DONE: exportación asíncrona (job en proceso), manifiesto con reporte de faltantes, ZIP cifrado en el almacén de objetos, caducidad de 7 días, descarga auditada | ESS-EXIT-001 |
-| 2.3 | **Retiro de publicación** de una versión de nómina, con motivo y auditoría | ESS-PAY-001 |
+| 2.3 | ~~**Retiro de publicación** de una versión de nómina, con motivo y auditoría~~ DONE: `POST admin/imports/payroll/versions/:id/retire`, con motivo obligatorio, cambia el estado a `RETIRADA` sin borrar la versión, auditado | ESS-PAY-001 |
 | 2.4 | Cambio de correo de un empleado con cuenta mediante resolución administrativa; que una importación no pise correcciones manuales | Seguridad |
 
 Decisiones de esta fase: valor inicial de `PRE_BAJA_AVISO_DIAS`, si cuenta días hábiles o calendario, canal del aviso y entrega a ex empleados.

@@ -1,0 +1,18 @@
+# Sesión: 2026-09-29 - Retiro de publicación de nómina (ESS-PAY-001)
+- Responsable / agente: Claude Code (Sonnet 5), con revisión del usuario en el chat.
+- Objetivo e incidencias: Cerrar el último pendiente de ESS-PAY-001 (`docs/traceability.md`): retiro de publicación de una versión de nómina, con motivo y auditoría (`docs/PLAN.md` fase 2.3).
+- Rama y commit inicial: `feat/ESS-PAY-001-retiro-publicacion-nomina`, creada desde `main`.
+- Cambios realizados (rutas y comportamiento):
+  - `apps/api/src/payroll/payroll-import.service.ts`: nueva función `retirePayrollVersion(db, actorId, versionId, reason)`. Transición `PUBLICADA → RETIRADA` con precondición CAS (`WHERE status = 'PUBLICADA'`), sin tocar `payrollLines` ni borrar la fila; audita `PAYROLL_VERSION_RETIRE` en `auditLogs`. Nueva clase `RetireError` (`NOT_FOUND` | `NOT_PUBLISHED`). Sin migración: `payrollVersions.status` es texto libre, el valor `RETIRADA` es solo convención de aplicación.
+  - `apps/api/src/imports/imports.controller.ts`: `POST admin/imports/payroll/versions/:id/retire` (motivo obligatorio, min 10 caracteres), `NOT_FOUND` → 404, `NOT_PUBLISHED` → 409.
+  - `apps/web/app/(app)/admin/nomina/page.tsx`: botón "Retirar publicación" por fila cuando `status === 'PUBLICADA'`, modal de motivo (mismo patrón `Modal` + `<textarea>` usado en `admin/bajas`), badge nuevo para `RETIRADA`.
+  - Ningún cambio necesario en `voucher.service.ts` ni `admin-support.controller.ts`: ya filtran `status = 'PUBLICADA'`, así que una versión retirada deja de verse sola.
+- Decisiones / ADR / cambios al SRS: ninguna nueva; ejecuta la decisión ya registrada en la SSD (9.6: "retirar publicación bajo autorización y motivo; no borrar versión auditada").
+- Pruebas y evidencia (comando, resultado, entorno):
+  - `apps/api/src/payroll/payroll.e2e.spec.ts`, nuevo `describe('retiro de publicación')` (4 casos): retira y audita; rechaza motivo corto/id inexistente/segunda retirada; el empleado deja de descargar el volante mientras el admin sigue viendo el historial; se puede publicar una versión nueva después de retirar. 33/33 pruebas del archivo en verde.
+  - `DATABASE_URL=.../nomflow_test npm run format:check && npm run lint && npm run typecheck && npm run build && npm test && npm run audit:deps` → todo en verde (420 pruebas de API, 0 vulnerabilidades).
+- Migraciones, configuración y datos de ejemplo necesarios: ninguna.
+- Bloqueos y riesgos: ninguno nuevo. Falta la revisión de otra persona antes de integrar (SSD §11).
+- Estado final (hecho / parcial / pendiente): **hecho**, pendiente de PR y revisión.
+- Rama, commit final y PR: `feat/ESS-PAY-001-retiro-publicacion-nomina`, commit pendiente de crear en esta sesión; PR por abrir.
+- Próximo paso exacto y responsable: commit, push y abrir PR; pedir revisión de otra persona antes de integrar a `main`.
