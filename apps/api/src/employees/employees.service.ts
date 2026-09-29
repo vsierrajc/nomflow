@@ -269,6 +269,7 @@ export async function listEmployees(db: Db, query: EmployeeListQuery) {
       cArea: employeeSnapshots.cArea,
       area: employeeSnapshots.area,
       cargo: employeeSnapshots.cargo,
+      turno: employeeSnapshots.turno,
       source: employeeSnapshots.source,
       version: employeeSnapshots.version,
       hasAccount: sql<boolean>`exists (select 1 from accounts a where a.n_ide = "employee_snapshots"."n_ide" and a.status <> 'BLOQUEADA')`,
@@ -494,4 +495,46 @@ export async function employeeHistory(db: Db, id: string) {
     .innerJoin(accounts, eq(accounts.id, employeeChanges.changedBy))
     .where(eq(employeeChanges.employeeId, id))
     .orderBy(employeeChanges.at);
+}
+
+/** Cambia solo el turno, con motivo. Acción rápida: no exige repetir el resto del formulario. */
+export async function setEmployeeShift(
+  db: Db,
+  actorId: string,
+  id: string,
+  version: number,
+  turno: string | null,
+  reason: string,
+) {
+  const [current] = await db.select().from(employeeSnapshots).where(eq(employeeSnapshots.id, id));
+  if (!current) throw new EmployeeError('NOT_FOUND');
+  if (current.version !== version) throw new EmployeeError('VERSION_CONFLICT');
+  if ((current.turno ?? null) === (turno ?? null))
+    throw new EmployeeError('INVALID', ['TURNO: sin cambios']);
+
+  const updated = await db.transaction(async (tx) => {
+    const rows = await tx
+      .update(employeeSnapshots)
+      .set({
+        turno,
+        source: 'MANUAL',
+        version: sql`${employeeSnapshots.version} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(employeeSnapshots.id, id), eq(employeeSnapshots.version, version)))
+      .returning();
+    const row = rows[0];
+    if (!row) return null;
+    await tx.insert(employeeChanges).values({
+      employeeId: id,
+      changedBy: actorId,
+      action: 'SHIFT_CHANGE',
+      reason,
+      changes: { turno: { from: current.turno, to: turno } },
+    });
+    return row;
+  });
+  if (!updated) throw new EmployeeError('VERSION_CONFLICT');
+  await audit(db, actorId, 'EMPLOYEE_UPDATE', id, 'SUCCESS');
+  return updated;
 }

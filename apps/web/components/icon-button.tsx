@@ -15,7 +15,8 @@ const ICONS: Record<
   | 'pdf'
   | 'verify'
   | 'history'
-  | 'team',
+  | 'team'
+  | 'clock',
   ReactNode
 > = {
   // Ojo
@@ -104,6 +105,13 @@ const ICONS: Record<
     <>
       <path d="M3.5 12a8.5 8.5 0 108.5-8.5A8.5 8.5 0 005.6 6.4" />
       <path d="M3.5 3.5v3.4h3.4" />
+    </>
+  ),
+  // Reloj (cambiar turno)
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3.5 2" />
     </>
   ),
 };
