@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Header,
+  HttpCode,
   Inject,
   NotFoundException,
   Param,
@@ -23,6 +24,7 @@ import type { Db } from '../db/client';
 import { DB } from '../db/db.module';
 import { auditLogs, documentExportDownloads, documentExports } from '../db/schema';
 import { OBJECT_STORE, type ObjectStore } from '../storage/object-store';
+import { ExitNoticeService } from './exit-notice.service';
 import {
   ExitScheduleError,
   cancelExit,
@@ -30,6 +32,7 @@ import {
   scheduleExit,
 } from './exit-schedule.service';
 import { ExitSettingsError, getSettings, saveSettings } from './exit-settings.service';
+import { ExportZipMonitor } from './export-zip.monitor';
 
 const Reason = z.string().trim().min(10).max(500);
 const ScheduleInput = z.object({
@@ -49,7 +52,25 @@ export class ExitController {
   constructor(
     @Inject(DB) private readonly db: Db,
     @Inject(OBJECT_STORE) private readonly store: ObjectStore,
+    @Inject(ExitNoticeService) private readonly notice: ExitNoticeService,
+    @Inject(ExportZipMonitor) private readonly zipMonitor: ExportZipMonitor,
   ) {}
+
+  /** Ejecuta de inmediato la revisión que normalmente hace el job periódico (igual que Salud). */
+  @Post('notice/check')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  checkNow() {
+    return this.notice.runOnce();
+  }
+
+  /** Arma de inmediato los ZIP pendientes, sin esperar al job periódico. */
+  @Post('exports/generate')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  generateNow() {
+    return this.zipMonitor.runOnce();
+  }
 
   @Get('settings')
   @Header('Cache-Control', 'no-store')
@@ -78,6 +99,7 @@ export class ExitController {
   }
 
   @Post('schedule')
+  @HttpCode(201)
   async schedule(@Body() body: unknown, @Req() req: AuthedRequest) {
     const parsed = ScheduleInput.safeParse(body);
     if (!parsed.success) throw new BadRequestException();
@@ -90,6 +112,7 @@ export class ExitController {
   }
 
   @Post('schedule/:id/cancel')
+  @HttpCode(200)
   async cancel(
     @Param('id') id: string,
     @Body('reason') reason: unknown,
@@ -116,6 +139,7 @@ export class ExitController {
   }
 
   @Post('exports')
+  @HttpCode(201)
   @UseGuards(RecentAuthGuard)
   async requestExport(
     @Body('nIde') nIdeRaw: unknown,

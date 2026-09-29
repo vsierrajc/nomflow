@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Badge, Notice, PageHeader, formatDate } from '@/components/admin-ui';
+import { Badge, Modal, Notice, PageHeader, formatDate } from '@/components/admin-ui';
 import { Field } from '@/components/ui';
 import { NETWORK_ERROR } from '@/lib/api';
 import { useAdmin } from '@/lib/admin';
@@ -47,6 +47,103 @@ const EXPORT_BADGE: Record<ExportRow['status'], 'ok' | 'warn' | 'off'> = {
   ERROR: 'off',
 };
 
+function CancelModal({
+  schedule,
+  onDone,
+  onClose,
+}: {
+  schedule: Schedule;
+  onDone: (m: string) => void;
+  onClose: () => void;
+}) {
+  const { call } = useAdmin();
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const reason = String(new FormData(e.currentTarget).get('reason') ?? '').trim();
+    setBusy(true);
+    setError(null);
+    const res = await call(`/admin/exit/schedule/${schedule.id}/cancel`, {
+      method: 'POST',
+      body: { reason },
+    });
+    setBusy(false);
+    if (res.status === 200) onDone('Baja cancelada.');
+    else if (res.status === 400) setError('Escriba un motivo de al menos 10 caracteres.');
+    else setError(NETWORK_ERROR);
+  }
+
+  return (
+    <Modal title={`Cancelar la baja de ${schedule.nIde}`} onClose={onClose}>
+      {error ? <Notice kind="error">{error}</Notice> : null}
+      <form onSubmit={onSubmit} noValidate>
+        <div className="field">
+          <label htmlFor="cancel-reason">Motivo (obligatorio, mínimo 10 caracteres)</label>
+          <textarea id="cancel-reason" name="reason" rows={2} required maxLength={500} />
+        </div>
+        <div className="actions">
+          <button type="submit" disabled={busy}>
+            Confirmar cancelación
+          </button>
+          <button type="button" className="secondary" onClick={onClose}>
+            Volver
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function ExportModal({
+  nIde,
+  onDone,
+  onClose,
+}: {
+  nIde: string;
+  onDone: (m: string) => void;
+  onClose: () => void;
+}) {
+  const { call } = useAdmin();
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const reason = String(new FormData(e.currentTarget).get('reason') ?? '').trim();
+    setBusy(true);
+    setError(null);
+    const res = await call('/admin/exit/exports', { method: 'POST', body: { nIde, reason } });
+    setBusy(false);
+    if (res.status === 201) onDone('Exportación solicitada.');
+    else if (res.status === 400) setError('Escriba un motivo de al menos 10 caracteres.');
+    else if (res.status === 403) setError('Se canceló la confirmación de identidad.');
+    else setError(NETWORK_ERROR);
+  }
+
+  return (
+    <Modal title={`Exportar documentos de ${nIde}`} onClose={onClose}>
+      <p>Se generará un ZIP con los documentos publicados de este empleado.</p>
+      {error ? <Notice kind="error">{error}</Notice> : null}
+      <form onSubmit={onSubmit} noValidate>
+        <div className="field">
+          <label htmlFor="export-reason">Motivo (obligatorio, mínimo 10 caracteres)</label>
+          <textarea id="export-reason" name="reason" rows={2} required maxLength={500} />
+        </div>
+        <div className="actions">
+          <button type="submit" disabled={busy}>
+            Solicitar exportación
+          </button>
+          <button type="button" className="secondary" onClick={onClose}>
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 export default function ExitPage() {
   const { call, download } = useAdmin();
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -54,6 +151,8 @@ export default function ExitPage() {
   const [exportsByNIde, setExportsByNIde] = useState<Record<string, ExportRow[]>>({});
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  const [toCancel, setToCancel] = useState<Schedule | null>(null);
+  const [toExport, setToExport] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [s, sc] = await Promise.all([
@@ -92,7 +191,8 @@ export default function ExitPage() {
     e.preventDefault();
     setError(null);
     setOk(null);
-    const f = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const f = new FormData(form);
     const res = await call<Schedule>('/admin/exit/schedule', {
       method: 'POST',
       body: {
@@ -103,7 +203,7 @@ export default function ExitPage() {
     });
     if (res.status === 201) {
       setOk('Baja programada.');
-      e.currentTarget.reset();
+      form.reset();
       await load();
     } else if (res.status === 400) {
       const code = (res.data as { code?: string } | null)?.code;
@@ -119,29 +219,9 @@ export default function ExitPage() {
     } else setError(NETWORK_ERROR);
   }
 
-  async function cancel(s: Schedule) {
-    setError(null);
-    const reason = window.prompt('Motivo de la cancelación (mínimo 10 caracteres):');
-    if (!reason) return;
-    const res = await call(`/admin/exit/schedule/${s.id}/cancel`, {
-      method: 'POST',
-      body: { reason },
-    });
-    if (res.status === 200) await load();
-    else setError('No se pudo cancelar.');
-  }
-
   async function loadExports(nIde: string) {
     const res = await call<ExportRow[]>(`/admin/exit/exports?nIde=${encodeURIComponent(nIde)}`);
     if (res.status === 200 && res.data) setExportsByNIde((m) => ({ ...m, [nIde]: res.data ?? [] }));
-  }
-
-  async function requestExport(nIde: string) {
-    const reason = window.prompt('Motivo de la exportación (mínimo 10 caracteres):');
-    if (!reason) return;
-    const res = await call('/admin/exit/exports', { method: 'POST', body: { nIde, reason } });
-    if (res.status === 201) await loadExports(nIde);
-    else setError('No se pudo solicitar la exportación.');
   }
 
   async function downloadExport(id: string) {
@@ -158,6 +238,29 @@ export default function ExitPage() {
     else setError('No se pudo descargar la exportación (venció o no está lista).');
   }
 
+  async function checkNoticesNow() {
+    setError(null);
+    setOk(null);
+    const res = await call<{ notified: number }>('/admin/exit/notice/check', { method: 'POST' });
+    if (res.status === 200 && res.data) {
+      setOk(`Avisos enviados: ${res.data.notified}.`);
+      setExportsByNIde({});
+      await load();
+    } else setError(NETWORK_ERROR);
+  }
+
+  async function generateExportsNow() {
+    setError(null);
+    setOk(null);
+    const res = await call<{ processed: number }>('/admin/exit/exports/generate', {
+      method: 'POST',
+    });
+    if (res.status === 200 && res.data) {
+      setOk(`Exportaciones procesadas: ${res.data.processed}.`);
+      setExportsByNIde({});
+    } else setError(NETWORK_ERROR);
+  }
+
   return (
     <>
       <PageHeader title="Bajas y exportación de documentos" />
@@ -168,6 +271,15 @@ export default function ExitPage() {
       </p>
       {error ? <Notice kind="error">{error}</Notice> : null}
       {ok ? <Notice kind="ok">{ok}</Notice> : null}
+
+      <p>
+        <button type="button" onClick={() => void checkNoticesNow()}>
+          Revisar avisos ahora
+        </button>{' '}
+        <button type="button" onClick={() => void generateExportsNow()}>
+          Generar exportaciones pendientes ahora
+        </button>
+      </p>
 
       <section className="import-panel" aria-label="Plazo de aviso">
         <h2>Plazo de aviso y caducidad del ZIP</h2>
@@ -264,11 +376,11 @@ export default function ExitPage() {
                     )}
                   </td>
                   <td>
-                    <button type="button" onClick={() => void requestExport(s.nIde)}>
+                    <button type="button" onClick={() => setToExport(s.nIde)}>
                       Exportar ahora
                     </button>
                     {['PENDIENTE', 'AVISADO'].includes(s.status) ? (
-                      <button type="button" onClick={() => void cancel(s)}>
+                      <button type="button" onClick={() => setToCancel(s)}>
                         Cancelar
                       </button>
                     ) : null}
@@ -279,6 +391,29 @@ export default function ExitPage() {
           </table>
         )}
       </section>
+
+      {toCancel ? (
+        <CancelModal
+          schedule={toCancel}
+          onClose={() => setToCancel(null)}
+          onDone={(m) => {
+            setToCancel(null);
+            setOk(m);
+            void load();
+          }}
+        />
+      ) : null}
+      {toExport ? (
+        <ExportModal
+          nIde={toExport}
+          onClose={() => setToExport(null)}
+          onDone={(m) => {
+            setOk(m);
+            void loadExports(toExport);
+            setToExport(null);
+          }}
+        />
+      ) : null}
     </>
   );
 }
