@@ -28,6 +28,7 @@ interface Row {
   cArea: string | null;
   area: string | null;
   cargo: string | null;
+  turno: string | null;
   source: string;
   version: number;
   hasAccount: boolean;
@@ -122,21 +123,25 @@ function EmployeeForm({
   const [cCos, setCCos] = useState(employee?.cCos ?? '');
   const [cCar, setCCar] = useState(employee?.cCar ?? '');
   const [tipo, setTipo] = useState(employee?.tipoContrato ?? '');
+  const [turno, setTurno] = useState(employee?.turno ?? '');
   const [areas, setAreas] = useState<CatalogOption[]>([]);
   const [costs, setCosts] = useState<CatalogOption[]>([]);
   const [jobs, setJobs] = useState<CatalogOption[]>([]);
   const [contracts, setContracts] = useState<CatalogOption[]>([]);
+  const [shiftOptions, setShiftOptions] = useState<CatalogOption[]>([]);
   const [listsError, setListsError] = useState(false);
   const [issues, setIssues] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Empresas activas y tipos de contrato (globales): una sola vez.
+  // Empresas activas, tipos de contrato y turnos (globales): una sola vez.
   useEffect(() => {
     void (async () => {
       const res =
         await call<{ cEmp: string; nombre: string; active: boolean }[]>('/admin/companies');
       const types = await loadCatalog(call, 'TIPO_CONTRATO', '');
+      const shiftsRes =
+        await call<{ code: string; name: string; active: boolean }[]>('/admin/shifts');
       if (res.status !== 200 || !res.data || !types) return setListsError(true);
       const active = res.data
         .filter((c) => c.active)
@@ -144,6 +149,12 @@ function EmployeeForm({
       setCompanyList(active);
       setContracts(types);
       setCEmp((cur) => cur || active[0]?.value || '');
+      if (shiftsRes.status === 200 && shiftsRes.data)
+        setShiftOptions(
+          shiftsRes.data
+            .filter((s) => s.active)
+            .map((s) => ({ value: s.code, label: `${s.code} - ${s.name}` })),
+        );
     })();
   }, [call]);
 
@@ -368,7 +379,16 @@ function EmployeeForm({
           />
           <Field label="HLIQ" name="hliq" defaultValue={d?.hliq ?? ''} maxLength={30} />
           <Field label="Sexo" name="sexo" defaultValue={d?.sexo ?? ''} maxLength={20} />
-          <Field label="Turno" name="turno" defaultValue={d?.turno ?? ''} maxLength={30} />
+          <SelectField
+            label="Turno"
+            name="turno"
+            value={turno}
+            onChange={setTurno}
+            options={[
+              { value: '', label: '- Sin turno asignado -' },
+              ...withCurrent(shiftOptions, d?.turno ?? ''),
+            ]}
+          />
           <Field label="Celular" name="celular" defaultValue={d?.celular ?? ''} maxLength={30} />
           <Field
             label="Profesión"
@@ -471,6 +491,85 @@ function StatusDialog({
   );
 }
 
+function ShiftDialog({
+  employee,
+  onDone,
+  onClose,
+}: {
+  employee: Row;
+  onDone: (m: string) => void;
+  onClose: () => void;
+}) {
+  const { call } = useAdmin();
+  const [options, setOptions] = useState<CatalogOption[]>([]);
+  const [turno, setTurno] = useState(employee.turno ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      const res = await call<{ code: string; name: string; active: boolean }[]>('/admin/shifts');
+      if (res.status === 200 && res.data)
+        setOptions(
+          res.data
+            .filter((s) => s.active)
+            .map((s) => ({ value: s.code, label: `${s.code} - ${s.name}` })),
+        );
+    })();
+  }, [call]);
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const reason = String(new FormData(e.currentTarget).get('reason') ?? '').trim();
+    setBusy(true);
+    setError(null);
+    const res = await call<{ issues?: string[] }>(`/admin/employees/${employee.id}/shift`, {
+      method: 'POST',
+      body: { turno: turno || null, version: employee.version, reason },
+    });
+    setBusy(false);
+    if (res.status === 200) onDone('Turno actualizado.');
+    else if (res.status === 422)
+      setError(res.data?.issues?.join(' ') ?? 'Revise el turno elegido.');
+    else if (res.status === 409)
+      setError('Otra persona modificó este registro. Cierre y vuelva a abrirlo.');
+    else if (res.status === 400) setError('Escriba un motivo de al menos 10 caracteres.');
+    else if (res.status === 403) setError('Se canceló la confirmación de identidad.');
+    else setError(NETWORK_ERROR);
+  }
+
+  return (
+    <Modal title={`Cambiar el turno de ${employee.nombre}`} onClose={onClose}>
+      <p className="muted">
+        El turno define qué días de la semana son laborales para el cálculo de vacaciones. Cámbielo
+        aquí sin tener que repetir el resto de los datos del empleado.
+      </p>
+      {error ? <Notice kind="error">{error}</Notice> : null}
+      <form onSubmit={onSubmit} noValidate>
+        <SelectField
+          label="Turno"
+          name="turno"
+          value={turno}
+          onChange={setTurno}
+          options={[{ value: '', label: '- Sin turno asignado -' }, ...options]}
+        />
+        <div className="field">
+          <label htmlFor="shift-reason">Motivo (obligatorio, mínimo 10 caracteres)</label>
+          <textarea id="shift-reason" name="reason" rows={2} required maxLength={500} />
+        </div>
+        <div className="actions">
+          <button type="submit" disabled={busy}>
+            Guardar turno
+          </button>
+          <button type="button" className="secondary" onClick={onClose}>
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 function DetailDialog({ id, onClose }: { id: string; onClose: () => void }) {
   const { call } = useAdmin();
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -563,6 +662,7 @@ export default function EmployeesPage() {
   const [editing, setEditing] = useState<Detail | 'new' | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
   const [status, setStatus] = useState<Row | null>(null);
+  const [shiftChange, setShiftChange] = useState<Row | null>(null);
 
   const load = useCallback(async () => {
     const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
@@ -672,6 +772,11 @@ export default function EmployeesPage() {
                           label={`${r.est === 'V' ? 'Dar de baja' : 'Reactivar'} ${r.nombre}`}
                           onClick={() => setStatus(r)}
                         />
+                        <IconButton
+                          icon="clock"
+                          label={`Cambiar turno de ${r.nombre}`}
+                          onClick={() => setShiftChange(r)}
+                        />
                       </div>
                     </td>
                   </tr>
@@ -709,6 +814,17 @@ export default function EmployeesPage() {
           onClose={() => setStatus(null)}
           onDone={(m) => {
             setStatus(null);
+            setNotice(m);
+            void load();
+          }}
+        />
+      ) : null}
+      {shiftChange ? (
+        <ShiftDialog
+          employee={shiftChange}
+          onClose={() => setShiftChange(null)}
+          onDone={(m) => {
+            setShiftChange(null);
             setNotice(m);
             void load();
           }}

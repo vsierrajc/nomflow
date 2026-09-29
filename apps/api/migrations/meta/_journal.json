@@ -232,6 +232,13 @@
       "when": 1790692613672,
       "tag": "0032_aviso_baja_exportacion",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790709362777,
+      "tag": "0033_turnos",
+      "breakpoints": true
     }
   ]
 }

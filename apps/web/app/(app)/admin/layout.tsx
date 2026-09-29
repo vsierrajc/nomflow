@@ -23,6 +23,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
       { href: '/admin/catalogos', label: 'Áreas, cargos y centros de costo' },
       { href: '/admin/conceptos', label: 'Conceptos de nómina' },
       { href: '/admin/tipos-permiso', label: 'Tipos de permiso' },
+      { href: '/admin/turnos', label: 'Turnos' },
       { href: '/admin/festivos', label: 'Festivos' },
     ],
   },

@@ -726,6 +726,29 @@ export const permitTypes = pgTable(
   (t) => [uniqueIndex('permit_types_code_uq').on(t.code)],
 );
 
+/** Turno del empleado (`employeeSnapshots.turno`): qué días de la semana son laborales para vacaciones. */
+export const shifts = pgTable(
+  'shifts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    monday: boolean('monday').notNull().default(false),
+    tuesday: boolean('tuesday').notNull().default(false),
+    wednesday: boolean('wednesday').notNull().default(false),
+    thursday: boolean('thursday').notNull().default(false),
+    friday: boolean('friday').notNull().default(false),
+    saturday: boolean('saturday').notNull().default(false),
+    sunday: boolean('sunday').notNull().default(false),
+    active: boolean('active').notNull().default(true),
+    version: integer('version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('shifts_code_uq').on(t.code)],
+);
+
 export const permitRequests = pgTable(
   'permit_requests',
   {
