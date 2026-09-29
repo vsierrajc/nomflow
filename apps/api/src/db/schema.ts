@@ -1165,3 +1165,96 @@ export const logArchives = pgTable(
   },
   (t) => [index('log_archives_created_idx').on(t.createdAt)],
 );
+
+/** Plazo de aviso previo a la baja y caducidad del ZIP (una sola fila, id = 1). SSD 3.1. */
+export const exitSettings = pgTable('exit_settings', {
+  id: integer('id').primaryKey().default(1),
+  /** Días calendario de anticipación con que se avisa antes de la fecha prevista de baja. */
+  preBajaAvisoDias: integer('pre_baja_aviso_dias').notNull().default(15),
+  /** Vigencia del ZIP generado una vez queda listo. */
+  zipExpiryDays: integer('zip_expiry_days').notNull().default(7),
+  updatedBy: uuid('updated_by').references(() => accounts.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Baja programada por el administrador para un empleado vigente. SSD 3.1, 6.3. */
+export const employeeExitSchedules = pgTable(
+  'employee_exit_schedules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    nIde: text('n_ide').notNull(),
+    employeeId: uuid('employee_id')
+      .notNull()
+      .references(() => employeeSnapshots.id),
+    plannedDate: date('planned_date').notNull(),
+    reason: text('reason').notNull(),
+    scheduledBy: uuid('scheduled_by')
+      .notNull()
+      .references(() => accounts.id),
+    scheduledAt: timestamp('scheduled_at', { withTimezone: true }).notNull().defaultNow(),
+    /** PENDIENTE, AVISADO, EJECUTADO o CANCELADO. */
+    status: text('status').notNull().default('PENDIENTE'),
+    noticeSentAt: timestamp('notice_sent_at', { withTimezone: true }),
+    noticeChannel: text('notice_channel'),
+    /** Fecha de actualización de exitSettings vigente cuando se envió el aviso. */
+    paramVersion: text('param_version'),
+    exportId: uuid('export_id'),
+    cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('employee_exit_schedules_nide_idx').on(t.nIde),
+    index('employee_exit_schedules_status_idx').on(t.status, t.plannedDate),
+    uniqueIndex('employee_exit_schedules_one_active_uq')
+      .on(t.nIde)
+      .where(sql`${t.status} in ('PENDIENTE','AVISADO')`),
+  ],
+);
+
+/** ZIP de documentos de un empleado (DocumentExport, SSD 9.4): solicitante, manifiesto, caducidad. */
+export const documentExports = pgTable(
+  'document_exports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** Nulo cuando lo crea el aviso automático de baja; con valor en una solicitud puntual del admin. */
+    requestedBy: uuid('requested_by').references(() => accounts.id),
+    requestKind: text('request_kind').notNull(),
+    reason: text('reason'),
+    nIde: text('n_ide').notNull(),
+    employeeId: uuid('employee_id').references(() => employeeSnapshots.id),
+    exitScheduleId: uuid('exit_schedule_id').references(() => employeeExitSchedules.id),
+    /** PENDIENTE, GENERANDO, LISTO, INCOMPLETO o ERROR. */
+    status: text('status').notNull().default('PENDIENTE'),
+    manifest: jsonb('manifest').notNull().default({}),
+    missingReport: jsonb('missing_report'),
+    objectKey: text('object_key'),
+    sha256: text('sha256'),
+    sizeBytes: integer('size_bytes'),
+    requestedAt: timestamp('requested_at', { withTimezone: true }).notNull().defaultNow(),
+    readyAt: timestamp('ready_at', { withTimezone: true }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    errorDetail: text('error_detail'),
+  },
+  (t) => [
+    index('document_exports_nide_idx').on(t.nIde, t.requestedAt),
+    index('document_exports_status_idx').on(t.status),
+  ],
+);
+
+/** Registro de descarga de un ZIP; su ausencia se deriva comparando con `expiresAt`. */
+export const documentExportDownloads = pgTable(
+  'document_export_downloads',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    exportId: uuid('export_id')
+      .notNull()
+      .references(() => documentExports.id),
+    downloadedBy: uuid('downloaded_by')
+      .notNull()
+      .references(() => accounts.id),
+    downloadedAt: timestamp('downloaded_at', { withTimezone: true }).notNull().defaultNow(),
+    ip: text('ip'),
+    userAgent: text('user_agent'),
+  },
+  (t) => [index('document_export_downloads_export_idx').on(t.exportId)],
+);

@@ -162,6 +162,7 @@ function navFor(profile: Profile): NavItem[] {
       label: 'Certificados de retención',
       match: (p) => p.startsWith('/retenciones'),
     },
+    { href: '/mi-baja', label: 'Mi baja', match: (p) => p.startsWith('/mi-baja') },
     { href: '/cuenta/clave', label: 'Mi cuenta', match: (p) => p.startsWith('/cuenta') },
   ];
   if (profile.roles.some((r) => APPROVER_ROLES.includes(r.role)))

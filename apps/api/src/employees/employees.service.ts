@@ -1,6 +1,7 @@
 import { and, eq, ilike, ne, or, sql, type SQL } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { revokeAllForAccount } from '../auth/session.service';
+import { checkExitNoticeCompliance } from '../exit/exit-compliance.service';
 import {
   accounts,
   auditLogs,
@@ -384,6 +385,7 @@ export async function updateEmployee(
       .from(accounts)
       .where(eq(accounts.nIde, current.nIde));
     for (const a of accs) await revokeAllForAccount(db, a.id);
+    await checkExitNoticeCompliance(db, actorId, current.nIde);
   }
   await audit(db, actorId, 'EMPLOYEE_UPDATE', id, 'SUCCESS');
   return updated;
@@ -431,6 +433,7 @@ export async function setEmployeeStatus(
       .from(accounts)
       .where(eq(accounts.nIde, current.nIde));
     for (const a of accs) await revokeAllForAccount(db, a.id);
+    await checkExitNoticeCompliance(db, actorId, current.nIde);
     await audit(db, actorId, 'EMPLOYEE_UPDATE', id, 'SUCCESS');
     return updated;
   }

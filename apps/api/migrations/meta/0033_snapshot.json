@@ -1,6 +1,6 @@
 {
-  "id": "53c6cd5d-338c-4694-973d-adf4f6e34a7d",
-  "prevId": "dae02725-50e7-4b9c-90ce-f6db8752d040",
+  "id": "582a628c-de99-422f-959f-db341a17482e",
+  "prevId": "53c6cd5d-338c-4694-973d-adf4f6e34a7d",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -239,8 +239,12 @@
           "name": "archive_settings_updated_by_accounts_id_fk",
           "tableFrom": "archive_settings",
           "tableTo": "accounts",
-          "columnsFrom": ["updated_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -406,8 +410,12 @@
           "name": "area_manager_assignments_manager_account_id_accounts_id_fk",
           "tableFrom": "area_manager_assignments",
           "tableTo": "accounts",
-          "columnsFrom": ["manager_account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "manager_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -415,8 +423,12 @@
           "name": "area_manager_assignments_created_by_accounts_id_fk",
           "tableFrom": "area_manager_assignments",
           "tableTo": "accounts",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -722,8 +734,12 @@
           "name": "catalog_entry_history_entry_id_catalog_entries_id_fk",
           "tableFrom": "catalog_entry_history",
           "tableTo": "catalog_entries",
-          "columnsFrom": ["entry_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "entry_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -931,8 +947,12 @@
           "name": "certificate_requests_account_id_accounts_id_fk",
           "tableFrom": "certificate_requests",
           "tableTo": "accounts",
-          "columnsFrom": ["account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -940,8 +960,12 @@
           "name": "certificate_requests_template_id_certificate_templates_id_fk",
           "tableFrom": "certificate_requests",
           "tableTo": "certificate_templates",
-          "columnsFrom": ["template_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "template_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -949,8 +973,12 @@
           "name": "certificate_requests_signer_account_id_accounts_id_fk",
           "tableFrom": "certificate_requests",
           "tableTo": "accounts",
-          "columnsFrom": ["signer_account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "signer_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1061,8 +1089,12 @@
           "name": "certificate_settings_updated_by_accounts_id_fk",
           "tableFrom": "certificate_settings",
           "tableTo": "accounts",
-          "columnsFrom": ["updated_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1218,8 +1250,12 @@
           "name": "certificate_signers_account_id_accounts_id_fk",
           "tableFrom": "certificate_signers",
           "tableTo": "accounts",
-          "columnsFrom": ["account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1227,8 +1263,12 @@
           "name": "certificate_signers_created_by_accounts_id_fk",
           "tableFrom": "certificate_signers",
           "tableTo": "accounts",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1363,8 +1403,12 @@
           "name": "certificate_templates_created_by_accounts_id_fk",
           "tableFrom": "certificate_templates",
           "tableTo": "accounts",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1565,8 +1609,12 @@
           "name": "company_letterheads_company_id_companies_id_fk",
           "tableFrom": "company_letterheads",
           "tableTo": "companies",
-          "columnsFrom": ["company_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1574,8 +1622,12 @@
           "name": "company_letterheads_uploaded_by_accounts_id_fk",
           "tableFrom": "company_letterheads",
           "tableTo": "accounts",
-          "columnsFrom": ["uploaded_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "uploaded_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1704,8 +1756,12 @@
           "name": "company_logos_company_id_companies_id_fk",
           "tableFrom": "company_logos",
           "tableTo": "companies",
-          "columnsFrom": ["company_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1713,8 +1769,12 @@
           "name": "company_logos_uploaded_by_accounts_id_fk",
           "tableFrom": "company_logos",
           "tableTo": "accounts",
-          "columnsFrom": ["uploaded_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "uploaded_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1790,8 +1850,12 @@
           "name": "document_export_downloads_export_id_document_exports_id_fk",
           "tableFrom": "document_export_downloads",
           "tableTo": "document_exports",
-          "columnsFrom": ["export_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "export_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1799,8 +1863,12 @@
           "name": "document_export_downloads_downloaded_by_accounts_id_fk",
           "tableFrom": "document_export_downloads",
           "tableTo": "accounts",
-          "columnsFrom": ["downloaded_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "downloaded_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1965,8 +2033,12 @@
           "name": "document_exports_requested_by_accounts_id_fk",
           "tableFrom": "document_exports",
           "tableTo": "accounts",
-          "columnsFrom": ["requested_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "requested_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1974,8 +2046,12 @@
           "name": "document_exports_employee_id_employee_snapshots_id_fk",
           "tableFrom": "document_exports",
           "tableTo": "employee_snapshots",
-          "columnsFrom": ["employee_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "employee_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1983,8 +2059,12 @@
           "name": "document_exports_exit_schedule_id_employee_exit_schedules_id_fk",
           "tableFrom": "document_exports",
           "tableTo": "employee_exit_schedules",
-          "columnsFrom": ["exit_schedule_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "exit_schedule_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2073,8 +2153,12 @@
           "name": "employee_changes_employee_id_employee_snapshots_id_fk",
           "tableFrom": "employee_changes",
           "tableTo": "employee_snapshots",
-          "columnsFrom": ["employee_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "employee_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2082,8 +2166,12 @@
           "name": "employee_changes_changed_by_accounts_id_fk",
           "tableFrom": "employee_changes",
           "tableTo": "accounts",
-          "columnsFrom": ["changed_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "changed_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2246,8 +2334,12 @@
           "name": "employee_exit_schedules_employee_id_employee_snapshots_id_fk",
           "tableFrom": "employee_exit_schedules",
           "tableTo": "employee_snapshots",
-          "columnsFrom": ["employee_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "employee_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2255,8 +2347,12 @@
           "name": "employee_exit_schedules_scheduled_by_accounts_id_fk",
           "tableFrom": "employee_exit_schedules",
           "tableTo": "accounts",
-          "columnsFrom": ["scheduled_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "scheduled_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2549,8 +2645,12 @@
           "name": "exit_settings_updated_by_accounts_id_fk",
           "tableFrom": "exit_settings",
           "tableTo": "accounts",
-          "columnsFrom": ["updated_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2758,8 +2858,12 @@
           "name": "health_settings_updated_by_accounts_id_fk",
           "tableFrom": "health_settings",
           "tableTo": "accounts",
-          "columnsFrom": ["updated_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2831,8 +2935,12 @@
           "name": "holiday_api_settings_updated_by_accounts_id_fk",
           "tableFrom": "holiday_api_settings",
           "tableTo": "accounts",
-          "columnsFrom": ["updated_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2974,8 +3082,12 @@
           "name": "holiday_calendars_created_by_accounts_id_fk",
           "tableFrom": "holiday_calendars",
           "tableTo": "accounts",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2983,8 +3095,12 @@
           "name": "holiday_calendars_published_by_accounts_id_fk",
           "tableFrom": "holiday_calendars",
           "tableTo": "accounts",
-          "columnsFrom": ["published_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "published_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3053,8 +3169,12 @@
           "name": "holidays_calendar_id_holiday_calendars_id_fk",
           "tableFrom": "holidays",
           "tableTo": "holiday_calendars",
-          "columnsFrom": ["calendar_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "calendar_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3094,8 +3214,12 @@
           "name": "import_batch_rows_batch_id_import_batches_id_fk",
           "tableFrom": "import_batch_rows",
           "tableTo": "import_batches",
-          "columnsFrom": ["batch_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "batch_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3103,7 +3227,10 @@
       "compositePrimaryKeys": {
         "import_batch_rows_batch_id_row_number_pk": {
           "name": "import_batch_rows_batch_id_row_number_pk",
-          "columns": ["batch_id", "row_number"]
+          "columns": [
+            "batch_id",
+            "row_number"
+          ]
         }
       },
       "uniqueConstraints": {},
@@ -3248,8 +3375,12 @@
           "name": "import_batches_created_by_accounts_id_fk",
           "tableFrom": "import_batches",
           "tableTo": "accounts",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3257,8 +3388,12 @@
           "name": "import_batches_confirmed_by_accounts_id_fk",
           "tableFrom": "import_batches",
           "tableTo": "accounts",
-          "columnsFrom": ["confirmed_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "confirmed_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3372,8 +3507,12 @@
           "name": "log_archives_created_by_accounts_id_fk",
           "tableFrom": "log_archives",
           "tableTo": "accounts",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3461,8 +3600,12 @@
           "name": "log_settings_updated_by_accounts_id_fk",
           "tableFrom": "log_settings",
           "tableTo": "accounts",
-          "columnsFrom": ["updated_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3566,8 +3709,12 @@
           "name": "mail_settings_updated_by_accounts_id_fk",
           "tableFrom": "mail_settings",
           "tableTo": "accounts",
-          "columnsFrom": ["updated_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3676,8 +3823,12 @@
           "name": "notification_log_recipient_account_id_accounts_id_fk",
           "tableFrom": "notification_log",
           "tableTo": "accounts",
-          "columnsFrom": ["recipient_account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "recipient_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3747,8 +3898,12 @@
           "name": "notification_settings_updated_by_accounts_id_fk",
           "tableFrom": "notification_settings",
           "tableTo": "accounts",
-          "columnsFrom": ["updated_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3948,8 +4103,12 @@
           "name": "payroll_download_audit_account_id_accounts_id_fk",
           "tableFrom": "payroll_download_audit",
           "tableTo": "accounts",
-          "columnsFrom": ["account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4093,8 +4252,12 @@
           "name": "payroll_lines_version_id_payroll_versions_id_fk",
           "tableFrom": "payroll_lines",
           "tableTo": "payroll_versions",
-          "columnsFrom": ["version_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "version_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4234,8 +4397,12 @@
           "name": "payroll_versions_batch_id_import_batches_id_fk",
           "tableFrom": "payroll_versions",
           "tableTo": "import_batches",
-          "columnsFrom": ["batch_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "batch_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4323,8 +4490,12 @@
           "name": "permit_actions_request_id_permit_requests_id_fk",
           "tableFrom": "permit_actions",
           "tableTo": "permit_requests",
-          "columnsFrom": ["request_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "request_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4332,8 +4503,12 @@
           "name": "permit_actions_actor_account_id_accounts_id_fk",
           "tableFrom": "permit_actions",
           "tableTo": "accounts",
-          "columnsFrom": ["actor_account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "actor_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4510,8 +4685,12 @@
           "name": "permit_requests_account_id_accounts_id_fk",
           "tableFrom": "permit_requests",
           "tableTo": "accounts",
-          "columnsFrom": ["account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4519,8 +4698,12 @@
           "name": "permit_requests_manager_account_id_accounts_id_fk",
           "tableFrom": "permit_requests",
           "tableTo": "accounts",
-          "columnsFrom": ["manager_account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "manager_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4528,8 +4711,12 @@
           "name": "permit_requests_type_id_permit_types_id_fk",
           "tableFrom": "permit_requests",
           "tableTo": "permit_types",
-          "columnsFrom": ["type_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "type_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4622,8 +4809,12 @@
           "name": "permit_supports_request_id_permit_requests_id_fk",
           "tableFrom": "permit_supports",
           "tableTo": "permit_requests",
-          "columnsFrom": ["request_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "request_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4906,8 +5097,12 @@
           "name": "prog_vac_created_by_accounts_id_fk",
           "tableFrom": "prog_vac",
           "tableTo": "accounts",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5018,8 +5213,12 @@
           "name": "prog_vac_adjustments_prog_vac_id_prog_vac_id_fk",
           "tableFrom": "prog_vac_adjustments",
           "tableTo": "prog_vac",
-          "columnsFrom": ["prog_vac_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "prog_vac_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5027,8 +5226,12 @@
           "name": "prog_vac_adjustments_actor_account_id_accounts_id_fk",
           "tableFrom": "prog_vac_adjustments",
           "tableTo": "accounts",
-          "columnsFrom": ["actor_account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "actor_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5110,8 +5313,12 @@
           "name": "role_assignments_account_id_accounts_id_fk",
           "tableFrom": "role_assignments",
           "tableTo": "accounts",
-          "columnsFrom": ["account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5227,12 +5434,147 @@
           "name": "sessions_account_id_accounts_id_fk",
           "tableFrom": "sessions",
           "tableTo": "accounts",
-          "columnsFrom": ["account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.shifts": {
+      "name": "shifts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "monday": {
+          "name": "monday",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "tuesday": {
+          "name": "tuesday",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "wednesday": {
+          "name": "wednesday",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "thursday": {
+          "name": "thursday",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "friday": {
+          "name": "friday",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "saturday": {
+          "name": "saturday",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "sunday": {
+          "name": "sunday",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "shifts_code_uq": {
+          "name": "shifts_code_uq",
+          "columns": [
+            {
+              "expression": "code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -5375,8 +5717,12 @@
           "name": "tax_certificates_uploaded_by_accounts_id_fk",
           "tableFrom": "tax_certificates",
           "tableTo": "accounts",
-          "columnsFrom": ["uploaded_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "uploaded_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5482,8 +5828,12 @@
           "name": "two_factor_challenges_account_id_accounts_id_fk",
           "tableFrom": "two_factor_challenges",
           "tableTo": "accounts",
-          "columnsFrom": ["account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5616,8 +5966,12 @@
           "name": "vacaciones_request_id_vacation_requests_id_fk",
           "tableFrom": "vacaciones",
           "tableTo": "vacation_requests",
-          "columnsFrom": ["request_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "request_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5625,8 +5979,12 @@
           "name": "vacaciones_revision_id_vacation_revisions_id_fk",
           "tableFrom": "vacaciones",
           "tableTo": "vacation_revisions",
-          "columnsFrom": ["revision_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "revision_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5720,8 +6078,12 @@
           "name": "vacation_actions_request_id_vacation_requests_id_fk",
           "tableFrom": "vacation_actions",
           "tableTo": "vacation_requests",
-          "columnsFrom": ["request_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "request_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5729,8 +6091,12 @@
           "name": "vacation_actions_actor_account_id_accounts_id_fk",
           "tableFrom": "vacation_actions",
           "tableTo": "accounts",
-          "columnsFrom": ["actor_account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "actor_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5812,8 +6178,12 @@
           "name": "vacation_documents_request_id_vacation_requests_id_fk",
           "tableFrom": "vacation_documents",
           "tableTo": "vacation_requests",
-          "columnsFrom": ["request_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "request_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5971,8 +6341,12 @@
           "name": "vacation_requests_account_id_accounts_id_fk",
           "tableFrom": "vacation_requests",
           "tableTo": "accounts",
-          "columnsFrom": ["account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5980,8 +6354,12 @@
           "name": "vacation_requests_manager_account_id_accounts_id_fk",
           "tableFrom": "vacation_requests",
           "tableTo": "accounts",
-          "columnsFrom": ["manager_account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "manager_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -6050,8 +6428,12 @@
           "name": "vacation_revision_allocations_revision_id_vacation_revisions_id_fk",
           "tableFrom": "vacation_revision_allocations",
           "tableTo": "vacation_revisions",
-          "columnsFrom": ["revision_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "revision_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6059,8 +6441,12 @@
           "name": "vacation_revision_allocations_prog_vac_id_prog_vac_id_fk",
           "tableFrom": "vacation_revision_allocations",
           "tableTo": "prog_vac",
-          "columnsFrom": ["prog_vac_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "prog_vac_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -6195,8 +6581,12 @@
           "name": "vacation_revisions_request_id_vacation_requests_id_fk",
           "tableFrom": "vacation_revisions",
           "tableTo": "vacation_requests",
-          "columnsFrom": ["request_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "request_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6204,8 +6594,12 @@
           "name": "vacation_revisions_proposed_by_accounts_id_fk",
           "tableFrom": "vacation_revisions",
           "tableTo": "accounts",
-          "columnsFrom": ["proposed_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "proposed_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -6294,8 +6688,12 @@
           "name": "verification_codes_account_id_accounts_id_fk",
           "tableFrom": "verification_codes",
           "tableTo": "accounts",
-          "columnsFrom": ["account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -6311,22 +6709,42 @@
     "public.account_status": {
       "name": "account_status",
       "schema": "public",
-      "values": ["PENDIENTE_VERIFICACION", "ACTIVA", "BLOQUEADA"]
+      "values": [
+        "PENDIENTE_VERIFICACION",
+        "ACTIVA",
+        "BLOQUEADA"
+      ]
     },
     "public.catalog_type": {
       "name": "catalog_type",
       "schema": "public",
-      "values": ["AREA", "CCOSTO", "CARGO", "TIPO_CONTRATO"]
+      "values": [
+        "AREA",
+        "CCOSTO",
+        "CARGO",
+        "TIPO_CONTRATO"
+      ]
     },
     "public.employment_status": {
       "name": "employment_status",
       "schema": "public",
-      "values": ["V", "C"]
+      "values": [
+        "V",
+        "C"
+      ]
     },
     "public.import_status": {
       "name": "import_status",
       "schema": "public",
-      "values": ["RECIBIDO", "VALIDANDO", "OBSERVADO", "LISTO", "APLICANDO", "APLICADO", "FALLIDO"]
+      "values": [
+        "RECIBIDO",
+        "VALIDANDO",
+        "OBSERVADO",
+        "LISTO",
+        "APLICANDO",
+        "APLICADO",
+        "FALLIDO"
+      ]
     },
     "public.role_code": {
       "name": "role_code",
