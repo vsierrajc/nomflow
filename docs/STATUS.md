@@ -4,7 +4,7 @@
 - **Plan por fases: [PLAN.md](PLAN.md)**. Traspaso para la próxima sesión: [HANDOFF.md](HANDOFF.md). Última bitácora: [sessions/2026-09-29-aviso-baja-zip-2.md](sessions/2026-09-29-aviso-baja-zip-2.md).
 - `main` contiene los PR #1 a #84 integrados; en revisión [PR #85](https://github.com/vsierrajc/nomflow/pull/85) (`feat/ESS-EXIT-001-aviso-baja-zip`).
 - Revisión por otra persona: ninguno de los PR fue revisado por alguien distinto del autor y `main` no tiene protección de rama (la SSD, sección 11, la exige).
-- Pruebas: 433 de API y unas 115 de navegador en verde; CI completo (CodeQL, secretos, e2e) sin alertas abiertas. Ver [README](../README.md).
+- Pruebas: 436 de API y unas 115 de navegador en verde; CI completo (CodeQL, secretos, e2e) sin alertas abiertas. Ver [README](../README.md).
 
 | módulo | estado | PR | siguiente acción |
 | --- | --- | --- | --- |
