@@ -225,6 +225,13 @@
       "when": 1790467155919,
       "tag": "0031_aprobacion_jerarquica",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790704341184,
+      "tag": "0032_turnos",
+      "breakpoints": true
     }
   ]
 }

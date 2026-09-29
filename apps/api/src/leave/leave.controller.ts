@@ -344,6 +344,7 @@ function mapLeave(e: unknown): never {
   if (e instanceof PlanError) {
     if (e.code === 'CALENDAR_MISSING')
       throw new UnprocessableEntityException({ code: 'HOLIDAY_CALENDAR_MISSING', years: e.years });
+    if (e.code === 'SHIFT_MISSING') throw new UnprocessableEntityException({ code: e.code });
     if (e.code === 'NOT_FOUND') throw new NotFoundException();
     throw new BadRequestException({ code: e.code });
   }

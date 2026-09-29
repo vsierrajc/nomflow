@@ -1,0 +1,27 @@
+# Sesión: 2026-09-29 - Turnos y días hábiles de vacaciones (ESS-LEAVE-004)
+- Responsable / agente: Claude Code (Sonnet 5), con revisión y decisiones del usuario en el chat.
+- Objetivo e incidencias: Nuevo requisito del usuario: el cálculo de vacaciones (días hábiles, `FEC_FIN_DIS`, `FECHA_RETORNO`) dependía de lunes a viernes hardcodeado; ahora depende del turno del empleado (`employeeSnapshots.turno`), con un catálogo nuevo que define qué días de la semana son laborales por turno.
+- Rama y commit inicial: `feat/ESS-LEAVE-004-turnos-dias-habiles`, creada desde `main`.
+- Cambios realizados (rutas y comportamiento):
+  - `apps/api/src/db/schema.ts`: tabla nueva `shifts` (`code`, `name`, `description`, 7 booleanos de día, `active`, `version`). Migración `apps/api/migrations/0032_turnos.sql`, incluye `INSERT ... ON CONFLICT DO NOTHING` con los tres turnos ya descritos (01 lu-vi, 02 lu-sá, 03 ma-vi) — **sin aplicar a ninguna base real todavía**, pendiente de tu aprobación explícita.
+  - `apps/api/src/leave/business-days.ts`: `isBusinessDay`/`computeLeave` dejan de asumir lunes-viernes; reciben un `ReadonlySet<number>` de días laborales (0=domingo..6=sábado) como parámetro nuevo. Sigue sin tocar la base de datos.
+  - `apps/api/src/leave/shifts.service.ts` (nuevo): `resolveShift(db, nIde, nCont)` — busca el turno del contrato y lo resuelve contra el catálogo; devuelve `null` si falta cualquiera de los dos (nunca asume lunes-viernes por omisión). CRUD administrativo `listShifts`/`createShift`/`updateShift`, calcado de `permit.service.ts`.
+  - `apps/api/src/leave/leave-plan.ts`: `planLeave` resuelve el turno antes de calcular; si no hay turno válido, lanza `PlanError('SHIFT_MISSING')` (mismo criterio que `CALENDAR_MISSING` cuando falta el calendario de festivos).
+  - `apps/api/src/leave/leave.controller.ts`: `SHIFT_MISSING` mapea a 422, igual que `HOLIDAY_CALENDAR_MISSING`.
+  - `apps/api/src/leave/shift.controller.ts` (nuevo): `/admin/shifts` (listar, crear, editar), calcado de `AdminPermitTypesController`. Registrado en `apps/api/src/app.module.ts`.
+  - `apps/web/app/(app)/admin/turnos/page.tsx` (nuevo): tabla + formulario de alta/edición con 7 casillas de día, calcado de `admin/tipos-permiso`. Enlace añadido en el menú admin.
+- Decisiones / ADR / cambios al SRS:
+  - Turno vacío o inexistente en el catálogo → se bloquea el cálculo con `SHIFT_MISSING`, nunca se asume lunes a viernes por omisión.
+  - La importación de `EMPLEADOS` sigue aceptando cualquier texto en `TURNO` sin validarlo contra el catálogo nuevo; el catálogo solo se exige al calcular vacaciones.
+  - Nueva incidencia `ESS-LEAVE-004` (no se reabre `ESS-LEAVE-002`, que ya está DONE con su propio pendiente de corrección de disfrutes).
+- Pruebas y evidencia (comando, resultado, entorno):
+  - `apps/api/src/leave/business-days.spec.ts`: todas las llamadas existentes migradas a incluir el turno lunes-viernes explícito (mismo resultado que antes) más 3 casos nuevos (turno con sábado laboral, turno sin lunes laboral, festivo en un día laboral del turno). 13/13.
+  - `apps/api/src/leave/vacation.e2e.spec.ts`, `leave.e2e.spec.ts`, `holiday-api.e2e.spec.ts`: turno `'01'` sembrado en los empleados de prueba y fila `shifts` `'01'` en el `beforeEach`, para que las aserciones existentes seguían pasando igual; casos nuevos en `vacation.e2e.spec.ts`: sin turno o con turno inexistente → 422 `SHIFT_MISSING`; turno con sábado laboral permite incluir un sábado en el disfrute. Los tres archivos en verde.
+  - `DATABASE_URL=.../nomflow_test npm run format:check && npm run lint && npm run typecheck && npm run build && npm test && npm run audit:deps` → todo en verde (421 pruebas de API, 0 vulnerabilidades).
+- Migraciones, configuración y datos de ejemplo necesarios: `apps/api/migrations/0032_turnos.sql` (esquema + datos semilla de los tres turnos). **No se ha corrido `db:migrate` contra `nomflow` ni ninguna base real**: falta tu aprobación explícita antes de aplicarla, según la regla del proyecto.
+- Bloqueos y riesgos:
+  - Hasta que se apliquen la migración y los datos semilla en la base real, y se confirme que todos los empleados tienen un `turno` que coincide con un código del catálogo, cualquier solicitud de vacaciones se bloqueará con `SHIFT_MISSING`. Conviene revisar cuántos valores distintos trae `EMPLEADOS.TURNO` en el archivo real antes de aplicar, para crear también los turnos que falten.
+  - Falta la revisión de otra persona antes de integrar (SSD §11).
+- Estado final (hecho / parcial / pendiente): **hecho** en código y pruebas; pendiente aplicar la migración a una base real (requiere tu aprobación) y la revisión de otra persona.
+- Rama, commit final y PR: `feat/ESS-LEAVE-004-turnos-dias-habiles`, commit pendiente de crear en esta sesión; PR por abrir.
+- Próximo paso exacto y responsable: commit, push y abrir PR; antes de aplicar la migración a `nomflow` (o producción), confirmar conmigo los valores reales de `TURNO` en el archivo de empleados para no dejar a nadie sin turno asignado.

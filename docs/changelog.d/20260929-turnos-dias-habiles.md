@@ -1,0 +1,1 @@
+Vacaciones: el cálculo de días hábiles y fecha de retorno ahora depende del turno del empleado (catálogo nuevo en `/admin/turnos`, con los días de la semana que son laborales para cada turno) en vez de asumir lunes a viernes para todos; si el empleado no tiene turno asignado o no existe en el catálogo, la solicitud se bloquea con un aviso claro en vez de calcular mal.

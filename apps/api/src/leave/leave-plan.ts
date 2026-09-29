@@ -11,6 +11,7 @@ import {
 } from './business-days';
 import { ensureHolidayYears } from './holiday-api.service';
 import { publishedHolidays } from './holidays.service';
+import { resolveShift } from './shifts.service';
 
 export type PlanErrorCode =
   | 'NOT_FOUND'
@@ -18,6 +19,7 @@ export type PlanErrorCode =
   | 'PERIOD_NOT_AVAILABLE'
   | 'EXCEEDS_DISP'
   | 'CALENDAR_MISSING'
+  | 'SHIFT_MISSING'
   | 'START_NOT_BUSINESS_DAY'
   | 'INVALID_DAYS'
   | 'INVALID_DATE';
@@ -94,6 +96,8 @@ export async function planLeave(
     if (a.days > r.disp) throw new PlanError('EXCEEDS_DISP');
   }
   const total = allocations.reduce((sum, a) => sum + a.days, 0);
+  const shift = await resolveShift(db, contract.nIde, contract.nCont);
+  if (!shift) throw new PlanError('SHIFT_MISSING');
   let years: number[];
   try {
     years = yearsNeeded(start, total);
@@ -103,7 +107,7 @@ export async function planLeave(
   const cal = await publishedHolidays(db, years);
   if (cal.missingYears.length > 0) throw new PlanError('CALENDAR_MISSING', cal.missingYears);
   try {
-    const dates = computeLeave(start, total, cal.set);
+    const dates = computeLeave(start, total, cal.set, shift.workDays);
     return {
       ...dates,
       calendarIds: cal.calendarIds,
