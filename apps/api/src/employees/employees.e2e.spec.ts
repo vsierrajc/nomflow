@@ -9,12 +9,16 @@ import { createDb } from '../db/client';
 import { runMigrations } from '../db/migrate';
 import {
   accounts,
+  auditLogs,
   catalogEntries,
   companies,
   employeeChanges,
   employeeSnapshots,
   roleAssignments,
+  sessions,
+  verificationCodes,
 } from '../db/schema';
+import { MAILER, type Mailer } from '../mail/mailer';
 
 const url = process.env.DATABASE_URL;
 const PASSWORD = 'Clave-Definitiva-1';
@@ -27,10 +31,20 @@ describe.skipIf(!url)('CRUD de empleados (HTTP + PostgreSQL)', () => {
   let app: INestApplication;
   let hr: Sess = { cookie: '', csrf: '' };
   let hrId = '';
+  const sent: { to: string; subject: string }[] = [];
+  const mailer: Mailer = {
+    send: (to, subject) => {
+      sent.push({ to, subject });
+      return Promise.resolve();
+    },
+  };
 
   beforeAll(async () => {
     await runMigrations(url ?? '');
-    const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const mod = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(MAILER)
+      .useValue(mailer)
+      .compile();
     app = mod.createNestApplication();
     await app.init();
   });
@@ -50,6 +64,7 @@ describe.skipIf(!url)('CRUD de empleados (HTTP + PostgreSQL)', () => {
   }
 
   beforeEach(async () => {
+    sent.length = 0;
     await db.execute(
       sql`TRUNCATE audit_logs, employee_changes, catalog_entry_history, catalog_entries, companies, sessions, role_assignments, accounts, employee_snapshots CASCADE`,
     );
@@ -342,6 +357,115 @@ describe.skipIf(!url)('CRUD de empleados (HTTP + PostgreSQL)', () => {
       const [row] = await db.select().from(employeeSnapshots);
       expect(row).toMatchObject({ source: 'IMPORT', version: 2 });
       expect(c.body.source).toBe('MANUAL');
+    });
+  });
+
+  describe('resolución administrativa de correo', () => {
+    async function withAccount() {
+      const c = await post('/admin/employees', newEmp());
+      const [acc] = await db
+        .insert(accounts)
+        .values({
+          nIde: '1000000001',
+          email: 'ana@prueba.co',
+          passwordHash: await hashPassword(PASSWORD),
+          status: 'ACTIVA',
+          mustChangePassword: false,
+        })
+        .returning({ id: accounts.id });
+      return { c, accountId: acc?.id ?? '' };
+    }
+
+    it('exige motivo, cambia ambos correos, revoca sesiones y envía un código nuevo', async () => {
+      const { c, accountId } = await withAccount();
+      await db.insert(sessions).values({
+        accountId,
+        tokenHash: 'x'.repeat(64),
+        expiresAt: new Date(Date.now() + 3_600_000),
+      });
+
+      const short = await post(`/admin/employees/${c.body.id}/email-resolution`, {
+        version: c.body.version,
+        email: 'nuevo@prueba.co',
+        reason: 'corto',
+      });
+      expect(short.status).toBe(400);
+
+      const res = await post(`/admin/employees/${c.body.id}/email-resolution`, {
+        version: c.body.version,
+        email: 'NUEVO@Prueba.co',
+        reason: 'La persona perdió acceso al correo anterior; lo confirmó Gestión Humana.',
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.email).toBe('nuevo@prueba.co');
+      expect(res.body.source).toBe('MANUAL');
+
+      const [snap] = await db
+        .select()
+        .from(employeeSnapshots)
+        .where(sql`id = ${c.body.id}`);
+      expect(snap?.email).toBe('nuevo@prueba.co');
+
+      const [acc] = await db
+        .select()
+        .from(accounts)
+        .where(sql`id = ${accountId}`);
+      expect(acc).toMatchObject({ email: 'nuevo@prueba.co', status: 'PENDIENTE_VERIFICACION' });
+      expect(acc?.emailVerifiedAt).toBeNull();
+
+      const [sess] = await db
+        .select()
+        .from(sessions)
+        .where(sql`account_id = ${accountId}`);
+      expect(sess?.revokedAt).not.toBeNull();
+
+      const codes = await db
+        .select()
+        .from(verificationCodes)
+        .where(sql`account_id = ${accountId}`);
+      expect(codes).toHaveLength(1);
+      expect(sent).toContainEqual(
+        expect.objectContaining({
+          to: 'nuevo@prueba.co',
+          subject: 'NOMFLOW: código de verificación',
+        }),
+      );
+
+      const hist = (await get(`/admin/employees/${c.body.id}/history`)).body;
+      expect(hist.at(-1)).toMatchObject({ action: 'EMAIL_RESOLUTION' });
+      const [log] = await db
+        .select()
+        .from(auditLogs)
+        .where(sql`action = 'EMPLOYEE_EMAIL_RESOLUTION'`);
+      expect(log).toBeTruthy();
+    });
+
+    it('rechaza un correo repetido, sin cambios, o una versión desactualizada', async () => {
+      const { c } = await withAccount();
+      await db
+        .insert(employeeSnapshots)
+        .values({ nIde: '9', nCont: '1', email: 'otra@prueba.co', est: 'V', nombre: 'OTRA' });
+
+      const dup = await post(`/admin/employees/${c.body.id}/email-resolution`, {
+        version: c.body.version,
+        email: 'otra@prueba.co',
+        reason: 'Intento con correo de otra persona en la base.',
+      });
+      expect(dup.status).toBe(422);
+
+      const same = await post(`/admin/employees/${c.body.id}/email-resolution`, {
+        version: c.body.version,
+        email: c.body.email,
+        reason: 'Intento sin cambios reales en el correo.',
+      });
+      expect(same.status).toBe(422);
+
+      const stale = await post(`/admin/employees/${c.body.id}/email-resolution`, {
+        version: 999,
+        email: 'otro-nuevo@prueba.co',
+        reason: 'Motivo válido pero con versión desactualizada.',
+      });
+      expect(stale.status).toBe(409);
     });
   });
 

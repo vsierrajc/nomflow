@@ -1,7 +1,9 @@
 import { and, eq, ilike, ne, or, sql, type SQL } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { revokeAllForAccount } from '../auth/session.service';
+import { issueVerificationCode } from '../accounts/verification.service';
 import { checkExitNoticeCompliance } from '../exit/exit-compliance.service';
+import type { Mailer } from '../mail/mailer';
 import {
   accounts,
   auditLogs,
@@ -478,6 +480,86 @@ export async function setEmployeeStatus(
     },
     reason,
   );
+}
+
+/**
+ * Cambia el correo de un empleado que ya tiene cuenta, por resolución administrativa: la vía
+ * genérica de `updateEmployee` la bloquea a propósito. La cuenta vuelve a exigir verificación del
+ * correo nuevo antes de poder usarse de nuevo.
+ */
+export async function resolveEmployeeEmail(
+  db: Db,
+  mailer: Mailer,
+  actorId: string,
+  id: string,
+  version: number,
+  newEmailInput: string,
+  reason: string,
+) {
+  const newEmail = newEmailInput.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail) || newEmail.length > 254)
+    throw new EmployeeError('INVALID', ['EMAIL: correo inválido']);
+
+  const [current] = await db.select().from(employeeSnapshots).where(eq(employeeSnapshots.id, id));
+  if (!current) throw new EmployeeError('NOT_FOUND');
+  if (current.version !== version) throw new EmployeeError('VERSION_CONFLICT');
+  if (current.email === newEmail) throw new EmployeeError('INVALID', ['EMAIL: sin cambios']);
+
+  const owner = await db
+    .select({ nIde: employeeSnapshots.nIde })
+    .from(employeeSnapshots)
+    .where(and(eq(employeeSnapshots.email, newEmail), ne(employeeSnapshots.nIde, current.nIde)))
+    .limit(1);
+  if (owner.length > 0)
+    throw new EmployeeError('INVALID', ['EMAIL: el correo pertenece a otra persona']);
+
+  const result = await db.transaction(async (tx) => {
+    const rows = await tx
+      .update(employeeSnapshots)
+      .set({
+        email: newEmail,
+        source: 'MANUAL',
+        version: sql`${employeeSnapshots.version} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(employeeSnapshots.id, id), eq(employeeSnapshots.version, version)))
+      .returning();
+    const row = rows[0];
+    if (!row) return null;
+    await tx.insert(employeeChanges).values({
+      employeeId: id,
+      changedBy: actorId,
+      action: 'EMAIL_RESOLUTION',
+      reason,
+      changes: { email: { from: current.email, to: newEmail } },
+    });
+    const accs = await tx
+      .select()
+      .from(accounts)
+      .where(and(eq(accounts.nIde, current.nIde), ne(accounts.status, 'BLOQUEADA')));
+    for (const a of accs) {
+      await tx
+        .update(accounts)
+        .set({ email: newEmail, status: 'PENDIENTE_VERIFICACION', emailVerifiedAt: null })
+        .where(eq(accounts.id, a.id));
+    }
+    await tx.insert(auditLogs).values({
+      actorAccountId: actorId,
+      action: 'EMPLOYEE_EMAIL_RESOLUTION',
+      resource: 'employee',
+      resourceId: id,
+      result: 'SUCCESS',
+      context: { reason },
+    });
+    return { row, accountIds: accs.map((a) => a.id) };
+  });
+  if (!result) throw new EmployeeError('VERSION_CONFLICT');
+
+  for (const accountId of result.accountIds) {
+    await revokeAllForAccount(db, accountId);
+    await issueVerificationCode(db, mailer, accountId);
+  }
+  return result.row;
 }
 
 export async function employeeHistory(db: Db, id: string) {

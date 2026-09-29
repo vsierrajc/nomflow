@@ -16,6 +16,7 @@ const ICONS: Record<
   | 'verify'
   | 'history'
   | 'team'
+  | 'mail'
   | 'clock',
   ReactNode
 > = {
@@ -105,6 +106,13 @@ const ICONS: Record<
     <>
       <path d="M3.5 12a8.5 8.5 0 108.5-8.5A8.5 8.5 0 005.6 6.4" />
       <path d="M3.5 3.5v3.4h3.4" />
+    </>
+  ),
+  // Sobre (cambiar correo)
+  mail: (
+    <>
+      <path d="M3.5 5.5h17v13h-17z" />
+      <path d="M3.5 6l8.5 7 8.5-7" />
     </>
   ),
   // Reloj (cambiar turno)

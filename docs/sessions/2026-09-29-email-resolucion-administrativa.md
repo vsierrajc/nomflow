@@ -1,0 +1,21 @@
+# Sesión: 2026-09-29 - Cambio de correo por resolución administrativa (ESS-EMP-002)
+- Responsable / agente: Claude Code (Sonnet 5), con revisión y decisiones del usuario en el chat.
+- Objetivo e incidencias: Cerrar `docs/PLAN.md` fase 2.4, el último pendiente del ciclo de vida del empleado: cambio de correo de un empleado con cuenta mediante resolución administrativa (hoy bloqueado sin alternativa), y que una importación posterior no sobrescriba una corrección manual de correo (bug documentado en `docs/HANDOFF.md`).
+- Rama y commit inicial: `feat/ESS-EMP-email-resolucion-administrativa`, creada desde `main`.
+- Cambios realizados (rutas y comportamiento):
+  - `apps/api/src/employees/employees.service.ts`: nueva función `resolveEmployeeEmail(db, mailer, actorId, id, version, newEmail, reason)` — distinta de `updateEmployee` (que sigue bloqueando el cambio cuando hay cuenta activa). Cambia `employeeSnapshots.email` y `accounts.email`, pone la cuenta en `PENDIENTE_VERIFICACION` (`emailVerifiedAt = null`), revoca sesiones y reutiliza `issueVerificationCode` (ya existente en `apps/api/src/accounts/verification.service.ts`) para enviar un código nuevo al correo nuevo. El re-ingreso reutiliza la pantalla de activación existente sin cambios: como no se toca la clave, la «clave temporal» que debe escribir el empleado es simplemente su clave actual.
+  - `apps/api/src/employees/employees.controller.ts`: `POST admin/employees/:id/email-resolution` (`RecentAuthGuard`, motivo obligatorio ≥10 caracteres).
+  - `apps/api/src/imports/imports.service.ts`: en `applyEmployeesBatch`, si la fila existente tiene `source = 'MANUAL'` y el correo del archivo es distinto, se conserva el correo existente y **se mantiene `source = 'MANUAL'`** (no se fuerza a `'IMPORT'`, para que la protección no se pierda en la siguiente carga); el resto de columnas de esa fila se actualiza igual que siempre. Se anexa una advertencia al `errors` del lote (columna jsonb ya existente, sin migración).
+  - `apps/web/app/(app)/admin/empleados/page.tsx`: nueva acción «Cambiar correo (resolución administrativa)» (icono de sobre nuevo en `apps/web/components/icon-button.tsx`), modal separado del formulario de edición genérico.
+- Decisiones / ADR / cambios al SRS:
+  - Tras el cambio, la cuenta exige verificar el correo nuevo (no se activa sin comprobar que la persona lo controla).
+  - La importación de `EMPLEADOS` sigue aceptando cualquier texto en `EMAIL`; la protección solo aplica cuando la fila existente ya es `MANUAL` y el archivo trae un correo distinto.
+- Pruebas y evidencia (comando, resultado, entorno):
+  - `apps/api/src/employees/employees.e2e.spec.ts`, nuevo `describe('resolución administrativa de correo')`: exige motivo, cambia ambos correos, revoca sesiones, crea un código de verificación y envía el correo (mailer de prueba inyectado con `overrideProvider(MAILER)`), queda en `employeeChanges`/`auditLogs`; rechaza correo repetido, sin cambios y versión desactualizada. 19/19 del archivo.
+  - `apps/api/src/imports/imports.e2e.spec.ts`, nuevo caso: conserva el correo manual, actualiza el resto de la fila, mantiene `source = 'MANUAL'` y deja la advertencia en el reporte del lote. 18/18 del archivo.
+  - `DATABASE_URL=.../nomflow_test npm run format:check && npm run lint && npm run typecheck && npm run build && npm test && npm run audit:deps` → todo en verde (419 pruebas de API, 0 vulnerabilidades).
+- Migraciones, configuración y datos de ejemplo necesarios: ninguna (reutiliza columnas y tablas existentes).
+- Bloqueos y riesgos: ninguno nuevo. Falta la revisión de otra persona antes de integrar (SSD §11).
+- Estado final (hecho / parcial / pendiente): **hecho**, pendiente de revisión.
+- Rama, commit final y PR: `feat/ESS-EMP-email-resolucion-administrativa`, commit pendiente de crear en esta sesión; PR por abrir.
+- Próximo paso exacto y responsable: commit, push y abrir PR; pedir revisión de otra persona antes de integrar a `main`.

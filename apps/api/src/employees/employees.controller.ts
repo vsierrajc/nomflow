@@ -23,12 +23,14 @@ import { ADMIN_ROLES } from '../auth/roles';
 import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
 import type { Db } from '../db/client';
 import { DB } from '../db/db.module';
+import { MAILER, type Mailer } from '../mail/mailer';
 import {
   EmployeeError,
   createEmployee,
   employeeHistory,
   getEmployee,
   listEmployees,
+  resolveEmployeeEmail,
   setEmployeeShift,
   setEmployeeStatus,
   updateEmployee,
@@ -68,6 +70,11 @@ const CreateDto = z.object({
   reason: Reason,
 });
 const UpdateDto = z.object({ ...Common, version: z.number().int().positive(), reason: Reason });
+const EmailResolutionDto = z.object({
+  version: z.number().int().positive(),
+  email: Common.email,
+  reason: Reason,
+});
 const StatusDto = z.object({
   est: z.enum(['V', 'C']),
   version: z.number().int().positive(),
@@ -103,7 +110,10 @@ function map(e: unknown): never {
 @UseGuards(SessionGuard, RolesGuard)
 @Roles(...ADMIN_ROLES)
 export class EmployeesController {
-  constructor(@Inject(DB) private readonly db: Db) {}
+  constructor(
+    @Inject(DB) private readonly db: Db,
+    @Inject(MAILER) private readonly mailer: Mailer,
+  ) {}
 
   @Get()
   @Header('Cache-Control', 'no-store')
@@ -159,6 +169,31 @@ export class EmployeesController {
     const { reason, ...input } = dto.data;
     try {
       return await updateEmployee(this.db, req.auth.accountId, id, input, reason);
+    } catch (e) {
+      return map(e);
+    }
+  }
+
+  @Post(':id/email-resolution')
+  @HttpCode(200)
+  @UseGuards(RecentAuthGuard)
+  async resolveEmail(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+    @Req() req: AuthedRequest,
+  ) {
+    const dto = EmailResolutionDto.safeParse(body);
+    if (!dto.success) throw new BadRequestException();
+    try {
+      return await resolveEmployeeEmail(
+        this.db,
+        this.mailer,
+        req.auth.accountId,
+        id,
+        dto.data.version,
+        dto.data.email,
+        dto.data.reason,
+      );
     } catch (e) {
       return map(e);
     }

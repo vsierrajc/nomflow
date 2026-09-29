@@ -409,20 +409,55 @@ export async function applyEmployeesBatch(
       const catalogErrors = (await catalogIssues(tx, rows)).errors;
       if (conflicts.length > 0 || catalogErrors.length > 0) throw new ImportError('APPLY_FAILED');
 
+      const currentIdes = [...new Set(rows.map((r) => r.nIde))];
+      const currentByKey = new Map(
+        (currentIdes.length
+          ? await tx
+              .select({
+                nIde: employeeSnapshots.nIde,
+                nCont: employeeSnapshots.nCont,
+                email: employeeSnapshots.email,
+                source: employeeSnapshots.source,
+              })
+              .from(employeeSnapshots)
+              .where(inArray(employeeSnapshots.nIde, currentIdes))
+          : []
+        ).map((e) => [`${e.nIde}\u0000${e.nCont}`, e]),
+      );
+      const protectedEmails: ImportIssue[] = [];
       for (const row of rows) {
         const values = dbValues(row, batchId);
+        const existing = currentByKey.get(`${row.nIde}\u0000${row.nCont}`);
+        const emailProtected = existing?.source === 'MANUAL' && existing.email !== row.email;
+        const finalValues = emailProtected ? { ...values, email: existing.email } : values;
+        if (emailProtected) {
+          protectedEmails.push({
+            row: row.rowNumber,
+            column: 'EMAIL',
+            value: null,
+            rule: 'correo corregido manualmente: se conserva, no se sobrescribe por importación',
+          });
+        }
         await tx
           .insert(employeeSnapshots)
-          .values(values)
+          .values(finalValues)
           .onConflictDoUpdate({
             target: [employeeSnapshots.nIde, employeeSnapshots.nCont],
             set: {
-              ...values,
-              source: 'IMPORT',
+              ...finalValues,
+              source: emailProtected ? 'MANUAL' : 'IMPORT',
               version: sql`${employeeSnapshots.version} + 1`,
               updatedAt: new Date(),
             },
           });
+      }
+      if (protectedEmails.length > 0) {
+        await tx
+          .update(importBatches)
+          .set({
+            errors: sql`${importBatches.errors} || ${JSON.stringify(protectedEmails)}::jsonb`,
+          })
+          .where(eq(importBatches.id, batchId));
       }
       const [{ n } = { n: 0 }] = await tx
         .select({ n: sql<number>`count(*)::int` })
