@@ -18,7 +18,7 @@ Actualizada el 26 de septiembre de 2026. Estados: BACKLOG, READY, IN_PROGRESS, I
 | ESS-TAX-001 | Certificados tributarios PDF por N_IDE+año, por carpeta y desde el navegador (6.3) | 3 | #22, #69 | tax.e2e.spec.ts, e2e/retenciones.spec.ts | DONE (falta política de retención) |
 | ESS-CERT-001 | Plantillas de certificado versionadas (6.1.1) | 3 | #49 | labor-cert.e2e.spec.ts, template-engine.spec.ts | DONE |
 | ESS-CERT-002 | Certificado laboral: firmantes designados, firma imagen y digital, código de formato, historial, encabezado y pie en imagen (6.1, 6.1.2) | 3 | #49, #57, #63, #64 | labor-cert.e2e.spec.ts, digital-signature.spec.ts, e2e/certificado-laboral.spec.ts | DONE (falta validación pública, sellado de tiempo y firmas de los firmantes) |
-| ESS-EXIT-001 | Aviso previo a baja, ZIP, revocación con EST=C (3.1, 6.3) | 3 | - | - | BACKLOG (fase 2 del plan) |
+| ESS-EXIT-001 | Aviso previo a baja, ZIP, revocación con EST=C (3.1, 6.3) | 3 | (rama `feat/ESS-EXIT-001-aviso-baja-zip`, sin integrar) | exit.e2e.spec.ts | IN_REVIEW (falta interfaz web de escritorio final y ejecución de e2e en CI/PR) |
 | ESS-LEAVE-001 | PROG_VAC: carga y CRUD, DISP, LIQUIDADA (6.2) | 4 | #26, #61, #62 | leave.e2e.spec.ts, prog-vac.import.e2e.spec.ts, e2e/vacaciones.spec.ts | DONE |
 | ESS-LEAVE-002 | Solicitud multi-período, cálculo de fechas y retorno (6.2) | 4 | #28, #65 | business-days.spec.ts, e2e/vacaciones-solicitud.spec.ts | DONE (falta corrección de disfrutes) |
 | ESS-LEAVE-003 | Revisiones, aprobación jerárquica (jefe, director, gerente general), aprobación final, VACACIONES, constancia PDF (6.2) | 4 | #29, #33, #34, #67 | vacation.e2e.spec.ts, e2e/vacaciones-solicitud.spec.ts | PARCIAL (falta el PDF con firmas visuales y las suplencias) |

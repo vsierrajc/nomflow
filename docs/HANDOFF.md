@@ -1,6 +1,6 @@
 # Traspaso para la próxima sesión
 
-Actualizado: 26 de septiembre de 2026. Estado del código: `main` (PR #1 a #76 integrados, sin PR abiertos). Este archivo se **reescribe al cerrar cada sesión** (SSD 10.2); el historial vive en `docs/sessions/`. No contiene claves, correos ni datos de personas. **El plan por fases está en [PLAN.md](PLAN.md).**
+Actualizado: 29 de septiembre de 2026. Estado del código: `main` (PR #1 a #84 integrados). Rama en curso sin integrar: `feat/ESS-EXIT-001-aviso-baja-zip` (backend y web del módulo de baja/ZIP completos y probados; falta commit, pruebas de navegador y PR). Este archivo se **reescribe al cerrar cada sesión** (SSD 10.2); el historial vive en `docs/sessions/`. No contiene claves, correos ni datos de personas. **El plan por fases está en [PLAN.md](PLAN.md).**
 
 ## 1. Cómo arrancar (10 minutos)
 
@@ -25,6 +25,10 @@ npm run test:e2e          # pruebas de navegador (ver docs/local-stack.md si Chr
 ## 2. Qué está hecho (resumen; detalle en README y STATUS)
 
 Identidad y cuentas (clave asignada, doble paso opcional, sesión por inactividad), importación de EMPLEADOS, empresas, logo y encabezado/pie en imagen, catálogos, conceptos de nómina, roles con alcance (jefe y director de área, gerente general), importación de NOMINA por período y liquidación del archivo, volantes PDF en carta según el modelo, certificados de retención (carpeta y navegador), certificado laboral con firma imagen y digital, vacaciones con aprobación jerárquica, permisos, bandeja de entrada y avisos por correo, salud del sistema, almacenamiento cifrado en Garage, archivo histórico en Google, gestión de registros, área administrativa completa, rediseño de la interfaz, stack local, Graphify y CI. 400 pruebas de API y unas 115 de navegador.
+
+## 2.1 Rama abierta: ESS-EXIT-001 (aviso de baja y ZIP)
+
+Backend completo en `apps/api/src/exit/` (settings, programación de baja, aviso por correo, exportación ZIP asíncrona vía job en proceso sin Redis, incumplimiento auditado si `EST = C` llega sin aviso previo) y web en `apps/web/app/(app)/admin/bajas` y `apps/web/app/(app)/mi-baja`. Probado con `apps/api/src/exit/exit.e2e.spec.ts` (6 casos contra PostgreSQL real) y la verificación obligatoria completa en verde (422 pruebas de API). Pendiente antes de integrar: crear el commit, escribir pruebas Playwright de las dos pantallas nuevas, abrir PR con revisión de otra persona. Detalle en `docs/sessions/2026-09-29-aviso-baja-zip.md`.
 
 ## 3. Pendientes que esperan datos o personas (fase 0 del plan)
 

@@ -1,0 +1,1 @@
+Nuevo módulo de baja (ESS-EXIT-001): el administrador programa la fecha prevista de baja de un empleado, NOMFLOW avisa por correo con la anticipación configurada (`PRE_BAJA_AVISO_DIAS`, 15 días calendario por omisión) y genera un ZIP con sus volantes, certificados tributarios, constancias de vacaciones aprobadas y contratos históricos, disponible por 7 días.

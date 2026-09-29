@@ -11,6 +11,7 @@ import {
   importBatches,
 } from '../db/schema';
 import { revokeAllForAccount } from '../auth/session.service';
+import { checkExitNoticeCompliance } from '../exit/exit-compliance.service';
 import {
   parseEmployeesWorkbook,
   validateEmployeeRows,
@@ -463,6 +464,7 @@ export async function applyEmployeesBatch(
       await revokeAllForAccount(db, a.id);
       revoked++;
     }
+    await checkExitNoticeCompliance(db, actorId, nIde);
   }
   await audit(
     db,

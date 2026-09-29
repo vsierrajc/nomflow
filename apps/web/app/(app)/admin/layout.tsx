@@ -33,6 +33,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
       { href: '/admin/cuentas', label: 'Cuentas y roles' },
       { href: '/admin/importaciones', label: 'Importaciones' },
       { href: '/admin/vacaciones', label: 'Períodos de vacaciones' },
+      { href: '/admin/bajas', label: 'Bajas y exportación' },
     ],
   },
   {
