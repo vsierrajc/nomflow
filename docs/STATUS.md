@@ -1,9 +1,9 @@
 # Estado del proyecto NOMFLOW
 
 - Versión: 0.0.0 (pre-lanzamiento; sin despliegue en producción). Actualizado el 29 de septiembre de 2026.
-- **Plan por fases: [PLAN.md](PLAN.md)**. Traspaso para la próxima sesión: [HANDOFF.md](HANDOFF.md). Última bitácora: [sessions/2026-09-29-aviso-baja-zip-2.md](sessions/2026-09-29-aviso-baja-zip-2.md).
-- `main` contiene los PR #1 a #84 integrados; en revisión [PR #85](https://github.com/vsierrajc/nomflow/pull/85) (`feat/ESS-EXIT-001-aviso-baja-zip`).
-- Revisión por otra persona: ninguno de los PR fue revisado por alguien distinto del autor y `main` no tiene protección de rama (la SSD, sección 11, la exige).
+- **Plan por fases: [PLAN.md](PLAN.md)**. Traspaso para la próxima sesión: [HANDOFF.md](HANDOFF.md). Última bitácora: [sessions/2026-09-29-turnos-dias-habiles.md](sessions/2026-09-29-turnos-dias-habiles.md).
+- `main` contiene los PR #1 a #88 integrados; no hay PR abiertos.
+- Revisión por otra persona: el usuario revisó y aprobó la integración de los PR #85-#88; `main` sigue sin protección de rama (la SSD, sección 11, la exige formalmente).
 - Pruebas: 436 de API y unas 115 de navegador en verde; CI completo (CodeQL, secretos, e2e) sin alertas abiertas. Ver [README](../README.md).
 
 | módulo | estado | PR | siguiente acción |
@@ -17,12 +17,14 @@
 | Roles con alcance, jefes y directores de área (ESS-ORG-002) | DONE | #10, #53, #68 | Asignar director por área y gerente general; suplencias |
 | Stack local, Graphify, scripts de inicio y pruebas de navegador | DONE | #12, #13, #15, #38 | - |
 | Acceso web y menús (ESS-WEB-001) | DONE | #14, #46, #56, #58, #73 | - |
-| Volantes de pago PDF (ESS-PAY-001) | DONE; diseño carta según el modelo; carga por PER/N_LIQ del archivo; retiro de publicación con motivo y auditoría | #16, #74-#76, en revisión (`feat/ESS-PAY-001-retiro-publicacion-nomina`) | Cargar `nomina.xlsx` real |
+| Volantes de pago PDF (ESS-PAY-001) | DONE; diseño carta según el modelo; carga por PER/N_LIQ del archivo; retiro de publicación con motivo y auditoría | #16, #74-#76, #86 | Cargar `nomina.xlsx` real |
 | Módulo administrativo, API e interfaz (ESS-ADM-001/002) | DONE | #17, #18, #39, #64, #70, #72 | - |
 | Rediseño de la interfaz (ESS-UX-001) | DONE | #19, #54, #66, #71 | Conmutador de tema, lectores de pantalla reales |
 | Certificados de retención (ESS-TAX-001) | DONE (carpeta y carga desde el navegador) | #22, #69 | Política de retención |
-| Vacaciones: `PROG_VAC`, festivos, solicitud y aprobaciones (ESS-LEAVE-001/002/003, ESS-HOL-001) | DONE; aprobación jerárquica jefe > director > gerente > aprobación final | #26, #28, #29, #33, #34, #61, #62, #65, #67 | PDF con firmas, suplencias, corrección de disfrutes |
+| Vacaciones: `PROG_VAC`, festivos, solicitud y aprobaciones (ESS-LEAVE-001/002/003, ESS-HOL-001) | DONE; aprobación jerárquica jefe > director > gerente > aprobación final | #26, #28, #29, #33, #34, #61, #62, #65, #67 | PDF con firmas, corrección de disfrutes |
+| Turnos y días hábiles de vacaciones (ESS-LEAVE-004) | DONE; catálogo de turnos (`/admin/turnos`), cálculo de días hábiles y retorno según el turno del empleado, bloquea con `SHIFT_MISSING` si falta el turno | #87 | - |
 | Permisos (ESS-PERM-001) | DONE (decide solo el jefe de área) | #30 | Reglas por tipo |
+| Cambio de correo por resolución administrativa (ESS-EMP-002) | DONE; exige nueva verificación del correo y revoca sesiones; la importación conserva una corrección manual | #88 | - |
 | Correo saliente configurable | DONE | #35 | STARTTLS |
 | Almacenamiento de objetos con Garage (ADR-003) | DONE | #40, #41 | Custodia y rotación de `OBJECT_ENCRYPTION_KEY` |
 | Salud del sistema y alertas | DONE | #42 | CPU/memoria, otros canales |
@@ -30,7 +32,7 @@
 | Bandeja de entrada y avisos por correo del flujo | DONE | #48 | - |
 | Certificado laboral de autoservicio (ADR-005), firma imagen y digital, encabezado y pie en imagen | DONE | #49, #57, #63 | Firmas de los tres firmantes; ciudad, pie y código de formato |
 | Gestión de registros (ADR-006) | DONE | #58, #59 | Prueba real contra el bucket; política automática |
-| Aviso de baja y ZIP (ESS-EXIT-001) | EN REVISIÓN; backend y web completos, probados con vitest e2e y Playwright | [PR #85](https://github.com/vsierrajc/nomflow/pull/85) | Revisión de otra persona antes de integrar |
+| Aviso de baja y ZIP (ESS-EXIT-001) | DONE; aviso previo configurable (`PRE_BAJA_AVISO_DIAS`), exportación ZIP asíncrona, incumplimiento auditado | #85 | - |
 | Despliegue en producción (ESS-OPS-001) | BACKLOG | - | Fase 4 del plan |
 
 ## Bloqueos y decisiones abiertas
