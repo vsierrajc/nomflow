@@ -26,6 +26,10 @@ npm run test:e2e          # pruebas de navegador (ver docs/local-stack.md si Chr
 
 Identidad y cuentas (clave asignada, doble paso opcional, sesión por inactividad), importación de EMPLEADOS, empresas, logo y encabezado/pie en imagen, catálogos, conceptos de nómina, roles con alcance (jefe y director de área, gerente general), importación de NOMINA por período y liquidación del archivo, volantes PDF en carta según el modelo, certificados de retención (carpeta y navegador), certificado laboral con firma imagen y digital, vacaciones con aprobación jerárquica, permisos, bandeja de entrada y avisos por correo, salud del sistema, almacenamiento cifrado en Garage, archivo histórico en Google, gestión de registros, área administrativa completa, rediseño de la interfaz, stack local, Graphify y CI. 400 pruebas de API y unas 115 de navegador.
 
+## 2.0 Rama en trabajo: ESS-RET-001 (retención de datos)
+
+`feat/ESS-RET-politica-retencion`: política de retención de sesiones, códigos, filas de importación y ZIP caducados (`apps/api/src/registros/data-retention*`, página `/admin/retencion`). Los certificados de retención nunca se purgan solos: solo borrado manual tras la baja. Antes de activar `auto_enabled` con datos reales: `pg_dump` y aprobación. Detalle en `docs/sessions/2026-09-30-politica-retencion.md`.
+
 ## 2.1 PR abierto: ESS-EXIT-001 (aviso de baja y ZIP)
 
 [PR #85](https://github.com/vsierrajc/nomflow/pull/85). Backend completo en `apps/api/src/exit/` (settings, programación de baja, aviso por correo, exportación ZIP asíncrona vía job en proceso sin Redis, incumplimiento auditado si `EST = C` llega sin aviso previo, endpoints "revisar/generar ahora" para no depender del temporizador) y web en `apps/web/app/(app)/admin/bajas` y `apps/web/app/(app)/mi-baja`. Probado con `apps/api/src/exit/exit.e2e.spec.ts` (6 casos) y `apps/web/e2e/bajas.spec.ts` + `apps/web/e2e/mi-baja.spec.ts` (7 casos de navegador, que encontraron y corrigieron dos errores reales: `e.currentTarget` nulo tras un `await`, y un código HTTP de cancelar inconsistente entre backend y frontend). Verificación obligatoria completa en verde (422 pruebas de API). Pendiente antes de integrar: revisión de otra persona. Detalle en `docs/sessions/2026-09-29-aviso-baja-zip.md` y `docs/sessions/2026-09-29-aviso-baja-zip-2.md`.
@@ -48,7 +52,7 @@ Higiene: la matriz `docs/traceability.md` se actualizó el 26 de septiembre de 2
 - Certificados: evidencia de firma y confirmación de ciudad, pie y código de formato.
 - Vacaciones: quién aprueba las de quien ocupa la aprobación final; si la jerarquía jefe > director > gerente aplica también a permisos.
 - Operación: STARTTLS del correo interno, almacenamiento, respaldos, monitoreo y suplencias.
-- **Retención** de las filas de preparación de importaciones (datos personales y salarios), de la auditoría de peticiones y de sesiones/códigos vencidos.
+- Plazos definitivos de retención y su activación automática en producción.
 - Gobierno: activar la protección de `main` y exigir revisión de otra persona. CodeQL ya es un control real y con el repositorio público están activos el escaneo de secretos y Code scanning.
 
 ## 6. Deuda técnica y de seguridad conocida

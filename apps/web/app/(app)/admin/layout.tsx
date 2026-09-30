@@ -55,6 +55,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
       { href: '/admin/archivo', label: 'Archivo histórico' },
       { href: '/admin/auditoria', label: 'Auditoría' },
       { href: '/admin/registros', label: 'Registros y depuración' },
+      { href: '/admin/retencion', label: 'Retención de datos' },
     ],
   },
 ];

@@ -20,7 +20,8 @@
 | Volantes de pago PDF (ESS-PAY-001) | DONE; diseño carta según el modelo; carga por PER/N_LIQ del archivo; retiro de publicación con motivo y auditoría | #16, #74-#76, en revisión (`feat/ESS-PAY-001-retiro-publicacion-nomina`) | Cargar `nomina.xlsx` real |
 | Módulo administrativo, API e interfaz (ESS-ADM-001/002) | DONE | #17, #18, #39, #64, #70, #72 | - |
 | Rediseño de la interfaz (ESS-UX-001) | DONE | #19, #54, #66, #71 | Conmutador de tema, lectores de pantalla reales |
-| Certificados de retención (ESS-TAX-001) | DONE (carpeta y carga desde el navegador) | #22, #69 | Política de retención |
+| Certificados de retención (ESS-TAX-001) | DONE (carpeta y carga desde el navegador) | #22, #69 | - |
+| Política de retención de datos (ESS-RET-001) | DONE; sesiones, códigos, filas de importación y ZIP caducados; certificados solo con borrado manual tras la baja | en revisión (`feat/ESS-RET-politica-retencion`) | Activar `auto_enabled` en producción con respaldo previo |
 | Vacaciones: `PROG_VAC`, festivos, solicitud y aprobaciones (ESS-LEAVE-001/002/003, ESS-HOL-001) | DONE; aprobación jerárquica jefe > director > gerente > aprobación final | #26, #28, #29, #33, #34, #61, #62, #65, #67 | PDF con firmas, suplencias, corrección de disfrutes |
 | Permisos (ESS-PERM-001) | DONE (decide solo el jefe de área) | #30 | Reglas por tipo |
 | Correo saliente configurable | DONE | #35 | STARTTLS |
@@ -37,7 +38,7 @@
 - Cargar la nómina real (`nomina.xlsx`) y `PROG_VAC`: dependen de aprobación explícita (escriben datos reales).
 - Asignar el director de cada área y el gerente general; definir quién aprueba las vacaciones de quien tiene la aprobación final.
 - Firmantes del certificado laboral: solo la Directora de Gestión Humana tiene firma cargada.
-- Política de retención de las filas de preparación con datos personales, de la auditoría de peticiones y de los PDF/ZIP.
+- Plazos definitivos de retención (valores iniciales: sesiones 30, códigos 30, filas de importación 90 días, auditoría 365) y activación de la depuración automática en producción.
 - Sección 12 de la SSD: baja y conservación de documentos, códigos de `EST` y fecha de corte de `PROG_VAC`, credencial y región de la API de festivos, evidencia de firma.
 - El servidor de correo interno no tiene TLS: los códigos viajan sin cifrar dentro de la red.
 

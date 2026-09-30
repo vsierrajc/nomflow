@@ -1258,3 +1258,27 @@ export const documentExportDownloads = pgTable(
   },
   (t) => [index('document_export_downloads_export_idx').on(t.exportId)],
 );
+
+/**
+ * Política de retención de datos operativos (una sola fila, id = 1). No cubre los certificados de
+ * retención (`tax_certificates`): su plazo legal aún no está definido (SSD 12).
+ */
+export const dataRetentionSettings = pgTable('data_retention_settings', {
+  id: integer('id').primaryKey().default(1),
+  /** Sesiones vencidas o revocadas, contados desde que terminaron. */
+  sessionsRetentionDays: integer('sessions_retention_days').notNull().default(30),
+  /** Códigos de verificación de correo y de doble paso, usados o vencidos. */
+  verificationCodesRetentionDays: integer('verification_codes_retention_days')
+    .notNull()
+    .default(30),
+  /** Filas de preparación (`import_batch_rows`) de un lote ya aplicado o fallido. */
+  importStagingRetentionDays: integer('import_staging_retention_days').notNull().default(90),
+  /** Mantenimiento diario automático. Los ZIP de baja se purgan siempre al vencer su propia
+   *  caducidad (`document_exports.expires_at`, ver exit_settings.zip_expiry_days), sin plazo aparte. */
+  autoEnabled: boolean('auto_enabled').notNull().default(false),
+  lastRunAt: timestamp('last_run_at', { withTimezone: true }),
+  lastRunStatus: text('last_run_status'),
+  lastRunSummary: text('last_run_summary'),
+  updatedBy: uuid('updated_by').references(() => accounts.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});

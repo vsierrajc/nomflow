@@ -239,6 +239,13 @@
       "when": 1790709362777,
       "tag": "0033_turnos",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790716024443,
+      "tag": "0034_politica_retencion",
+      "breakpoints": true
     }
   ]
 }
