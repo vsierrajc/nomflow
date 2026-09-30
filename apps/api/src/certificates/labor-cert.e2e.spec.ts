@@ -154,7 +154,12 @@ describe.skipIf(!url)('certificado laboral (HTTP + PostgreSQL)', () => {
       csrf: res.body.csrfToken as string,
     };
   }
-  const call = (k: string, method: 'get' | 'post' | 'put', path: string, body?: object) => {
+  const call = (
+    k: string,
+    method: 'get' | 'post' | 'put' | 'delete',
+    path: string,
+    body?: object,
+  ) => {
     const agent = request(srv());
     const r = agent[method](path).set('Cookie', sess[k]?.cookie ?? '');
     return method === 'get' ? r : r.set('X-CSRF-Token', sess[k]?.csrf ?? '').send(body ?? {});
@@ -422,6 +427,68 @@ describe.skipIf(!url)('certificado laboral (HTTP + PostgreSQL)', () => {
     await call('OTRO', 'get', `/me/labor-certificates/${a.body.id}/pdf`).expect(404);
     expect((await call('OTRO', 'get', '/me/labor-certificates').expect(200)).body).toEqual([]);
     await request(srv()).get('/me/labor-certificates').expect(401);
+  });
+
+  it('el empleado quita certificados de su bandeja; el administrador los conserva y los busca por empleado', async () => {
+    await person('OTRO');
+    await call(
+      'ADM',
+      'put',
+      '/admin/labor-certificates/config/GA/settings',
+      settings({ maxPerDay: 2 }),
+    ).expect(200);
+    const a = await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL' }).expect(201);
+    const b = await call('EMP', 'post', '/me/labor-certificates', {
+      kind: 'DIRIGIDO',
+      addressee: 'EMPRESAS PUBLICAS',
+    }).expect(201);
+
+    // nadie más puede quitarlo; un identificador inexistente tampoco
+    await call('OTRO', 'delete', `/me/labor-certificates/${a.body.id}`).expect(404);
+    await call(
+      'EMP',
+      'delete',
+      '/me/labor-certificates/00000000-0000-4000-8000-000000000000',
+    ).expect(404);
+    await request(srv()).delete(`/me/labor-certificates/${a.body.id}`).expect(401);
+
+    await call('EMP', 'delete', `/me/labor-certificates/${a.body.id}`).expect(204);
+    await call('EMP', 'delete', `/me/labor-certificates/${a.body.id}`).expect(204); // repetir no falla
+
+    // el empleado ya no lo ve ni lo descarga ni lo verifica
+    const mine = (await call('EMP', 'get', '/me/labor-certificates').expect(200)).body;
+    expect(mine.map((r: { id: string }) => r.id)).toEqual([b.body.id]);
+    await call('EMP', 'get', `/me/labor-certificates/${a.body.id}/pdf`).expect(404);
+    await call('EMP', 'get', `/me/labor-certificates/${a.body.id}/verify`).expect(404);
+
+    // quitarlo no libera el tope diario (2): sigue contando
+    await call('EMP', 'post', '/me/labor-certificates', { kind: 'GENERAL' }).expect(429);
+
+    // el administrador conserva todo y filtra por empleado y por estado
+    const all = (await call('ADM', 'get', '/admin/labor-certificates/history').expect(200)).body;
+    expect(all.total).toBe(2);
+    const removed = all.items.find((r: { id: string }) => r.id === a.body.id);
+    expect(removed.removedByEmployeeAt).not.toBeNull();
+    expect(
+      all.items.find((r: { id: string }) => r.id === b.body.id).removedByEmployeeAt,
+    ).toBeNull();
+    const q = async (qs: string) =>
+      (await call('ADM', 'get', `/admin/labor-certificates/history?${qs}`).expect(200)).body.total;
+    expect(await q('status=RETIRADOS')).toBe(1);
+    expect(await q('status=ACTIVOS')).toBe(1);
+    expect(await q('nIde=EMP')).toBe(2);
+    expect(await q('nIde=OTRO')).toBe(0);
+    expect(await q('nIde=EMP&status=RETIRADOS')).toBe(1);
+    await call('ADM', 'get', '/admin/labor-certificates/history?status=X').expect(400);
+    await call('ADM', 'get', `/admin/labor-certificates/history/${a.body.id}/pdf`)
+      .buffer(true)
+      .expect(200);
+
+    const logs = await db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.resource, 'labor_certificate'));
+    expect(logs.filter((l) => l.action === 'LABOR_CERT_REMOVE')).toHaveLength(1);
   });
 
   it('el administrador consulta el historial de todas las solicitudes, con filtros, y descarga', async () => {

@@ -1,0 +1,1 @@
+ALTER TABLE "certificate_requests" ADD COLUMN "removed_by_employee_at" timestamp with time zone;

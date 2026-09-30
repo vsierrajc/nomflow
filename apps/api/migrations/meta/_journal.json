@@ -246,6 +246,13 @@
       "when": 1790716024443,
       "tag": "0034_politica_retencion",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1790805629328,
+      "tag": "0035_certificado_retirado_bandeja",
+      "breakpoints": true
     }
   ]
 }

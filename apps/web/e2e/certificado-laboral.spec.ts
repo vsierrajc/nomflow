@@ -180,6 +180,25 @@ test.describe('certificado laboral', () => {
     await pa.getByLabel(/Buscar por nombre/).fill('no-existe-zzz');
     await pa.getByRole('button', { name: 'Filtrar' }).click();
     await expect(pa.getByText('No hay solicitudes con esos filtros.')).toBeVisible();
+
+    // El empleado quita el certificado de su bandeja (con confirmación); el administrador lo conserva.
+    await pe.getByRole('button', { name: /^Quitar de mi bandeja/ }).click();
+    await expect(pe.getByText('¿Quitarlo de su bandeja?')).toBeVisible();
+    await pe.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(item).toBeVisible(); // cancelar no quita nada
+    await pe.getByRole('button', { name: /^Quitar de mi bandeja/ }).click();
+    await pe.getByRole('button', { name: 'Sí, quitar' }).click();
+    await expect(pe.getByText('Se quitó el certificado de su bandeja.')).toBeVisible();
+    await expect(pe.getByText('Aún no ha generado certificados.')).toBeVisible();
+    expect((await pe.request.get(`http://localhost:3100${href}`)).status()).toBe(404);
+
+    await pa.getByLabel(/Buscar por nombre/).fill('');
+    await pa.getByLabel('Bandeja del empleado').selectOption('RETIRADOS');
+    await pa.getByRole('button', { name: 'Filtrar' }).click();
+    await expect(table).toContainText('BANCO EJEMPLO S.A.');
+    await expect(table).toContainText('Quitado por el empleado');
+    await pa.getByLabel('Bandeja del empleado').selectOption('ACTIVOS');
+    await expect(pa.getByText('No hay solicitudes con esos filtros.')).toBeVisible();
   });
 
   test('un empleado no ve la configuración ni el historial', async ({ page }) => {

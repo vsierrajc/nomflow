@@ -3,6 +3,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  Delete,
   Get,
   Header,
   HttpCode,
@@ -40,6 +41,7 @@ import {
   getSettings,
   issue,
   listMine,
+  removeFromTray,
   listTemplates,
   optionsFor,
   preview,
@@ -160,6 +162,17 @@ export class MeLaborCertController {
   async verify(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
     try {
       return await verifyIssued(this.db, this.store, req.auth.accountId, id, false);
+    } catch (e) {
+      return map(e);
+    }
+  }
+
+  /** Quita el certificado de la bandeja del empleado; el administrador lo conserva. */
+  @Delete(':id')
+  @HttpCode(204)
+  async remove(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
+    try {
+      await removeFromTray(this.db, req.auth.accountId, id);
     } catch (e) {
       return map(e);
     }
@@ -313,6 +326,8 @@ const TemplateDto = z.object({ title: z.string().max(200), body: z.string().max(
 const HistoryQuery = z.object({
   q: z.string().trim().max(100).optional(),
   kind: Kind.optional(),
+  nIde: z.string().trim().min(1).max(40).optional(),
+  status: z.enum(['ACTIVOS', 'RETIRADOS']).optional(),
   from: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)

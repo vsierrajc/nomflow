@@ -66,6 +66,7 @@ export default function LaborCertificatePage() {
   const [ok, setOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [blocked, setBlocked] = useState(false);
+  const [confirming, setConfirming] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [o, l] = await Promise.all([
@@ -109,6 +110,22 @@ export default function LaborCertificatePage() {
       setOk('Su certificado se generó. Puede verlo o descargarlo en la lista de abajo.');
       await load();
     } else setError(problem(res.status, res.data));
+  }
+
+  async function remove(id: string) {
+    setError(null);
+    setOk(null);
+    setBusy(true);
+    const res = await api(`/me/labor-certificates/${id}`, {
+      method: 'DELETE',
+      csrf: profile.csrfToken,
+    });
+    setBusy(false);
+    setConfirming(null);
+    if (res.status === 204) {
+      setOk('Se quitó el certificado de su bandeja.');
+      await load();
+    } else setError(NETWORK_ERROR);
   }
 
   return (
@@ -226,6 +243,37 @@ export default function LaborCertificatePage() {
                   >
                     Descargar PDF
                   </a>
+                  {confirming === c.id ? (
+                    <>
+                      <span role="alert" className="muted">
+                        ¿Quitarlo de su bandeja?
+                      </span>
+                      <button
+                        type="button"
+                        className="danger"
+                        disabled={busy}
+                        onClick={() => void remove(c.id)}
+                      >
+                        Sí, quitar
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => setConfirming(null)}
+                      >
+                        Cancelar
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="secondary"
+                      aria-label={`Quitar de mi bandeja el certificado del ${fmt.format(new Date(c.createdAt))}`}
+                      onClick={() => setConfirming(c.id)}
+                    >
+                      Quitar
+                    </button>
+                  )}
                 </span>
               </li>
             ))}
