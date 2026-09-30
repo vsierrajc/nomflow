@@ -27,7 +27,7 @@ Actualizado: 26 de septiembre de 2026. Estado de partida: `main` con los PR #1 a
 | # | Alcance | Referencia |
 | --- | --- | --- |
 | 1.1 | Custodia de `OBJECT_ENCRYPTION_KEY` fuera del servidor y **rotación** con identificador de clave (`NF2\|kid`, varias claves, `storage:rotate`) | `docs/backup-clave-objetos.md`, ADR-003 |
-| 1.2 | **Límite de intentos por IP** en los endpoints públicos y configuración de `trust proxy` | ESS-AUTH-001/003 |
+| 1.2 | ~~**Límite de intentos por IP** en los endpoints públicos y configuración de `trust proxy`~~ DONE: `AUTH_RATE_LIMIT_MAX`/`AUTH_RATE_LIMIT_WINDOW_MS` (20 cada 15 min por omisión) en login, login/verify, activate y verify-email/resend; `TRUST_PROXY` para leer `X-Forwarded-For` detrás de un proxy reverso | ESS-AUTH-001/003 |
 | 1.3 | **STARTTLS** en el servidor de correo interno | Operación |
 | 1.4 | **Respaldo y restauración probados** de PostgreSQL y Garage, con una restauración de ensayo documentada | ESS-OPS-001 |
 | 1.5 | Protección de `main`, revisión por otra persona y job e2e obligatorio | SSD 11 |

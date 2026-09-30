@@ -153,6 +153,8 @@ Variables de entorno (plantilla en [`.env.example`](.env.example)):
 | `PERMIT_SUPPORT_MAX_BYTES`                                                                         | Tamaño máximo del soporte de un permiso (2 MB).                                                                                                                                                                                                                                                                                                |
 | `S3_*`, `GARAGE_*`, `OBJECT_ENCRYPTION_KEY`                                                        | Almacén de objetos (Garage) y clave de cifrado en aplicación; sin `S3_*` los documentos responden 503. `npm run storage:migrate` mueve certificados antiguos. Sin `OBJECT_ENCRYPTION_KEY` (≥32 caracteres, propia) el almacén no se activa. Respaldo de la clave: [`docs/backup-clave-objetos.md`](docs/backup-clave-objetos.md). Ver ADR-003. |
 | `REDIS_URL`                                                                                        | Reservada; hoy ningún módulo la usa.                                                                                                                                                                                                                                                                                                           |
+| `AUTH_RATE_LIMIT_MAX`, `AUTH_RATE_LIMIT_WINDOW_MS`                                                 | Límite de peticiones por IP en `login`, `login/verify`, `activate` y `verify-email/resend` (20 cada 15 minutos por omisión).                                                                                                                                                                                                                   |
+| `TRUST_PROXY`                                                                                      | Solo detrás de un proxy reverso: número de saltos de confianza (o `true`) para que `req.ip` lea `X-Forwarded-For` en vez de la IP del proxy. Vacío en un despliegue directo.                                                                                                                                                                   |
 | `E2E_DATABASE_URL`, `MAILPIT_URL`                                                                  | Solo para las pruebas de navegador.                                                                                                                                                                                                                                                                                                            |
 
 La URL y la clave del servicio de festivos, y los datos del correo saliente, se configuran **desde la aplicación** (`/admin/festivos`, `/admin/correo`), no con variables.
@@ -239,7 +241,7 @@ Todas las rutas (salvo `/health`, `/auth/login`, `/auth/login/verify`, `/auth/ac
 - **Servicios externos:** el servidor consulta la URL configurada con tiempo límite y sin seguir redirecciones; en producción exige HTTPS y rechaza direcciones privadas.
 - **Soportes de permisos:** el tipo se decide por los bytes iniciales, no por lo que declare el cliente; solo los ven el empleado y su jefe.
 - **Sesiones:** cookie `HttpOnly` y `SameSite=Strict` (`Secure` en producción); el token se guarda solo como hash; expiran a los 30 minutos de inactividad o a las 8 horas; se cierran al bloquear o dar de baja.
-- **CSRF** por HMAC en toda petición de escritura; **bloqueo** tras 5 intentos fallidos (15 minutos); mensajes que no revelan si una cuenta existe.
+- **CSRF** por HMAC en toda petición de escritura; **bloqueo** tras 5 intentos fallidos (15 minutos); mensajes que no revelan si una cuenta existe. **Límite por IP** en `login`, `login/verify`, `activate` y `verify-email/resend` (`AUTH_RATE_LIMIT_MAX`/`_WINDOW_MS`), independiente del bloqueo por cuenta.
 - **Autorización** siempre en el servidor y por propiedad: el empleado se resuelve por la sesión y ninguna URL lleva su identificación.
 - **Auditoría:** registra cada petición (usuario, método, plantilla de la ruta, estado, duración, IP) y cada actividad de negocio, **sin** cuerpos, claves, códigos, tokens, salarios ni identificadores reales. Los accesos a fichas con salario y a volantes ajenos quedan registrados, estos últimos con su motivo.
 - **Archivos:** Excel sin fórmulas ni enlaces, tipo verificado, límites de tamaño y filas; logos solo PNG o JPEG de hasta 512 KB.
@@ -294,8 +296,8 @@ Datos y operación:
 
 Seguridad y gobierno:
 
-- Ninguno de los PR fue revisado por otra persona y `main` no tiene protección de rama; la SSD lo exige.
-- Sin límite por IP en los endpoints públicos; si varias instancias de la API comparten la base, un cambio de configuración de correo tarda hasta 30 segundos en llegar a las demás.
+- `main` no tiene protección de rama todavía, ni exige revisión formal antes de fusionar; la SSD lo exige.
+- El límite por IP se cuenta en memoria por proceso: con varias instancias de la API detrás de un balanceador, cada una lleva su propio contador. Si varias instancias comparten la base, un cambio de configuración de correo tarda hasta 30 segundos en llegar a las demás.
 
 Producto: las funciones del [backlog](#aún-no-implementado-backlog-ver-la-ssd), y las mejoras de interfaz propuestas en [`docs/design/rediseno-ui.md`](docs/design/rediseno-ui.md) (sección 8).
 

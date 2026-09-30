@@ -36,6 +36,7 @@ import {
   type Profile,
 } from './auth.service';
 import { RecentAuthGuard } from './guards';
+import { IpRateLimitGuard, RateLimit } from './ip-rate-limit.guard';
 import { SESSION_COOKIE, SessionGuard, type AuthedRequest } from './session.guard';
 import {
   TwoFactorError,
@@ -72,7 +73,14 @@ const ReauthDto = z.object({ password: z.string().min(1).max(200) });
 
 const ResendDto = z.object({ email: z.string().trim().email().max(254) });
 
+// Límite de intentos por IP a los endpoints públicos, además del bloqueo por cuenta ya existente
+// (que solo actúa sobre logins fallidos de una cuenta concreta). Configurable por si un despliegue
+// necesita otra ventana; el mismo valor por defecto que el bloqueo de cuenta (15 minutos).
+const RATE_LIMIT_MAX = Number(process.env.AUTH_RATE_LIMIT_MAX ?? 20);
+const RATE_LIMIT_WINDOW_MS = Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS ?? 15 * 60_000);
+
 @Controller('auth')
+@UseGuards(IpRateLimitGuard)
 export class AuthController {
   constructor(
     @Inject(DB) private readonly db: Db,
@@ -81,6 +89,7 @@ export class AuthController {
 
   @Post('activate')
   @HttpCode(204)
+  @RateLimit(RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS)
   async activate(@Body() body: unknown): Promise<void> {
     const dto = ActivateDto.safeParse(body);
     if (!dto.success) throw new BadRequestException();
@@ -94,6 +103,7 @@ export class AuthController {
 
   @Post('verify-email/resend')
   @HttpCode(202)
+  @RateLimit(RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS)
   async resend(@Body() body: unknown): Promise<void> {
     const dto = ResendDto.safeParse(body);
     if (!dto.success) throw new BadRequestException();
@@ -102,6 +112,7 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(200)
+  @RateLimit(RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS)
   async login(
     @Body() body: unknown,
     @Req() req: AuthedRequest,
@@ -128,6 +139,7 @@ export class AuthController {
   /** Segundo paso del ingreso: el código enviado al correo abre la sesión. */
   @Post('login/verify')
   @HttpCode(200)
+  @RateLimit(RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS)
   async verifyLogin(
     @Body() body: unknown,
     @Req() req: AuthedRequest,

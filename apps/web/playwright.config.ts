@@ -58,6 +58,8 @@ export default defineConfig({
         HEALTH_MONITOR: 'off',
         // Las pruebas de la confirmación de identidad necesitan que esté exigida.
         REQUIRE_RECENT_AUTH: 'true',
+        // Todas las pruebas ingresan desde la misma IP: el límite por IP (ESS-AUTH-003) no debe estorbar.
+        AUTH_RATE_LIMIT_MAX: '100000',
         NOTIFICATIONS_MONITOR: 'off',
         ARCHIVE_SCHEDULER: 'off',
         EXIT_MONITOR: 'off',
