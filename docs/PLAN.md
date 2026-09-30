@@ -20,14 +20,14 @@ Actualizado: 26 de septiembre de 2026. Estado de partida: `main` con los PR #1 a
 | 0.4 | Que el Director Financiero y el Gerente General carguen su firma; confirmar ciudad, pie y código de formato del certificado laboral | Firmantes / Gestión Humana | Solo la Directora de Gestión Humana tiene firma |
 | 0.5 | Cargar `PROG_VAC` real desde `/admin/vacaciones` | Gestión Humana | |
 | 0.6 | Primera prueba real del archivo histórico: «Enviar al histórico» en `/admin/archivo` y en `/admin/registros` contra el bucket | Administrador | Lo probado hasta ahora fue con almacenes simulados |
-| 0.7 | Corregir las pruebas intermitentes conocidas (alta excepcional de empleados, logo en `admin.spec`, reenviar código) | Desarrollo | Prerrequisito para volver obligatorio el job e2e (1.5) |
+| 0.7 | ~~Corregir las pruebas intermitentes conocidas~~ DONE (30 de septiembre de 2026): suite completa de navegador en verde (125). «Reenviar código» esperaba 5 s a un envío SMTP (ahora 20 s); los menús de administrador y empleado y las dos pruebas de vacaciones estaban desactualizadas tras los PR de turnos y de baja. «Alta excepcional» y «logo» no se reprodujeron en 50 repeticiones | Desarrollo | Desbloquea el job e2e obligatorio (1.5); requiere Garage, PostgreSQL y Mailpit activos |
 
 ## Fase 1 - Seguridad y resiliencia base (1 a 2 semanas)
 
 | # | Alcance | Referencia |
 | --- | --- | --- |
 | 1.1 | Custodia de `OBJECT_ENCRYPTION_KEY` fuera del servidor y **rotación** con identificador de clave (`NF2\|kid`, varias claves, `storage:rotate`) | `docs/backup-clave-objetos.md`, ADR-003 |
-| 1.2 | **Límite de intentos por IP** en los endpoints públicos y configuración de `trust proxy` | ESS-AUTH-001/003 |
+| 1.2 | ~~**Límite de intentos por IP** en los endpoints públicos y configuración de `trust proxy`~~ DONE: `AUTH_RATE_LIMIT_MAX`/`AUTH_RATE_LIMIT_WINDOW_MS` (20 cada 15 min por omisión) en login, login/verify, activate y verify-email/resend; `TRUST_PROXY` para leer `X-Forwarded-For` detrás de un proxy reverso | ESS-AUTH-001/003 |
 | 1.3 | **STARTTLS** en el servidor de correo interno | Operación |
 | 1.4 | **Respaldo y restauración probados** de PostgreSQL y Garage, con una restauración de ensayo documentada | ESS-OPS-001 |
 | 1.5 | Protección de `main`, revisión por otra persona y job e2e obligatorio | SSD 11 |

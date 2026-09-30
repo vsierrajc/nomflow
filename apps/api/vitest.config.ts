@@ -12,6 +12,10 @@ export default defineConfig({
     env: {
       SESSION_SECRET: 'test-secret-test-secret-test-secret-1234',
       REQUIRE_RECENT_AUTH: 'true',
+      // Las pruebas inician sesión muchas más veces por archivo de lo que un cliente real haría en
+      // 15 minutos (todas desde la misma IP del proceso); ip-rate-limit.e2e.spec.ts fija su propio
+      // AUTH_RATE_LIMIT_MAX bajo para probar el límite en sí.
+      AUTH_RATE_LIMIT_MAX: '1000',
     },
   },
 });

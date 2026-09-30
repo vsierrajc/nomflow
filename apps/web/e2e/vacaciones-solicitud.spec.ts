@@ -30,7 +30,16 @@ async function seedScenario(year: number) {
   await seedActiveAccount(emp);
   await seedActiveAccount(mgr, [{ role: 'AREA_MANAGER', cEmp: 'GA', areaCode: area }]);
   await seedActiveAccount(fin, [{ role: 'VACATION_FINAL_APPROVER', cEmp: 'GA' }]);
-  await query(`update employee_snapshots set c_area = $1 where n_ide = $2`, [area, emp.nIde]);
+  // El cálculo de fechas exige el turno del empleado (lunes a viernes, salvo festivos).
+  await query(
+    `insert into shifts (code, name, monday, tuesday, wednesday, thursday, friday)
+     select '01', 'Turno 01', true, true, true, true, true
+     where not exists (select 1 from shifts where code = '01')`,
+  );
+  await query(`update employee_snapshots set c_area = $1, turno = '01' where n_ide = $2`, [
+    area,
+    emp.nIde,
+  ]);
   await query(`update employee_snapshots set c_area = $1 where n_ide = $2`, [area, mgr.nIde]);
   const [m] = await query<{ id: string }>(`select id from accounts where n_ide = $1`, [mgr.nIde]);
   await query(
