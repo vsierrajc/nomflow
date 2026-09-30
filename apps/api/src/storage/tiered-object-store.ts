@@ -1,4 +1,4 @@
-import { ObjectStoreError, type DeletableObjectStore, type ObjectStore } from './object-store';
+import { ObjectStoreError, type DeletableObjectStore } from './object-store';
 
 /** Entrega el almacén en la nube si está configurado; null si no lo está. */
 export interface ColdStoreProvider {
@@ -12,14 +12,19 @@ export interface ColdStoreProvider {
  * no disponible en lugar de devolver «no encontrado».
  * Va por debajo del cifrado: en la nube solo hay bytes ya cifrados por la aplicación.
  */
-export class TieredObjectStore implements ObjectStore {
+export class TieredObjectStore implements DeletableObjectStore {
   constructor(
-    private readonly hot: ObjectStore,
+    private readonly hot: DeletableObjectStore,
     private readonly cold: ColdStoreProvider,
   ) {}
 
   put(key: string, data: Buffer, contentType?: string): Promise<void> {
     return this.hot.put(key, data, contentType);
+  }
+
+  /** Solo borra en local: lo histórico en la nube es responsabilidad del archivado (ADR-004). */
+  delete(key: string): Promise<void> {
+    return this.hot.delete(key);
   }
 
   async get(key: string): Promise<Buffer | null> {

@@ -1,0 +1,1 @@
+Retención de datos: nueva página «Retención de datos» con plazos configurables y depuración manual o diaria de sesiones, códigos de verificación, filas de importación y ZIP de baja caducados; los certificados de retención nunca se borran solos y un administrador puede borrarlos a mano, con confirmación y auditoría, solo tras la baja de la persona.

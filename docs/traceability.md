@@ -9,14 +9,14 @@ Actualizada el 26 de septiembre de 2026. Estados: BACKLOG, READY, IN_PROGRESS, I
 | ESS-AUTH-003 | Login, sesiones revocables, CSRF, reautenticación opcional, doble paso opcional, sesión caducada, límite de peticiones por IP (3.1) | 1 | #3-#5, #36, #55, #60, #90 | auth e2e, e2e/doble-paso.spec.ts, e2e/sesion-expirada.spec.ts, ip-rate-limit.e2e.spec.ts | DONE |
 | ESS-AUTH-004 | Roles con alcance y vigencia; autorización por N_IDE (3.1, 5) | 1 | #7, #10, #53, #67 | org.e2e.spec.ts, admin-access.e2e.spec.ts | DONE (roles AREA_DIRECTOR y GENERAL_MANAGER incluidos) |
 | ESS-AUTH-006 | Cambio de clave por el propio usuario (3.1) | 1 | #5 | change-password.e2e.spec.ts | DONE |
-| ESS-AUD-001 | Auditoría sin datos sensibles (3.2, 5) | 1 | #17 | audit e2e | DONE (falta correlacionar con eventos de negocio y política de retención) |
+| ESS-AUD-001 | Auditoría sin datos sensibles (3.2, 5) | 1 | #17 | audit e2e | DONE (falta correlacionar con eventos de negocio) |
 | ESS-ORG-001 | CRUD de Company/Area/CostCenter/JobPosition/ContractType (9.6) | 2 | #9, #17, #47, #63, #68 | catalogs.e2e.spec.ts, logos.e2e.spec.ts, letterhead.e2e.spec.ts | DONE |
 | ESS-ORG-002 | Jefe y director de área con vigencia e historial (5, 9.1) | 2 | #10, #68 | org.e2e.spec.ts | DONE (faltan suplencias) |
 | ESS-IMPORT-001 | Importación Excel por lotes, staging, idempotencia, reversión (9.2-9.3) | 2 | #8, #16, #75 | imports.e2e.spec.ts, payroll.e2e.spec.ts | DONE |
 | ESS-IMPORT-002 | Importación EMPLEADOS con EST V/C y contrato único vigente (9.1) | 2 | #8, #47 | imports.e2e.spec.ts | DONE (datos reales cargados) |
 | ESS-EMP-002 | Cambio de correo por resolución administrativa; la importación conserva una corrección manual (9.3) | 2 | #88 | employees.e2e.spec.ts, imports.e2e.spec.ts | DONE |
 | ESS-PAY-001 | Volantes PDF carta según el modelo, SLRIO por liquidación, modos SIN_AJUSTE/ENTERO_SUPERIOR, carga por PER y N_LIQ, retiro de publicación con motivo y auditoría (9.2, 9.4, 9.6) | 3 | #16, #74, #75, #76, #86 | payroll.e2e.spec.ts, number-words.spec.ts, e2e/volantes.spec.ts | DONE (falta cargar `nomina.xlsx` real) |
-| ESS-TAX-001 | Certificados tributarios PDF por N_IDE+año, por carpeta y desde el navegador (6.3) | 3 | #22, #69 | tax.e2e.spec.ts, e2e/retenciones.spec.ts | DONE (falta política de retención) |
+| ESS-TAX-001 | Certificados tributarios PDF por N_IDE+año, por carpeta y desde el navegador (6.3) | 3 | #22, #69 | tax.e2e.spec.ts, e2e/retenciones.spec.ts | DONE; se conservan mientras la persona esté activa y solo se borran a mano tras la baja (ESS-RET-001) |
 | ESS-CERT-001 | Plantillas de certificado versionadas (6.1.1) | 3 | #49 | labor-cert.e2e.spec.ts, template-engine.spec.ts | DONE |
 | ESS-CERT-002 | Certificado laboral: firmantes designados, firma imagen y digital, código de formato, historial, encabezado y pie en imagen (6.1, 6.1.2) | 3 | #49, #57, #63, #64 | labor-cert.e2e.spec.ts, digital-signature.spec.ts, e2e/certificado-laboral.spec.ts | DONE (falta validación pública, sellado de tiempo y firmas de los firmantes) |
 | ESS-EXIT-001 | Aviso previo a baja, ZIP, revocación con EST=C (3.1, 6.3) | 3 | #85 | exit.e2e.spec.ts, bajas.spec.ts, mi-baja.spec.ts | DONE |
@@ -34,5 +34,6 @@ Actualizada el 26 de septiembre de 2026. Estados: BACKLOG, READY, IN_PROGRESS, I
 | ESS-STORE-001 | Almacenamiento de objetos cifrado en Garage (ADR-003) | 5 | #40, #41 | storage e2e | DONE (falta custodia y rotación de la clave) |
 | ESS-ARCH-001 | Archivo histórico en la nube, descarga transparente (ADR-004) | 5 | #43, #50 | archive.e2e.spec.ts, e2e/archivo.spec.ts | DONE (falta prueba real contra el bucket) |
 | ESS-HEALTH-001 | Salud del sistema y alertas configurables | 5 | #42 | health e2e, e2e/salud.spec.ts | DONE |
-| ESS-LOG-001 | Gestión de registros: ver, exportar, histórico en la nube, depurar y vaciar (ADR-006) | 5 | #58, #59 | logs.e2e.spec.ts, e2e/registros.spec.ts | DONE (falta política automática de retención) |
+| ESS-LOG-001 | Gestión de registros: ver, exportar, histórico en la nube, depurar y vaciar (ADR-006) | 5 | #58, #59 | logs.e2e.spec.ts, e2e/registros.spec.ts | DONE |
+| ESS-RET-001 | Política de retención de datos operativos y borrado manual de certificados tras la baja (SSD 12) | 1 | en revisión | data-retention.e2e.spec.ts, e2e/retencion.spec.ts | DONE |
 | ESS-OPS-001 | Endurecimiento, respaldo/restauración, despliegue, monitoreo (8, 11) | 5 | #1, #2, #12, #38 | - | PARCIAL (CI y stack local; faltan imágenes, despliegue, restauración probada y monitoreo de servidor) |

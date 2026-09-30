@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
-import { ObjectStoreError, type ObjectStore } from './object-store';
+import { ObjectStoreError, type DeletableObjectStore } from './object-store';
 
 const MAGIC = Buffer.from('NF1'); // versión del formato: permite cambiar el cifrado más adelante
 const IV_LENGTH = 12;
@@ -11,11 +11,11 @@ const TAG_LENGTH = 16;
  * La clave del objeto (su nombre) va como dato autenticado: un objeto copiado con otro nombre no descifra.
  * Formato: NF1 | iv (12) | etiqueta (16) | texto cifrado.
  */
-export class EncryptedObjectStore implements ObjectStore {
+export class EncryptedObjectStore implements DeletableObjectStore {
   private readonly key: Buffer;
 
   constructor(
-    private readonly inner: ObjectStore,
+    private readonly inner: DeletableObjectStore,
     secret: string,
   ) {
     if (secret.length < 32)
@@ -47,6 +47,11 @@ export class EncryptedObjectStore implements ObjectStore {
     } catch {
       throw new ObjectStoreError('INTEGRITY');
     }
+  }
+
+  /** Solo la clave hace falta: el nombre no revela el contenido. */
+  delete(name: string): Promise<void> {
+    return this.inner.delete(name);
   }
 }
 
