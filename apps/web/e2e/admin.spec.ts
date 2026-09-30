@@ -109,6 +109,7 @@ test.describe('acceso al área administrativa', () => {
           'Archivo histórico',
           'Auditoría',
           'Registros y depuración',
+          'Retención de datos',
         ],
       };
       await expect(page.getByText('Cuentas activas')).toBeVisible();
