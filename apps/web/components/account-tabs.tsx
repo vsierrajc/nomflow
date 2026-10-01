@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 const TABS = [
   { href: '/cuenta/clave', label: 'Cambiar clave' },
   { href: '/cuenta/seguridad', label: 'Verificación en dos pasos' },
+  { href: '/cuenta/apariencia', label: 'Apariencia' },
 ];
 
 /** Navegación entre las pantallas de «Mi cuenta». */

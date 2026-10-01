@@ -121,8 +121,8 @@ Para cada módulo futuro definir los estados de carga, vacío, error, éxito y a
 
 ## 9. Limitaciones
 
-- No hay conmutador manual de tema: se sigue la preferencia del sistema.
+- El tema sigue la preferencia del sistema por omisión; la persona puede elegir «Claro» u «Oscuro» en Mi cuenta → Apariencia (`/cuenta/apariencia`). La elección se guarda en el navegador (`localStorage`, clave `nomflow-theme`), no en la cuenta, y se aplica antes de pintar para evitar el parpadeo.
 - El menú móvil no atrapa el foco (es un menú plegable, no un diálogo).
 - Las tablas administrativas siguen siendo regiones desplazables en pantallas estrechas; no se convirtieron en tarjetas.
-- No se probaron lectores de pantalla reales (NVDA, VoiceOver, TalkBack); la verificación es automática (axe) más revisión de semántica.
+- No se probaron lectores de pantalla reales (NVDA, JAWS, VoiceOver, Orca, TalkBack). `e2e/lectores-pantalla.spec.ts` verifica de forma automática lo que reciben: puntos de referencia, un solo h1 y encabezados sin saltos, enlace «Saltar al contenido», página actual en el menú, campos inválidos con su mensaje como descripción, regiones vivas y reglas de axe (WCAG 2.1 AA y buenas prácticas) en las pantallas del empleado, públicas y del administrador. Eso no sustituye una revisión manual con un lector real.
 - Solo se probó Chromium.

@@ -1,0 +1,1 @@
+Interfaz: nueva pantalla Mi cuenta → Apariencia para elegir el tema (automático, claro u oscuro), que se recuerda en el navegador y se aplica sin parpadeo; el login y la activación agrupan su ayuda en una región con nombre, y se añaden pruebas automáticas del árbol de accesibilidad para lectores de pantalla.

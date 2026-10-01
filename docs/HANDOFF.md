@@ -58,14 +58,14 @@ Higiene: la matriz `docs/traceability.md` se actualizó el 26 de septiembre de 2
 ## 6. Deuda técnica y de seguridad conocida
 
 - **Clave de objetos (`OBJECT_ENCRYPTION_KEY`)**: sin copia fuera del servidor los certificados y constancias guardados no se recuperan. Falta que una persona la custodie (ver `docs/backup-clave-objetos.md`) y la rotación con identificador de clave (`NF2|kid`, varias claves, `storage:rotate`), aplazada por decisión del usuario.
-- Sin segundo factor por correo en cada ingreso ni límite por IP en los endpoints públicos; `req.ip` requiere configurar `trust proxy` detrás de un proxy.
+- `req.ip` requiere configurar `trust proxy` detrás de un proxy (el límite por IP y el doble paso opcional por correo ya existen).
 - La auditoría de peticiones se escribe de forma asíncrona (si la base falla solo queda un aviso) y no se correlaciona con los eventos de negocio (solo por usuario y hora; el `requestId` no se guarda en los eventos).
 - El cambio de correo de un empleado con cuenta exige una «resolución administrativa» que no está implementada; una importación posterior sobrescribe las correcciones manuales (`source = MANUAL` → `IMPORT`).
 - Jefes de área: faltan las **suplencias** que pide la SSD.
 - El logo se guarda en la base de datos; los documentos futuros deberían ir a S3.
 - `API_URL` de la web se lee al **compilar** (rewrites de Next).
 - El job `e2e` del CI es informativo; volverlo obligatorio cuando se estabilice (CodeQL ya lo es).
-- Interfaz: sin conmutador manual de tema, sin lectores de pantalla reales ni otros navegadores, las tablas administrativas son regiones desplazables, el menú móvil no atrapa el foco.
+- Interfaz: el conmutador de tema existe (Mi cuenta → Apariencia, guardado en el navegador); falta la revisión manual con lectores de pantalla reales y otros navegadores, las tablas administrativas son regiones desplazables, el menú móvil no atrapa el foco.
 - Graphify: solo extracción por código; la semántica con LLM está prohibida sin aprobación (envía contenido a un tercero).
 
 ## 7. Estado del entorno local (no versionado)

@@ -71,8 +71,10 @@
   --control-height: 2.75rem;
 }
 
+/* Modo oscuro: automático (según el dispositivo) salvo que la persona haya elegido «Claro», o forzado si eligió «Oscuro».
+   Los mismos tokens sirven para los dos casos. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --color-bg: #0e141a;
     --color-surface: #17202a;
     --color-surface-muted: #1f2b37;
@@ -99,6 +101,39 @@
     --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
     --shadow-md: 0 4px 16px rgb(0 0 0 / 0.5);
   }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-bg: #0e141a;
+  --color-surface: #17202a;
+  --color-surface-muted: #1f2b37;
+  --color-text: #e8edf2;
+  --color-text-muted: #aab8c5;
+  --color-border: #32414f;
+  --color-input-border: #8494a3;
+  --color-identity: #0b2a44;
+  --color-on-identity: #eaf2fa;
+  --color-action: #6db2ff;
+  --color-action-hover: #8cc3ff;
+  --color-on-action: #07121d;
+  --color-link: #7dbbff;
+  --color-focus: #fbbf24;
+  --color-info-bg: #12314d;
+  --color-info-text: #b9dbff;
+  --color-ok-bg: #12301e;
+  --color-ok-text: #9be3b0;
+  --color-warn-bg: #3a2e0a;
+  --color-warn-text: #ffe08a;
+  --color-error-bg: #3a1613;
+  --color-error-text: #ffb4ab;
+  --color-error-border: #ff8a7d;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 16px rgb(0 0 0 / 0.5);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
 }
 
 /* Base */
@@ -259,9 +294,13 @@ table caption {
 }
 
 @media (prefers-color-scheme: dark) {
-  .auth-brand {
+  :root:not([data-theme='light']) .auth-brand {
     color: var(--color-link);
   }
+}
+
+:root[data-theme='dark'] .auth-brand {
+  color: var(--color-link);
 }
 
 .auth-main {
