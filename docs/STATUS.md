@@ -19,7 +19,7 @@
 | Acceso web y menús (ESS-WEB-001) | DONE | #14, #46, #56, #58, #73 | - |
 | Volantes de pago PDF (ESS-PAY-001) | DONE; diseño carta según el modelo; carga por PER/N_LIQ del archivo; retiro de publicación con motivo y auditoría | #16, #74-#76, #86 | Cargar `nomina.xlsx` real |
 | Módulo administrativo, API e interfaz (ESS-ADM-001/002) | DONE | #17, #18, #39, #64, #70, #72 | - |
-| Rediseño de la interfaz (ESS-UX-001) | DONE | #19, #54, #66, #71 | Conmutador de tema, lectores de pantalla reales |
+| Rediseño de la interfaz (ESS-UX-001) | DONE | #19, #54, #66, #71; conmutador de tema y pruebas del árbol de accesibilidad en revisión (`feat/ESS-UX-tema-manual-lectores`) | Revisión manual con lectores de pantalla reales y otros navegadores |
 | Certificados de retención (ESS-TAX-001) | DONE (carpeta y carga desde el navegador) | #22, #69 | - |
 | Política de retención de datos (ESS-RET-001) | DONE; sesiones, códigos, filas de importación y ZIP caducados; certificados solo con borrado manual tras la baja | #91 | Activar `auto_enabled` en producción con respaldo previo |
 | Vacaciones: `PROG_VAC`, festivos, solicitud y aprobaciones (ESS-LEAVE-001/002/003, ESS-HOL-001) | DONE; aprobación jerárquica jefe > director > gerente > aprobación final | #26, #28, #29, #33, #34, #61, #62, #65, #67 | PDF con firmas, corrección de disfrutes |

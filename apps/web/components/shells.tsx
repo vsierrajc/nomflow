@@ -40,10 +40,12 @@ export function AuthFrame({ children }: { children: ReactNode }) {
   if (pathname === '/login') return <div className="landing-shell">{children}</div>;
   return (
     <div className="auth-shell">
-      <p className="auth-brand brand-mark">
-        <BrandMark />
-        <span>NOMFLOW</span>
-      </p>
+      <header>
+        <p className="auth-brand brand-mark">
+          <BrandMark />
+          <span>NOMFLOW</span>
+        </p>
+      </header>
       {children}
     </div>
   );
@@ -108,7 +110,11 @@ export function LoginLanding({
           <p className="auth-lead">{lead}</p>
           {children}
         </main>
-        {help ? <div className="auth-help">{help}</div> : null}
+        {help ? (
+          <aside className="auth-help" aria-label="Ayuda">
+            {help}
+          </aside>
+        ) : null}
       </div>
     </>
   );
@@ -134,7 +140,11 @@ export function AuthCard({
         {lead ? <p className="auth-lead">{lead}</p> : null}
         {children}
       </main>
-      {help ? <div className={`auth-help${wide ? ' wide' : ''}`}>{help}</div> : null}
+      {help ? (
+        <aside className={`auth-help${wide ? ' wide' : ''}`} aria-label="Ayuda">
+          {help}
+        </aside>
+      ) : null}
     </>
   );
 }

@@ -69,8 +69,8 @@ Decisiones de esta fase: valor inicial de `PRE_BAJA_AVISO_DIAS`, si cuenta días
 ## Fase 5 - Mejoras
 
 - Validación pública del certificado laboral por código, sellado de tiempo y HSM.
-- Segundo factor por correo en cada ingreso.
-- Conmutador manual de tema, pruebas con lectores de pantalla reales y otros navegadores.
+- ~~Segundo factor por correo en cada ingreso~~: ya existe y lo activa cada persona en Mi cuenta → Verificación en dos pasos (`/me/two-factor`). Pendiente solo si se quisiera hacerlo obligatorio por rol.
+- ~~Conmutador manual de tema~~ DONE (Mi cuenta → Apariencia, se guarda en el navegador). Las pruebas con lectores de pantalla son ahora automáticas (árbol de accesibilidad y axe); falta la revisión manual con NVDA, JAWS, VoiceOver u Orca y probar otros navegadores.
 - Unificar el estilo de botones y tablas en todas las pantallas de administración.
 - Correlacionar la auditoría de peticiones con los eventos de negocio (guardar `requestId`).
 - Mover el logo de la base de datos al almacén de objetos.
