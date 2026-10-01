@@ -176,6 +176,34 @@ describe.skipIf(!url)('permisos: tipos, solicitud y decisión del jefe (HTTP + P
     await form(emp, base({ typeId: created.body.id })).expect(400);
   });
 
+  it('en suplencia del jefe, decide su suplente y no el titular; al terminar, vuelve el titular', async () => {
+    const dir = await person('250', 'd@x.co', [{ role: 'AREA_DIRECTOR', area: true }]);
+    const id = (await form(emp, base()).expect(201)).body.id as string;
+    const d = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+    const sub = await send(mgr, 'post', '/me/substitutions', {
+      substituteAccountId: dir.id,
+      validFrom: d(0),
+      validTo: d(2),
+    }).expect(201);
+
+    // el titular en suplencia no la decide ni la ve en su bandeja; la solicitud sigue siendo suya al verla
+    expect((await send(mgr, 'get', '/approvals/permits/manager').expect(200)).body).toHaveLength(0);
+    await send(mgr, 'post', `/approvals/permits/manager/${id}/approve`).expect(404);
+    // el suplente (director, sin el rol de jefe de área) la ve y la decide
+    expect((await send(dir, 'get', '/approvals/permits/manager').expect(200)).body).toHaveLength(1);
+    await send(dir, 'post', `/approvals/permits/manager/${id}/approve`).expect(200);
+    expect(await status(id)).toBe('APROBADO');
+
+    // al terminar la suplencia, vuelve al titular
+    const id2 = (await form(emp, base({ start: '2026-05-04', end: '2026-05-05' })).expect(201)).body
+      .id as string;
+    await send(mgr, 'post', `/me/substitutions/${sub.body.id}/end`).expect(204);
+    // sin la suplencia, el director (que no es jefe de área) ya no entra a esta bandeja
+    await send(dir, 'get', '/approvals/permits/manager').expect(403);
+    await send(dir, 'post', `/approvals/permits/manager/${id2}/approve`).expect(403);
+    await send(mgr, 'post', `/approvals/permits/manager/${id2}/approve`).expect(200);
+  });
+
   it('camino completo: el jefe aprueba y no hay más aprobaciones ni consumo de PROG_VAC', async () => {
     await db.insert(progVac).values({
       nIde: '100',

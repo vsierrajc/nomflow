@@ -14,7 +14,7 @@
 | Alta por API, roles y reautenticación opcional (ESS-AUTH-004/005/006) | DONE | #7, #11, #55 | Revisión de otra persona |
 | Importación de EMPLEADOS (ESS-IMPORT-002) | DONE | #8, #47 | Datos ya cargados desde `initconfigdata` |
 | Empresas, catálogos y logo (ESS-ORG-001) | DONE | #9, #17, #63 | Logo de GA cargado; encabezado y pie en imagen disponibles |
-| Roles con alcance, jefes y directores de área (ESS-ORG-002) | DONE | #10, #53, #68 | Asignar director por área y gerente general; suplencias |
+| Roles con alcance, jefes y directores de área (ESS-ORG-002) | DONE; suplencias de quienes aprueban (en revisión, `feat/ESS-ORG-002-suplencias`) | #10, #53, #68 | Asignar director por área y gerente general |
 | Stack local, Graphify, scripts de inicio y pruebas de navegador | DONE | #12, #13, #15, #38 | - |
 | Acceso web y menús (ESS-WEB-001) | DONE | #14, #46, #56, #58, #73 | - |
 | Volantes de pago PDF (ESS-PAY-001) | DONE; diseño carta según el modelo; carga por PER/N_LIQ del archivo; retiro de publicación con motivo y auditoría | #16, #74-#76, #86 | Cargar `nomina.xlsx` real |

@@ -22,7 +22,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
-import { RecentAuthGuard, Roles, RolesGuard } from '../auth/guards';
+import { AllowSubstitutes, RecentAuthGuard, Roles, RolesGuard } from '../auth/guards';
 import { ADMIN_ROLES } from '../auth/roles';
 import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
 import type { Db } from '../db/client';
@@ -223,6 +223,7 @@ export class MePermitsController {
 @Controller('approvals/permits/manager')
 @UseGuards(SessionGuard, RolesGuard)
 @Roles('AREA_MANAGER')
+@AllowSubstitutes()
 export class ManagerPermitsController {
   constructor(@Inject(DB) private readonly db: Db) {}
 

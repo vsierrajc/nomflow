@@ -61,7 +61,7 @@ Higiene: la matriz `docs/traceability.md` se actualizó el 26 de septiembre de 2
 - `req.ip` requiere configurar `trust proxy` detrás de un proxy (el límite por IP y el doble paso opcional por correo ya existen).
 - La auditoría de peticiones se escribe de forma asíncrona (si la base falla solo queda un aviso) y no se correlaciona con los eventos de negocio (solo por usuario y hora; el `requestId` no se guarda en los eventos).
 - El cambio de correo de un empleado con cuenta exige una «resolución administrativa» que no está implementada; una importación posterior sobrescribe las correcciones manuales (`source = MANUAL` → `IMPORT`).
-- Jefes de área: faltan las **suplencias** que pide la SSD.
+- Suplencias: el suplente hereda por completo lo del titular (vacaciones y permisos) y el titular queda sin acción durante el rango; si el suplente es quien pidió una solicitud asignada al titular, esa solicitud espera al regreso del titular (no puede aprobarse a sí mismo).
 - El logo se guarda en la base de datos; los documentos futuros deberían ir a S3.
 - `API_URL` de la web se lee al **compilar** (rewrites de Next).
 - El job `e2e` del CI es informativo; volverlo obligatorio cuando se estabilice (CodeQL ya lo es).

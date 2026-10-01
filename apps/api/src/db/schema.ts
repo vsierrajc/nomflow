@@ -128,6 +128,41 @@ export const roleAssignments = pgTable(
   (t) => [index('role_assignments_account_idx').on(t.accountId)],
 );
 
+/**
+ * Suplencia de quien aprueba (jefe, director, gerente o aprobación final): durante el rango, el
+ * suplente decide todo lo que le tocaría al titular, y el titular no. Aplica a vacaciones y permisos.
+ */
+export const approvalSubstitutions = pgTable(
+  'approval_substitutions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    titularAccountId: uuid('titular_account_id')
+      .notNull()
+      .references(() => accounts.id),
+    substituteAccountId: uuid('substitute_account_id')
+      .notNull()
+      .references(() => accounts.id),
+    validFrom: date('valid_from').notNull(),
+    validTo: date('valid_to').notNull(),
+    /** ACTIVA, TERMINADA (la dio por terminada el titular antes de tiempo) o ANULADA (por Gestión Humana). */
+    status: text('status').notNull().default('ACTIVA'),
+    endedAt: timestamp('ended_at', { withTimezone: true }),
+    endedBy: uuid('ended_by').references(() => accounts.id),
+    endReason: text('end_reason'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('approval_substitutions_titular_idx').on(t.titularAccountId, t.validFrom),
+    index('approval_substitutions_substitute_idx').on(t.substituteAccountId, t.validFrom),
+    check('approval_substitutions_range_ck', sql`${t.validTo} >= ${t.validFrom}`),
+    check('approval_substitutions_max_ck', sql`${t.validTo} - ${t.validFrom} <= 89`),
+    check(
+      'approval_substitutions_distinct_ck',
+      sql`${t.titularAccountId} <> ${t.substituteAccountId}`,
+    ),
+  ],
+);
+
 export const auditLogs = pgTable(
   'audit_logs',
   {
@@ -661,6 +696,8 @@ export const vacationActions = pgTable(
     /** ENVIAR, ACEPTAR, PROPONER, APROBAR_JEFE, APROBAR_FINAL, RECHAZAR, CANCELAR */
     action: text('action').notNull(),
     comment: text('comment'),
+    /** Si decidió en suplencia: la cuenta del titular a quien suplía. */
+    onBehalfOfAccountId: uuid('on_behalf_of_account_id').references(() => accounts.id),
     /** Hash del contenido de la revisión sobre la que se actuó. */
     contentHash: text('content_hash').notNull(),
     at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),

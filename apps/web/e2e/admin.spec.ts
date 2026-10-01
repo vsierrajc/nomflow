@@ -95,6 +95,7 @@ test.describe('acceso al área administrativa', () => {
           'Importaciones',
           'Períodos de vacaciones',
           'Bajas y exportación',
+          'Suplencias',
         ],
         Documentos: [
           'Volantes de pago',

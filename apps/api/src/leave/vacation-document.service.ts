@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import {
   accounts,
@@ -79,13 +79,23 @@ async function buildData(db: Db, requestId: string): Promise<VacationDocData | n
       comment: vacationActions.comment,
       nIde: accounts.nIde,
       accountId: accounts.id,
+      onBehalfOf: vacationActions.onBehalfOfAccountId,
     })
     .from(vacationActions)
     .innerJoin(accounts, eq(accounts.id, vacationActions.actorAccountId))
     .where(eq(vacationActions.requestId, requestId))
     .orderBy(vacationActions.at);
+  // a quién suplía quien decidió en suplencia (nombre del titular), por cuenta
+  const behalfIds = [...new Set(actions.flatMap((a) => (a.onBehalfOf ? [a.onBehalfOf] : [])))];
+  const behalfNIde = new Map<string, string>();
+  if (behalfIds.length > 0)
+    for (const r of await db
+      .select({ id: accounts.id, nIde: accounts.nIde })
+      .from(accounts)
+      .where(inArray(accounts.id, behalfIds)))
+      behalfNIde.set(r.id, r.nIde);
   const nameOf = new Map<string, string>();
-  for (const nIde of new Set([req.nIde, ...actions.map((a) => a.nIde)])) {
+  for (const nIde of new Set([req.nIde, ...actions.map((a) => a.nIde), ...behalfNIde.values()])) {
     const [e] = await db
       .select({ nombre: employeeSnapshots.nombre })
       .from(employeeSnapshots)
@@ -95,6 +105,10 @@ async function buildData(db: Db, requestId: string): Promise<VacationDocData | n
     nameOf.set(nIde, e?.nombre ?? nIde);
   }
   const [company] = await db.select().from(companies).where(eq(companies.cEmp, req.cEmp));
+  const behalf = (accountId: string) => {
+    const nIde = behalfNIde.get(accountId);
+    return (nIde ? nameOf.get(nIde) : undefined) ?? nIde ?? '';
+  };
   const finalAction = actions.filter((a) => a.action === 'APROBAR_FINAL').at(-1);
   const firstAction = actions.filter((a) => a.action === 'APROBAR_JEFE').at(-1);
   const signatures = [];
@@ -109,6 +123,7 @@ async function buildData(db: Db, requestId: string): Promise<VacationDocData | n
       name: nameOf.get(act.nIde) ?? act.nIde,
       at: act.at,
       image: sig?.data ?? null,
+      ...(act.onBehalfOf ? { onBehalfOf: behalf(act.onBehalfOf) } : {}),
     });
   }
   return {
@@ -131,7 +146,7 @@ async function buildData(db: Db, requestId: string): Promise<VacationDocData | n
       .filter((a) => ACTION_LABEL[a.action])
       .map((a) => ({
         label: ACTION_LABEL[a.action] ?? a.action,
-        name: nameOf.get(a.nIde) ?? a.nIde,
+        name: `${nameOf.get(a.nIde) ?? a.nIde}${a.onBehalfOf ? `, en suplencia de ${behalf(a.onBehalfOf)}` : ''}`,
         at: a.at,
         revision: a.revision,
         comment: a.comment,

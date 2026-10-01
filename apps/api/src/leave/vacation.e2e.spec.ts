@@ -663,6 +663,169 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
     expect(text).toContain('no equivalen a una firma digital');
   });
 
+  describe('suplencias de quien aprueba', () => {
+    const d = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+    const designate = (s: Sess, substituteAccountId: string, from = d(0), to = d(3)) =>
+      send(s, 'post', '/me/substitutions', { substituteAccountId, validFrom: from, validTo: to });
+    const mine = async (s: Sess) => (await send(s, 'get', '/me/substitutions').expect(200)).body;
+    let dir: Sess;
+    beforeEach(async () => {
+      dir = await person('250', 'd@x.co', [{ role: 'AREA_DIRECTOR', area: true }]);
+    });
+
+    it('al designar: solo aprueban, con suplente aprobador de la misma empresa, fechas válidas y sin cruces', async () => {
+      const gb = await person(
+        '810',
+        'gb@x.co',
+        [{ role: 'VACATION_FINAL_APPROVER', company: 'GB' }],
+        '99999',
+      );
+      const code = async (r: request.Test, status: number) => {
+        const res = await r;
+        expect(res.status).toBe(status);
+        return res.body.code as string | undefined;
+      };
+      // quién puede: un empleado sin rol que apruebe no designa
+      expect(await code(designate(emp, dir.id), 403)).toBe('NOT_APPROVER');
+      // quién puede ser suplente: él mismo no; un empleado sin rol no; otra empresa no
+      expect(await code(designate(mgr, mgr.id), 400)).toBe('SELF');
+      expect(await code(designate(mgr, emp.id), 400)).toBe('SUBSTITUTE_NOT_ELIGIBLE');
+      expect(await code(designate(mgr, gb.id), 400)).toBe('NO_COMMON_COMPANY');
+      // fechas: pasado, fin antes del inicio, más de 90 días
+      expect(await code(designate(mgr, dir.id, d(-1), d(2)), 400)).toBe('PAST_START');
+      expect(await code(designate(mgr, dir.id, d(5), d(2)), 400)).toBe('INVALID_DATES');
+      expect(await code(designate(mgr, dir.id, d(0), d(90)), 400)).toBe('TOO_LONG'); // 91 días
+      const ok = await designate(mgr, dir.id, d(0), d(89)).expect(201); // 90 días exactos
+      // un titular no tiene dos suplencias a la vez
+      expect(await code(designate(mgr, fin.id, d(10), d(12)), 422)).toBe('OVERLAP');
+      // sin cadenas: el suplente no puede a su vez designar a otro en las mismas fechas
+      expect(await code(designate(dir, fin.id, d(1), d(2)), 422)).toBe('CHAIN');
+      // candidatos: aprobadores de la misma empresa, nunca él mismo ni otra empresa
+      const names = (await send(mgr, 'get', '/me/substitutions/candidates').expect(200)).body.map(
+        (c: { name: string }) => c.name,
+      );
+      expect(names).toEqual(['Persona 250', 'Persona 300']);
+      // lo suyo
+      const m = await mine(mgr);
+      expect(m.asTitular).toHaveLength(1);
+      expect(m.asTitular[0]).toMatchObject({
+        id: ok.body.id,
+        substitute: 'Persona 250',
+        phase: 'VIGENTE',
+      });
+      expect((await mine(dir)).asSubstitute[0]).toMatchObject({ titular: 'Persona 200' });
+      const acts = (await db.select().from(auditLogs)).map((l) => l.action);
+      expect(acts).toContain('SUBSTITUTION_CREATE');
+    });
+
+    it('en suplencia decide el suplente y no el titular; el rol del suplente basta; al terminar vuelve el titular', async () => {
+      const a = await submit('2026-03-02', [{ progVacId: p1, days: 2 }]).expect(201);
+      const sub = await designate(mgr, dir.id).expect(201);
+
+      // el titular en suplencia no la decide; el suplente la ve y la decide con su propio rol
+      expect(
+        (await send(mgr, 'get', '/approvals/vacations/manager').expect(200)).body,
+      ).toHaveLength(0);
+      await send(mgr, 'post', `/approvals/vacations/manager/${a.body.id}/approve`).expect(404);
+      expect(
+        (await send(dir, 'get', '/approvals/vacations/manager').expect(200)).body,
+      ).toHaveLength(1);
+      await send(dir, 'post', `/approvals/vacations/manager/${a.body.id}/approve`).expect(200);
+      expect(await status(a.body.id)).toBe('PENDIENTE_FINAL');
+      const [act] = await db
+        .select()
+        .from(vacationActions)
+        .where(eq(vacationActions.action, 'APROBAR_JEFE'));
+      expect(act).toMatchObject({ actorAccountId: dir.id, onBehalfOfAccountId: mgr.id });
+
+      // el detalle: el titular la ve pero no se le ofrece decidir; el suplente sí
+      expect(
+        (await send(mgr, 'get', `/me/vacations/${a.body.id}`).expect(200)).body.isManager,
+      ).toBe(false);
+      expect(
+        (await send(dir, 'get', `/me/vacations/${a.body.id}`).expect(200)).body.isManager,
+      ).toBe(true);
+
+      // otra solicitud nueva, ya con el titular de vuelta tras terminar la suplencia
+      const b = await submit('2026-04-06', [{ progVacId: p1, days: 1 }]).expect(201);
+      await send(mgr, 'post', `/me/substitutions/${sub.body.id}/end`).expect(204);
+      await send(mgr, 'post', `/me/substitutions/${sub.body.id}/end`).expect(422); // ya terminada
+      await send(dir, 'post', `/approvals/vacations/manager/${b.body.id}/approve`).expect(404);
+      await send(mgr, 'post', `/approvals/vacations/manager/${b.body.id}/approve`).expect(200);
+      // nadie más puede terminar la suplencia
+      const other = await designate(mgr, dir.id, d(20), d(21)).expect(201);
+      await send(dir, 'post', `/me/substitutions/${other.body.id}/end`).expect(404);
+      await send(emp, 'post', `/me/substitutions/${other.body.id}/end`).expect(404);
+    });
+
+    it('la aprobación final se puede suplir con cualquier rol que apruebe, y la constancia lo dice', async () => {
+      const a = await submit('2026-03-02', [{ progVacId: p1, days: 2 }]).expect(201);
+      await send(mgr, 'post', `/approvals/vacations/manager/${a.body.id}/approve`).expect(200);
+      await designate(fin, mgr.id).expect(201); // el jefe suple al aprobador final
+
+      // el titular en suplencia ya no decide; el suplente (sin el rol de aprobación final) sí
+      expect((await send(fin, 'get', '/approvals/vacations/final').expect(200)).body).toHaveLength(
+        0,
+      );
+      await send(fin, 'post', `/approvals/vacations/final/${a.body.id}/approve`).expect(403);
+      expect((await send(mgr, 'get', '/approvals/vacations/final').expect(200)).body).toHaveLength(
+        1,
+      );
+      await send(mgr, 'post', `/approvals/vacations/final/${a.body.id}/approve`).expect(200);
+      expect(await status(a.body.id)).toBe('APROBADA');
+
+      const text = await pdfText(body(await binary(pdf(emp, a.body.id)).expect(200)));
+      expect(text).toContain('Aprobación final');
+      expect(text).toContain('En suplencia de Persona 300');
+      const [fa] = await db
+        .select()
+        .from(vacationActions)
+        .where(eq(vacationActions.action, 'APROBAR_FINAL'));
+      expect(fa).toMatchObject({ actorAccountId: mgr.id, onBehalfOfAccountId: fin.id });
+    });
+
+    it('Gestión Humana las anula con motivo, ve todas y la suplencia anulada deja de regir', async () => {
+      const a = await submit('2026-03-02', [{ progVacId: p1, days: 2 }]).expect(201);
+      const sub = await designate(mgr, dir.id).expect(201);
+      await send(emp, 'get', '/admin/substitutions').expect(403);
+      await send(mgr, 'post', `/admin/substitutions/${sub.body.id}/annul`, {
+        reason: 'No me corresponde anularla',
+      }).expect(403);
+      await send(adm, 'post', `/admin/substitutions/${sub.body.id}/annul`, {
+        reason: 'corto',
+      }).expect(400);
+
+      const list = (await send(adm, 'get', '/admin/substitutions?status=ACTIVA').expect(200)).body;
+      expect(list.total).toBe(1);
+      expect(list.items[0]).toMatchObject({
+        titular: 'Persona 200',
+        substitute: 'Persona 250',
+        phase: 'VIGENTE',
+      });
+      expect((await send(adm, 'get', '/admin/substitutions?q=250').expect(200)).body.total).toBe(1);
+      expect((await send(adm, 'get', '/admin/substitutions?q=zzz').expect(200)).body.total).toBe(0);
+      await send(adm, 'get', '/admin/substitutions?status=X').expect(400);
+
+      await send(adm, 'post', `/admin/substitutions/${sub.body.id}/annul`, {
+        reason: 'Se designó a la persona equivocada',
+      }).expect(204);
+      await send(adm, 'post', `/admin/substitutions/${sub.body.id}/annul`, {
+        reason: 'Se designó a la persona equivocada',
+      }).expect(422);
+      expect(
+        (await send(adm, 'get', '/admin/substitutions?status=ANULADA').expect(200)).body.total,
+      ).toBe(1);
+      // ya no rige: el titular vuelve a decidir y el suplente pierde el acceso
+      expect(
+        (await send(dir, 'get', '/approvals/vacations/manager').expect(200)).body,
+      ).toHaveLength(0);
+      await send(dir, 'post', `/approvals/vacations/manager/${a.body.id}/approve`).expect(404);
+      await send(mgr, 'post', `/approvals/vacations/manager/${a.body.id}/approve`).expect(200);
+      const acts = (await db.select().from(auditLogs)).map((l) => l.action);
+      expect(acts).toContain('SUBSTITUTION_ANNUL');
+    });
+  });
+
   /** Carga la firma de quien aprueba (multipart con consentimiento). */
   const enrollSig = (s: Sess, file: Buffer | null, consent = 'true') => {
     const r = request(srv())

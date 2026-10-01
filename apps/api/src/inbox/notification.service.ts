@@ -1,3 +1,4 @@
+import { effectiveRecipient } from '../leave/substitutions.service';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { and, desc, eq, gte, inArray, isNull, lte, or } from 'drizzle-orm';
 import type { Db } from '../db/client';
@@ -154,7 +155,10 @@ export class NotificationService {
           or(isNull(roleAssignments.validTo), gte(roleAssignments.validTo, today)),
         ),
       );
-    return rows.map((r) => r.id);
+    // quien está en suplencia no recibe el aviso: lo recibe su suplente
+    const out = new Set<string>();
+    for (const r of rows) out.add(await effectiveRecipient(this.db, r.id, today));
+    return [...out];
   }
 
   /** Todo lo que hoy amerita un aviso, sin decidir aún si ya se envió. */
@@ -186,7 +190,7 @@ export class NotificationService {
       if (r.status === 'PENDIENTE_JEFE' && s.notifyApprover)
         out.push({
           ...base,
-          recipient: r.managerAccountId,
+          recipient: await effectiveRecipient(this.db, r.managerAccountId),
           category: 'NUEVA',
           text: `Vacaciones de ${who} (${d}): esperan su decisión como jefe de área.`,
         });
@@ -232,7 +236,7 @@ export class NotificationService {
       if (r.status === 'PENDIENTE_JEFE' && s.notifyApprover)
         out.push({
           ...base,
-          recipient: r.managerAccountId,
+          recipient: await effectiveRecipient(this.db, r.managerAccountId),
           category: 'NUEVA',
           text: `Permiso de ${who} (${d}): espera su decisión como jefe de área.`,
         });
