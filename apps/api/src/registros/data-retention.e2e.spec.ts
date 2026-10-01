@@ -23,7 +23,8 @@ import {
 import { EncryptedObjectStore } from '../storage/encrypted-object-store';
 import { MemoryObjectStore } from '../storage/memory-object-store';
 import { OBJECT_STORE } from '../storage/object-store';
-import { validDataRetention } from './data-retention.service';
+import { DataRetentionService, validDataRetention } from './data-retention.service';
+import { dataRetentionSettings } from '../db/schema';
 
 const url = process.env.DATABASE_URL;
 const PASSWORD = 'Clave-Definitiva-1';
@@ -269,5 +270,76 @@ describe.skipIf(!url)('retención de datos operativos (HTTP + PostgreSQL)', () =
       confirmNIde: 'NADIE',
     });
     expect(r.status).toBe(404);
+  });
+
+  describe('depuración automática y historial', () => {
+    const oldSession = () =>
+      db.insert(sessions).values({
+        accountId: adm.id,
+        tokenHash: `vieja-${Math.random()}`,
+        expiresAt: new Date(Date.now() - 40 * DAY),
+      });
+    const svc = () => app.get(DataRetentionService);
+    const staleSessions = async () =>
+      (await db.select().from(sessions)).filter((r) => r.tokenHash.startsWith('vieja-')).length;
+
+    it('desactivada: no depura nada', async () => {
+      await oldSession();
+      expect(await svc().runIfDue()).toBeNull();
+      expect(await staleSessions()).toBe(1);
+    });
+
+    it('activada y vencida: depura, audita como automática y registra la aplicación', async () => {
+      await oldSession();
+      await db
+        .insert(dataRetentionSettings)
+        .values({ id: 1, autoEnabled: true })
+        .onConflictDoUpdate({ target: dataRetentionSettings.id, set: { autoEnabled: true } });
+      const r = await svc().runIfDue();
+      expect(r).toMatchObject({ sessions: 1 });
+      expect(await staleSessions()).toBe(0);
+
+      const s = await svc().getSettings();
+      expect(s.lastRunStatus).toBe('OK');
+      expect(s.lastRunSummary).toContain('Sesiones 1');
+      const logs = await db.select().from(auditLogs);
+      const purge = logs.find((l) => l.action === 'DATA_RETENTION_PURGE');
+      expect(purge?.actorAccountId).toBeNull();
+      expect(purge?.context).toMatchObject({ automatic: true, sessions: 1 });
+    });
+
+    it('activada pero con una aplicación reciente: espera', async () => {
+      await oldSession();
+      await db
+        .insert(dataRetentionSettings)
+        .values({ id: 1, autoEnabled: true, lastRunAt: new Date(Date.now() - 2 * 3_600_000) })
+        .onConflictDoUpdate({
+          target: dataRetentionSettings.id,
+          set: { autoEnabled: true, lastRunAt: new Date(Date.now() - 2 * 3_600_000) },
+        });
+      expect(await svc().runIfDue()).toBeNull();
+      expect(await staleSessions()).toBe(1);
+      // pasadas más de 20 horas, vuelve a correr
+      expect(await svc().runIfDue(Date.now() + 19 * 3_600_000)).not.toBeNull();
+    });
+
+    it('el historial lista las depuraciones manuales y automáticas, la más reciente primero', async () => {
+      await oldSession();
+      await call('post', '/admin/data-retention/run').expect(200);
+      await oldSession();
+      await db
+        .insert(dataRetentionSettings)
+        .values({ id: 1, autoEnabled: true })
+        .onConflictDoUpdate({
+          target: dataRetentionSettings.id,
+          set: { autoEnabled: true, lastRunAt: null },
+        });
+      await svc().runIfDue();
+      const res = await call('get', '/admin/data-retention');
+      expect(res.status).toBe(200);
+      const h = res.body.history as { automatic: boolean; sessions: number }[];
+      expect(h.map((x) => x.automatic)).toEqual([true, false]);
+      expect(h.every((x) => x.sessions === 1)).toBe(true);
+    });
   });
 });

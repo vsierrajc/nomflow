@@ -1,0 +1,1 @@
+Retención de datos: la depuración automática ahora queda en la auditoría (marcada como automática), la pantalla muestra el historial de depuraciones manuales y automáticas, y el monitor diario tiene pruebas.

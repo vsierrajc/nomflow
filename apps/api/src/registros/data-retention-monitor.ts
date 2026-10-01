@@ -43,20 +43,7 @@ export class DataRetentionMonitor implements OnModuleInit, OnModuleDestroy {
 
   private async tick(): Promise<void> {
     try {
-      const s = await this.retention.getSettings();
-      const last = s.lastRunAt ? s.lastRunAt.getTime() : 0;
-      if (s.autoEnabled && Date.now() - last > 20 * HOUR) {
-        try {
-          const r = await this.retention.runMaintenance(null);
-          await this.retention.recordRun(
-            'OK',
-            `Sesiones ${r.sessions}, códigos ${r.verificationCodes}, filas de importación ${r.importRows}, ZIP ${r.exports}.`,
-          );
-        } catch (e) {
-          await this.retention.recordRun('ERROR', (e as Error).message);
-          throw e;
-        }
-      }
+      await this.retention.runIfDue();
     } catch (e) {
       this.log.error(`Falló la depuración de datos operativos: ${(e as Error).message}`);
     }
