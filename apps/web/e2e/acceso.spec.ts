@@ -200,7 +200,10 @@ test.describe('activación de cuenta con el código del correo', () => {
     await expect(alertOf(page)).toContainText('Escriba su correo');
     await page.getByLabel('Correo electrónico').fill(u.email);
     await page.getByRole('button', { name: 'Reenviar código' }).click();
-    await expect(page.getByRole('status')).toContainText('se envió un código nuevo');
+    // La API espera el envío SMTP antes de responder: con carga puede pasar de los 5 s por omisión.
+    await expect(page.getByRole('status')).toContainText('se envió un código nuevo', {
+      timeout: 20_000,
+    });
     await expect.poll(async () => latestCode(u.email), { timeout: 10_000 }).not.toBe(first);
   });
 });

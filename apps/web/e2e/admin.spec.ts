@@ -86,9 +86,16 @@ test.describe('acceso al área administrativa', () => {
           'Áreas, cargos y centros de costo',
           'Conceptos de nómina',
           'Tipos de permiso',
+          'Turnos',
           'Festivos',
         ],
-        Operaciones: ['Empleados', 'Cuentas y roles', 'Importaciones', 'Períodos de vacaciones'],
+        Operaciones: [
+          'Empleados',
+          'Cuentas y roles',
+          'Importaciones',
+          'Períodos de vacaciones',
+          'Bajas y exportación',
+        ],
         Documentos: [
           'Volantes de pago',
           'Certificados de retención',
@@ -102,6 +109,7 @@ test.describe('acceso al área administrativa', () => {
           'Archivo histórico',
           'Auditoría',
           'Registros y depuración',
+          'Retención de datos',
         ],
       };
       await expect(page.getByText('Cuentas activas')).toBeVisible();

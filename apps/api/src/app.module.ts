@@ -2,6 +2,7 @@ import { type MiddlewareConsumer, Module, type NestModule } from '@nestjs/common
 import { AdminAccountsController } from './accounts/admin-accounts.controller';
 import { AuthController, MeTwoFactorController } from './auth/auth.controller';
 import { RecentAuthGuard, RolesGuard } from './auth/guards';
+import { IpRateLimitGuard } from './auth/ip-rate-limit.guard';
 import { SessionGuard } from './auth/session.guard';
 import { DbModule } from './db/db.module';
 import { RequestAuditMiddleware } from './audit/request-audit.middleware';
@@ -94,6 +95,7 @@ import { ExitModule } from './exit/exit.module';
     SessionGuard,
     RolesGuard,
     RecentAuthGuard,
+    IpRateLimitGuard,
     RequestAuditService,
     NotificationService,
     NotificationMonitor,

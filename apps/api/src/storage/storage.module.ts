@@ -8,12 +8,7 @@ import {
   type ColdStoreFactory,
 } from './archive-settings.service';
 import { EncryptedObjectStore, objectEncryptionSecret } from './encrypted-object-store';
-import {
-  OBJECT_STORE,
-  UnconfiguredObjectStore,
-  type DeletableObjectStore,
-  type ObjectStore,
-} from './object-store';
+import { OBJECT_STORE, UnconfiguredObjectStore, type DeletableObjectStore } from './object-store';
 import { S3ObjectStore, s3ConfigFromEnv } from './s3-object-store';
 import { TieredObjectStore, type ColdStoreProvider } from './tiered-object-store';
 
@@ -29,10 +24,10 @@ export function createRawHotStore(env: NodeJS.ProcessEnv = process.env): Deletab
 
 /** Cifrado sobre el almacén (por niveles si hay proveedor en la nube). Sin clave propia no se activa. */
 export function encryptedStore(
-  hot: ObjectStore,
+  hot: DeletableObjectStore,
   cold: ColdStoreProvider | null,
   env: NodeJS.ProcessEnv = process.env,
-): ObjectStore {
+): DeletableObjectStore {
   if (hot instanceof UnconfiguredObjectStore) return hot;
   const secret = objectEncryptionSecret(env);
   if (secret.length < 32) {
@@ -46,7 +41,7 @@ export function encryptedStore(
 }
 
 /** Solo local (sin nube): pruebas y comandos de mantenimiento. */
-export function createObjectStore(env: NodeJS.ProcessEnv = process.env): ObjectStore {
+export function createObjectStore(env: NodeJS.ProcessEnv = process.env): DeletableObjectStore {
   return encryptedStore(createRawHotStore(env), null, env);
 }
 

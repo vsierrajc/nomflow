@@ -295,7 +295,7 @@ test.describe('inicio: espacio de trabajo con lo que existe', () => {
 });
 
 test.describe('navegación según el rol', () => {
-  test('el empleado ve ocho opciones y el administrador una novena', async ({ page, browser }) => {
+  test('el empleado ve nueve opciones y el administrador una décima', async ({ page, browser }) => {
     const emp = newUser('emp');
     await seedActiveAccount(emp);
     await login(page, emp);
@@ -308,6 +308,7 @@ test.describe('navegación según el rol', () => {
       'Mis permisos',
       'Certificado laboral',
       'Certificados de retención',
+      'Mi baja',
       'Mi cuenta',
     ]);
     await expect(nav.getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page');
@@ -330,6 +331,7 @@ test.describe('navegación según el rol', () => {
       'Mis permisos',
       'Certificado laboral',
       'Certificados de retención',
+      'Mi baja',
       'Mi cuenta',
       'Administración',
     ]);
