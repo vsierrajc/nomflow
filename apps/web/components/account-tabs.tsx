@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAdmin } from '@/lib/admin';
+import { APPROVER_ROLES } from '@/lib/roles';
 
 const TABS = [
   { href: '/cuenta/clave', label: 'Cambiar clave' },
@@ -9,13 +11,20 @@ const TABS = [
   { href: '/cuenta/apariencia', label: 'Apariencia' },
 ];
 
+/** Solo quienes aprueban vacaciones tienen firma de aprobación. */
+const APPROVER_TAB = { href: '/cuenta/firma', label: 'Mi firma de aprobación' };
+
 /** Navegación entre las pantallas de «Mi cuenta». */
 export function AccountTabs() {
   const pathname = usePathname();
+  const { profile } = useAdmin();
+  const tabs = profile.roles.some((r) => APPROVER_ROLES.includes(r.role))
+    ? [...TABS, APPROVER_TAB]
+    : TABS;
   return (
     <nav className="admin-nav" aria-label="Mi cuenta">
       <ul>
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <li key={t.href}>
             <Link href={t.href} aria-current={pathname.startsWith(t.href) ? 'page' : undefined}>
               {t.label}

@@ -1,0 +1,1 @@
+Vacaciones: la constancia PDF incluye las firmas en imagen de quien dio la primera aprobación (jefe, director o gerente, con su cargo) y de la aprobación final; cada aprobador carga su firma, con su autorización, en Mi cuenta → Mi firma de aprobación, y sin firma la constancia lo indica. Las constancias ya emitidas no cambian.

@@ -22,7 +22,7 @@
 | Rediseño de la interfaz (ESS-UX-001) | DONE | #19, #54, #66, #71; conmutador de tema y pruebas del árbol de accesibilidad en revisión (`feat/ESS-UX-tema-manual-lectores`) | Revisión manual con lectores de pantalla reales y otros navegadores |
 | Certificados de retención (ESS-TAX-001) | DONE (carpeta y carga desde el navegador) | #22, #69 | - |
 | Política de retención de datos (ESS-RET-001) | DONE; sesiones, códigos, filas de importación y ZIP caducados; certificados solo con borrado manual tras la baja | #91 | Activar `auto_enabled` en producción con respaldo previo |
-| Vacaciones: `PROG_VAC`, festivos, solicitud y aprobaciones (ESS-LEAVE-001/002/003, ESS-HOL-001) | DONE; aprobación jerárquica jefe > director > gerente > aprobación final | #26, #28, #29, #33, #34, #61, #62, #65, #67 | PDF con firmas, corrección de disfrutes |
+| Vacaciones: `PROG_VAC`, festivos, solicitud y aprobaciones (ESS-LEAVE-001/002/003, ESS-HOL-001) | DONE; aprobación jerárquica jefe > director > gerente > aprobación final; constancia PDF con las firmas de quienes aprobaron (en revisión, `feat/ESS-LEAVE-003-constancia-firmas`) | #26, #28, #29, #33, #34, #61, #62, #65, #67 | Corrección de disfrutes, suplencias |
 | Turnos y días hábiles de vacaciones (ESS-LEAVE-004) | DONE; catálogo de turnos (`/admin/turnos`), cálculo de días hábiles y retorno según el turno del empleado, bloquea con `SHIFT_MISSING` si falta el turno | #87 | - |
 | Permisos (ESS-PERM-001) | DONE (decide solo el jefe de área) | #30 | Reglas por tipo |
 | Cambio de correo por resolución administrativa (ESS-EMP-002) | DONE; exige nueva verificación del correo y revoca sesiones; la importación conserva una corrección manual | #88 | - |

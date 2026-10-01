@@ -20,6 +20,13 @@ export interface VacationDocData {
   returnDate: string;
   allocations: { perIni: string; perFin: string; days: number }[];
   actions: { label: string; name: string; at: Date; revision: number; comment: string | null }[];
+  /** Quienes aprobaron, con su firma en imagen si la cargaron y autorizaron. */
+  signatures?: {
+    title: string;
+    name: string;
+    at: Date;
+    image: Buffer | null;
+  }[];
   approvedAt: Date;
 }
 
@@ -180,6 +187,55 @@ export function renderVacationPdf(
       doc.moveDown(0.3);
     }
     doc.moveDown(0.8);
+
+    // Firmas de quienes aprobaron. Sin imagen cargada se dice, en vez de dejar un espacio que parezca firma.
+    const sigs = d.signatures ?? [];
+    if (sigs.length > 0) {
+      const footerH = d.letterhead?.footer?.heightPt ?? 0;
+      const need = 150;
+      if (doc.y + need > PAGE_H - footerH - 40) doc.addPage();
+      doc.font('Helvetica-Bold').fontSize(11).text('Firmas', LEFT, doc.y).moveDown(0.4);
+      const top = doc.y;
+      const colW = (RIGHT - LEFT) / Math.max(sigs.length, 2);
+      sigs.forEach((sg, i) => {
+        const x = LEFT + i * colW;
+        const w = colW - 16;
+        let drawn = false;
+        if (sg.image) {
+          try {
+            doc.image(sg.image, x, top, { fit: [w, 54], align: 'center', valign: 'bottom' });
+            drawn = true;
+          } catch {
+            drawn = false;
+          }
+        }
+        if (!drawn)
+          doc
+            .font('Helvetica-Oblique')
+            .fontSize(8)
+            .fillColor('#777')
+            .text('Firma en imagen no registrada', x, top + 40, { width: w })
+            .fillColor('#000');
+        doc
+          .moveTo(x, top + 58)
+          .lineTo(x + w, top + 58)
+          .lineWidth(0.6)
+          .stroke('#000');
+        doc
+          .font('Helvetica-Bold')
+          .fontSize(9)
+          .text(clean(sg.name), x, top + 62, { width: w })
+          .font('Helvetica')
+          .fontSize(8)
+          .text(clean(sg.title), x, doc.y, { width: w })
+          .fillColor('#555')
+          .text(`Aprobó el ${dateTimeFmt.format(sg.at)}`, x, doc.y, { width: w })
+          .fillColor('#000');
+      });
+      doc.x = LEFT;
+      doc.y = top + 110;
+      doc.moveDown(0.4);
+    }
 
     doc
       .font('Helvetica')

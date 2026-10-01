@@ -6,12 +6,14 @@ import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { hashPassword } from '../accounts/password.service';
 import { AppModule } from '../app.module';
+import { png } from '../testing/png';
 import { EncryptedObjectStore } from '../storage/encrypted-object-store';
 import { MemoryObjectStore } from '../storage/memory-object-store';
 import { OBJECT_STORE } from '../storage/object-store';
 import { createDb } from '../db/client';
 import { runMigrations } from '../db/migrate';
 import {
+  auditLogs,
   accounts,
   areaManagerAssignments,
   companies,
@@ -156,7 +158,7 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
     raw.objects.clear();
     raw.down = false;
     await db.execute(
-      sql`TRUNCATE vacation_documents, companies, vacaciones, vacation_actions, vacation_revision_allocations, vacation_revisions, vacation_requests, prog_vac_adjustments, prog_vac, holidays, holiday_calendars, area_manager_assignments, audit_logs, sessions, role_assignments, accounts, employee_snapshots, shifts CASCADE`,
+      sql`TRUNCATE approver_signatures, vacation_documents, companies, vacaciones, vacation_actions, vacation_revision_allocations, vacation_revisions, vacation_requests, prog_vac_adjustments, prog_vac, holidays, holiday_calendars, area_manager_assignments, audit_logs, sessions, role_assignments, accounts, employee_snapshots, shifts CASCADE`,
     );
     await db.insert(shifts).values({
       code: '01',
@@ -532,6 +534,10 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
     await send(dir, 'post', `/approvals/vacations/manager/${m.body.id}/approve`).expect(200);
     expect(await status(m.body.id)).toBe('PENDIENTE_FINAL');
     await send(fin, 'post', `/approvals/vacations/final/${m.body.id}/approve`).expect(200);
+    // la constancia rotula la firma con el cargo con que se aprobó: aquí el director de área
+    expect(await pdfText(body(await binary(pdf(mgr, m.body.id)).expect(200)))).toContain(
+      'Director de área',
+    );
 
     // director → gerente general
     const d = await submit('2026-06-01', [{ progVacId: await pv('700'), days: 2 }], dir).expect(
@@ -655,6 +661,92 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
     expect(text).toContain('Aprobación final');
     expect(text).toContain('Persona 300'); // el aprobador final
     expect(text).toContain('no equivalen a una firma digital');
+  });
+
+  /** Carga la firma de quien aprueba (multipart con consentimiento). */
+  const enrollSig = (s: Sess, file: Buffer | null, consent = 'true') => {
+    const r = request(srv())
+      .post('/me/approver-signature')
+      .set('Cookie', s.cookie)
+      .set('X-CSRF-Token', s.csrf)
+      .field('consent', consent);
+    return file ? r.attach('file', file, { filename: 'firma.png', contentType: 'image/png' }) : r;
+  };
+
+  it('la firma del aprobador: solo la cargan quienes aprueban, con consentimiento y una imagen válida', async () => {
+    await enrollSig(emp, png(200, 100)).expect(403); // un empleado no aprueba
+    await enrollSig(mgr, png(200, 100), 'false').expect(400); // sin consentimiento
+    await enrollSig(mgr, png(20, 20)).expect(400); // demasiado pequeña
+    await enrollSig(mgr, Buffer.from('no es una imagen')).expect(400);
+    await enrollSig(mgr, null).expect(400); // sin archivo
+
+    let st = (await send(mgr, 'get', '/me/approver-signature').expect(200)).body;
+    expect(st).toMatchObject({ eligible: true, enrolled: false });
+    expect((await send(emp, 'get', '/me/approver-signature').expect(200)).body.eligible).toBe(
+      false,
+    );
+
+    await enrollSig(mgr, png(200, 100)).expect(200);
+    st = (await send(mgr, 'get', '/me/approver-signature').expect(200)).body;
+    expect(st).toMatchObject({ eligible: true, enrolled: true });
+    expect(st.sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(JSON.stringify(st)).not.toContain('PNG'); // nunca la imagen en el estado
+
+    // la imagen solo la ve su titular; el empleado no tiene firma
+    const img = await request(srv()).get('/me/approver-signature/image').set('Cookie', mgr.cookie);
+    expect(img.status).toBe(200);
+    expect(img.headers['content-type']).toContain('image/png');
+    await request(srv()).get('/me/approver-signature/image').set('Cookie', emp.cookie).expect(404);
+
+    // reemplazar es cargar otra; retirar la borra y repetirlo no existe
+    await enrollSig(mgr, png(300, 120, 0x55)).expect(200);
+    const del = () =>
+      request(srv())
+        .delete('/me/approver-signature')
+        .set('Cookie', mgr.cookie)
+        .set('X-CSRF-Token', mgr.csrf);
+    await del().expect(204);
+    await del().expect(404);
+    await request(srv()).get('/me/approver-signature').expect(401);
+
+    const acts = (await db.select().from(auditLogs)).map((l) => l.action);
+    expect(acts).toContain('APPROVER_SIGNATURE_ENROLL');
+    expect(acts).toContain('APPROVER_SIGNATURE_REMOVE');
+  });
+
+  it('la constancia lleva las firmas de quienes aprobaron, con su cargo; sin imagen lo dice', async () => {
+    const images = (pdfBuf: Buffer) =>
+      (pdfBuf.toString('latin1').match(/\/Subtype \/Image/g) ?? []).length;
+
+    // sin firmas cargadas: el bloque existe, con los cargos y la aclaración
+    const sin = await approved('2026-03-02', 2);
+    const noSig = body(await binary(pdf(emp, sin)).expect(200));
+    const t0 = await pdfText(noSig);
+    expect(t0).toContain('Firmas');
+    expect(t0).toContain('Jefe de área');
+    expect(t0).toContain('Aprobación final');
+    expect(t0.match(/Firma en imagen no registrada/g)).toHaveLength(2);
+    const base = images(noSig); // el logo de la empresa también es una imagen
+
+    // con las dos firmas cargadas salen como imagen, y la constancia ya emitida no cambia
+    await enrollSig(mgr, png(240, 100)).expect(200);
+    await enrollSig(fin, png(260, 110, 0x44)).expect(200);
+    const con = await approved('2026-04-06', 2);
+    const signed = body(await binary(pdf(emp, con)).expect(200));
+    const t1 = await pdfText(signed);
+    expect(t1).not.toContain('Firma en imagen no registrada');
+    expect(t1).toContain('Persona 200');
+    expect(t1).toContain('Persona 300');
+    expect(images(signed)).toBe(base + 2);
+    expect(body(await binary(pdf(emp, sin)).expect(200)).equals(noSig)).toBe(true);
+
+    // retirar la firma después no altera lo ya emitido
+    await request(srv())
+      .delete('/me/approver-signature')
+      .set('Cookie', mgr.cookie)
+      .set('X-CSRF-Token', mgr.csrf)
+      .expect(204);
+    expect(body(await binary(pdf(emp, con)).expect(200)).equals(signed)).toBe(true);
   });
 
   it('la descargan el dueño, su jefe y el aprobador final de la empresa; nadie más', async () => {

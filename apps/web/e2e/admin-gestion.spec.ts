@@ -704,6 +704,8 @@ test.describe('confirmación de identidad para acciones sensibles', () => {
 
 test.describe('accesibilidad del área administrativa', () => {
   test('sin violaciones graves en todas las pantallas', async ({ page }) => {
+    // Recorre 14 pantallas con axe: con la máquina cargada pasa de los 30 s por omisión.
+    test.setTimeout(120_000);
     await asAdmin(page);
     const cEmp = await setupOrg();
     await query(
