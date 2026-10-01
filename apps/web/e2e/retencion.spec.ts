@@ -13,6 +13,7 @@ test.describe('retención de datos', () => {
   test('el administrador ajusta plazos y borra certificados solo de una persona dada de baja', async ({
     page,
   }) => {
+    await query(`delete from audit_logs where action = 'DATA_RETENTION_PURGE'`);
     const admin = await seedAdminUser('HR_ADMIN');
     const baja = newUser('baja');
     await seedEmployee(baja);
@@ -35,6 +36,15 @@ test.describe('retención de datos', () => {
     await plazos.getByLabel(/Conservar sesiones vencidas/).fill('7');
     await plazos.getByRole('button', { name: 'Guardar plazos' }).click();
     await expect(page.getByText('Política guardada.')).toBeVisible();
+
+    // historial: tras «Depurar ahora» aparece la ejecución manual
+    const historial = page.getByRole('region', { name: 'Últimas depuraciones' });
+    await expect(historial.getByText('Aún no se ha depurado nada.')).toBeVisible();
+    await plazos.getByRole('button', { name: 'Depurar ahora' }).click();
+    await expect(page.getByText(/Depuración hecha:/)).toBeVisible();
+    await expect(
+      historial.getByRole('region', { name: 'Historial de depuraciones' }),
+    ).toContainText('Manual');
 
     const certs = page.getByRole('region', { name: 'Certificados de retención de una persona' });
 

@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { and, eq, inArray, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, lt, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { DB } from '../db/db.module';
 import {
@@ -17,6 +17,7 @@ import {
 import { OBJECT_STORE, type DeletableObjectStore } from '../storage/object-store';
 
 const DAY = 86_400_000;
+const HOUR = 3_600_000;
 
 export type DataRetentionErrorCode = 'INVALID' | 'EMPLOYEE_ACTIVE' | 'NOT_CONFIRMED' | 'NOT_FOUND';
 export class DataRetentionError extends Error {
@@ -240,16 +241,58 @@ export class DataRetentionService {
       exports: expiredExports.length,
     };
 
-    if (actor) {
-      await this.db.insert(auditLogs).values({
-        actorAccountId: actor,
-        action: 'DATA_RETENTION_PURGE',
-        resource: 'data_retention',
-        result: 'SUCCESS',
-        context: result,
-      });
-    }
+    await this.db.insert(auditLogs).values({
+      actorAccountId: actor,
+      action: 'DATA_RETENTION_PURGE',
+      resource: 'data_retention',
+      result: 'SUCCESS',
+      context: { ...result, automatic: actor === null },
+    });
     return result;
+  }
+
+  /** Ejecuta la depuración y deja constancia de la última aplicación (correcta o con error). */
+  async runAndRecord(actor: string | null) {
+    try {
+      const r = await this.runMaintenance(actor);
+      await this.recordRun(
+        'OK',
+        `Sesiones ${r.sessions}, códigos ${r.verificationCodes}, filas de importación ${r.importRows}, ZIP ${r.exports}.`,
+      );
+      return r;
+    } catch (e) {
+      await this.recordRun('ERROR', (e as Error).message);
+      throw e;
+    }
+  }
+
+  /** Depuración automática: solo si está activada y la última aplicación tiene más de 20 horas. */
+  async runIfDue(now = Date.now()) {
+    const s = await this.getSettings();
+    const last = s.lastRunAt ? s.lastRunAt.getTime() : 0;
+    if (!s.autoEnabled || now - last <= 20 * HOUR) return null;
+    return this.runAndRecord(null);
+  }
+
+  /** Últimas depuraciones (manuales y automáticas), tomadas de la auditoría. */
+  async history(limit = 10) {
+    const rows = await this.db
+      .select({ at: auditLogs.at, actor: auditLogs.actorAccountId, context: auditLogs.context })
+      .from(auditLogs)
+      .where(eq(auditLogs.action, 'DATA_RETENTION_PURGE'))
+      .orderBy(desc(auditLogs.at))
+      .limit(limit);
+    return rows.map((r) => {
+      const c = (r.context ?? {}) as Record<string, number>;
+      return {
+        at: r.at,
+        automatic: r.actor === null,
+        sessions: c.sessions ?? 0,
+        verificationCodes: c.verificationCodes ?? 0,
+        importRows: c.importRows ?? 0,
+        exports: c.exports ?? 0,
+      };
+    });
   }
 
   /** Estado de los certificados de retención de una persona: solo se pueden borrar con la baja efectiva. */

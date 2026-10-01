@@ -37,11 +37,12 @@ export class AdminDataRetentionController {
   @Get()
   @Header('Cache-Control', 'no-store')
   async summary() {
-    const [settings, preview] = await Promise.all([
+    const [settings, preview, history] = await Promise.all([
       this.retention.getSettings(),
       this.retention.preview(),
+      this.retention.history(),
     ]);
-    return { settings, preview };
+    return { settings, preview, history };
   }
 
   @Put('settings')
@@ -60,13 +61,8 @@ export class AdminDataRetentionController {
   @Post('run')
   @HttpCode(200)
   @UseGuards(RecentAuthGuard)
-  async run(@Req() req: AuthedRequest) {
-    const r = await this.retention.runMaintenance(req.auth.accountId);
-    await this.retention.recordRun(
-      'OK',
-      `Sesiones ${r.sessions}, códigos ${r.verificationCodes}, filas de importación ${r.importRows}, ZIP ${r.exports}.`,
-    );
-    return r;
+  run(@Req() req: AuthedRequest) {
+    return this.retention.runAndRecord(req.auth.accountId);
   }
 
   /** Estado de los certificados de retención de una persona (solo lectura). */

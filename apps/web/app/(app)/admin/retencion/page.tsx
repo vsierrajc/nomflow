@@ -17,6 +17,14 @@ interface Summary {
     lastRunSummary: string | null;
   };
   preview: { sessions: number; verificationCodes: number; importRows: number; exports: number };
+  history: {
+    at: string;
+    automatic: boolean;
+    sessions: number;
+    verificationCodes: number;
+    importRows: number;
+    exports: number;
+  }[];
 }
 
 interface CertStatus {
@@ -216,6 +224,47 @@ export default function RetentionPage() {
             </form>
           </section>
         </>
+      ) : null}
+
+      {data ? (
+        <section className="import-panel" aria-label="Últimas depuraciones">
+          <h2>Últimas depuraciones</h2>
+          {data.history.length === 0 ? (
+            <p className="muted">Aún no se ha depurado nada.</p>
+          ) : (
+            <div
+              className="table-wrap"
+              tabIndex={0}
+              role="region"
+              aria-label="Historial de depuraciones"
+            >
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">Fecha</th>
+                    <th scope="col">Origen</th>
+                    <th scope="col">Sesiones</th>
+                    <th scope="col">Códigos</th>
+                    <th scope="col">Filas de importación</th>
+                    <th scope="col">ZIP</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.history.map((h) => (
+                    <tr key={h.at}>
+                      <td>{formatDate(h.at)}</td>
+                      <td>{h.automatic ? 'Automática' : 'Manual'}</td>
+                      <td>{num(h.sessions)}</td>
+                      <td>{num(h.verificationCodes)}</td>
+                      <td>{num(h.importRows)}</td>
+                      <td>{num(h.exports)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       ) : null}
 
       <section className="import-panel" aria-label="Certificados de retención de una persona">
