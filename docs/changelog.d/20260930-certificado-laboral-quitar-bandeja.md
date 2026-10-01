@@ -1,0 +1,1 @@
+Certificado laboral: el empleado puede quitar certificados de su bandeja (con confirmación) sin perderlos para el administrador, que sigue viéndolos en «Certificados laborales emitidos», marcados como quitados, y ahora filtra por estado de la bandeja y por identificación del empleado; el tope diario de generación sigue contando los quitados.

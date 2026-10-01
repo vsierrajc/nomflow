@@ -31,7 +31,7 @@
 | Salud del sistema y alertas | DONE | #42 | CPU/memoria, otros canales |
 | Archivo histórico en la nube (ADR-004) | DONE (conexión verificada; falta enviar datos reales) | #43, #50 | Primera prueba real de «Enviar al histórico» |
 | Bandeja de entrada y avisos por correo del flujo | DONE | #48 | - |
-| Certificado laboral de autoservicio (ADR-005), firma imagen y digital, encabezado y pie en imagen | DONE | #49, #57, #63 | Firmas de los tres firmantes; ciudad, pie y código de formato |
+| Certificado laboral de autoservicio (ADR-005), firma imagen y digital, encabezado y pie en imagen; el empleado quita certificados de su bandeja y el administrador los conserva y filtra | DONE | #49, #57, #63 | Firmas de los tres firmantes; ciudad, pie y código de formato |
 | Gestión de registros (ADR-006) | DONE | #58, #59 | Prueba real contra el bucket; política automática |
 | Aviso de baja y ZIP (ESS-EXIT-001) | DONE; aviso previo configurable (`PRE_BAJA_AVISO_DIAS`), exportación ZIP asíncrona, incumplimiento auditado | #85 | - |
 | Despliegue en producción (ESS-OPS-001) | BACKLOG | - | Fase 4 del plan |

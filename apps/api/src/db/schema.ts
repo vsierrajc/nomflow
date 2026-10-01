@@ -1116,6 +1116,8 @@ export const certificateRequests = pgTable(
     sha256: text('sha256').notNull(),
     sizeBytes: integer('size_bytes').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** El empleado lo quitó de su bandeja: sigue guardado y visible para el administrador. */
+    removedByEmployeeAt: timestamp('removed_by_employee_at', { withTimezone: true }),
   },
   (t) => [
     index('certificate_requests_account_idx').on(t.accountId, t.createdAt),

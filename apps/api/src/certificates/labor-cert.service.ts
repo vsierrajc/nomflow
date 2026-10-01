@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { and, count, desc, eq, gte, ilike, lte, or, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, ilike, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import {
   accounts,
@@ -586,7 +586,12 @@ export async function listMine(db: Db, accountId: string) {
       objectKey: certificateRequests.objectKey,
     })
     .from(certificateRequests)
-    .where(eq(certificateRequests.accountId, accountId))
+    .where(
+      and(
+        eq(certificateRequests.accountId, accountId),
+        isNull(certificateRequests.removedByEmployeeAt),
+      ),
+    )
     .orderBy(desc(certificateRequests.createdAt))
     .limit(100);
   // `archived`: el PDF solo está en el archivo histórico en la nube y la descarga tardará algo más.
@@ -597,9 +602,33 @@ export async function listMine(db: Db, accountId: string) {
   return rows.map(({ objectKey, ...r }) => ({ ...r, archived: inCloud.has(objectKey) }));
 }
 
+/**
+ * El empleado quita un certificado de su bandeja. No se borra nada: el registro y el PDF quedan
+ * para el administrador. Repetirlo no cambia nada.
+ */
+export async function removeFromTray(db: Db, accountId: string, id: string): Promise<void> {
+  const [r] = await db
+    .select({
+      accountId: certificateRequests.accountId,
+      removedAt: certificateRequests.removedByEmployeeAt,
+    })
+    .from(certificateRequests)
+    .where(eq(certificateRequests.id, id));
+  if (!r || r.accountId !== accountId) throw new CertError('NOT_FOUND');
+  if (r.removedAt) return;
+  await db
+    .update(certificateRequests)
+    .set({ removedByEmployeeAt: new Date() })
+    .where(eq(certificateRequests.id, id));
+  await audit(db, accountId, 'LABOR_CERT_REMOVE', id, 'SUCCESS', {});
+}
+
 export interface HistoryQuery {
   q?: string | undefined;
   kind?: CertKind | undefined;
+  nIde?: string | undefined;
+  /** `ACTIVOS` (en la bandeja del empleado) o `RETIRADOS` (los quitó el empleado); sin valor, todos. */
+  status?: 'ACTIVOS' | 'RETIRADOS' | undefined;
   from?: string | undefined;
   to?: string | undefined;
   page: number;
@@ -610,6 +639,9 @@ export interface HistoryQuery {
 export async function adminHistory(db: Db, q: HistoryQuery) {
   const filters = [];
   if (q.kind) filters.push(eq(certificateRequests.kind, q.kind));
+  if (q.nIde) filters.push(eq(certificateRequests.nIde, q.nIde));
+  if (q.status === 'ACTIVOS') filters.push(isNull(certificateRequests.removedByEmployeeAt));
+  if (q.status === 'RETIRADOS') filters.push(isNotNull(certificateRequests.removedByEmployeeAt));
   if (q.from)
     filters.push(gte(certificateRequests.createdAt, new Date(`${q.from}T00:00:00-05:00`)));
   if (q.to)
@@ -645,6 +677,7 @@ export async function adminHistory(db: Db, q: HistoryQuery) {
       signerTitle: certificateRequests.signerTitle,
       signatureMode: certificateRequests.signatureMode,
       sizeBytes: certificateRequests.sizeBytes,
+      removedByEmployeeAt: certificateRequests.removedByEmployeeAt,
     })
     .from(certificateRequests)
     .where(where)
@@ -663,7 +696,8 @@ export async function getPdf(
   asAdmin: boolean,
 ) {
   const [r] = await db.select().from(certificateRequests).where(eq(certificateRequests.id, id));
-  if (!r || (!asAdmin && r.accountId !== viewerId)) throw new CertError('NOT_FOUND');
+  if (!r || (!asAdmin && (r.accountId !== viewerId || r.removedByEmployeeAt !== null)))
+    throw new CertError('NOT_FOUND');
   let data: Buffer | null;
   try {
     data = await store.get(r.objectKey);
