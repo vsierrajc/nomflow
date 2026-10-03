@@ -94,6 +94,8 @@ export function vacationError(status: number, data: unknown): string {
       return 'La fecha inicial no puede ser anterior a hoy.';
     case 'NO_MANAGER':
       return 'Su área no tiene un jefe vigente asignado, por lo que no se puede enviar la solicitud. Avise a Gestión Humana.';
+    case 'NO_ACTIVE_CONTRACT':
+      return 'El empleado ya no tiene un contrato vigente, así que no se puede aprobar. Rechace la solicitud indicando el motivo.';
     case 'OVERLAP':
       return 'Las fechas se cruzan con otra solicitud suya vigente o aprobada.';
     case 'INVALID_STATE':
