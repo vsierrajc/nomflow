@@ -1,6 +1,6 @@
 # Traspaso para la próxima sesión
 
-Actualizado: 2 de octubre de 2026. Estado del código: `main` (PR hasta el #101 integrados; no hay PR abiertos). Los PR #97-#101 los integró el usuario por decisión explícita, sin revisión de otra persona. Este archivo se **reescribe al cerrar cada sesión** (SSD 10.2); el historial vive en `docs/sessions/`. No contiene claves, correos ni datos de personas. **El plan por fases está en [PLAN.md](PLAN.md).**
+Actualizado: 3 de octubre de 2026. Estado del código: `main` (PR hasta el #109 integrados; no hay PR abiertos). El usuario revisó y aprobó la integración de los PR #97-#109. Este archivo se **reescribe al cerrar cada sesión** (SSD 10.2); el historial vive en `docs/sessions/`. No contiene claves, correos ni datos de personas. **El plan por fases está en [PLAN.md](PLAN.md).**
 
 ## 1. Cómo arrancar (10 minutos)
 
@@ -29,6 +29,18 @@ Identidad y cuentas (clave asignada, doble paso opcional, sesión por inactivida
 ## 2.0 Integrado: ESS-RET-001 (retención de datos, #91)
 
 `feat/ESS-RET-politica-retencion`: política de retención de sesiones, códigos, filas de importación y ZIP caducados (`apps/api/src/registros/data-retention*`, página `/admin/retencion`). Los certificados de retención nunca se purgan solos: solo borrado manual tras la baja. Antes de activar `auto_enabled` con datos reales: `pg_dump` y aprobación. Detalle en `docs/sessions/2026-09-30-politica-retencion.md`.
+
+## 2.0c Integrado: revisión del flujo de vacaciones (#102 a #109)
+
+Detalle y decisiones en `docs/sessions/2026-10-03-vacaciones.md`. Lo que conviene saber al tocar vacaciones:
+
+- **Fecha inicial**: una solicitud nueva (y la propuesta del jefe) no puede empezar antes de hoy (`START_IN_PAST`); `VACATION_ALLOW_PAST_START=true` lo permite. La aprobación final no la aplica. Las pruebas de API fijan la variable en `vitest.config.ts` porque usan fechas fijas de 2026.
+- **Constancia**: si el jefe propuso cambios, su acto sobre la revisión aprobada es `PROPONER` (no hay `APROBAR_JEFE`) y es el que firma.
+- **Solicitudes atadas a un jefe que ya no es el del área**: Administración → Solicitudes pendientes (`/admin/solicitudes-pendientes`) las lista y las reasigna.
+- **Anular un disfrute**: `enjoyedUntil` (`YESTERDAY` por omisión, `TODAY`) fija hasta cuándo cuentan como disfrutados los días de un disfrute en curso; solo vuelven los no disfrutados (lógica en `leave/annul-plan.ts`, la misma para la vista previa y la anulación). Queda registrado en `vacaciones` (`dias_devueltos`, `dias_disfrutados`, `disfrutados_hasta`) y el empleado recibe aviso.
+- **Contrato vigente**: ni el jefe ni la aprobación final aprueban a quien ya no tiene `EST = V` (422 `NO_ACTIVE_CONTRACT`); rechazar sigue permitido.
+- **Ciclo automático**: al vencer el período más antiguo por el tope de 3 queda un ajuste del sistema (`prog_vac_adjustments.actor_account_id` nulo).
+- **Migraciones**: `0038_totp`, `0039_anular_disfrute_festivos`, `0040_ajuste_del_sistema`, `0041_anular_dias_no_disfrutados`.
 
 ## 2.0b Integrado: ESS-AUTH-003 (app autenticadora TOTP, #99)
 
@@ -68,7 +80,7 @@ Higiene: la matriz `docs/traceability.md` se actualizó el 26 de septiembre de 2
 - Suplencias: el suplente hereda por completo lo del titular (vacaciones y permisos) y el titular queda sin acción durante el rango; si el suplente es quien pidió una solicitud asignada al titular, esa solicitud espera al regreso del titular (no puede aprobarse a sí mismo).
 - El logo se guarda en la base de datos; los documentos futuros deberían ir a S3.
 - `API_URL` de la web se lee al **compilar** (rewrites de Next).
-- El job `e2e` del CI es informativo; volverlo obligatorio cuando se estabilice (CodeQL ya lo es).
+- El job `e2e` del CI es informativo; volverlo obligatorio cuando se estabilice (CodeQL ya lo es). Hay una prueba intermitente conocida: `admin-gestion.spec.ts` «las listas dependen de la empresa» (`selectOption` del área sin esperar a que carguen las opciones; falló una vez en el CI de #106). El arreglo es esperar las opciones antes de seleccionar.
 - Interfaz: el conmutador de tema existe (Mi cuenta → Apariencia, guardado en el navegador); falta la revisión manual con lectores de pantalla reales y otros navegadores, las tablas administrativas son regiones desplazables, el menú móvil no atrapa el foco.
 - **Aviso `node-forge` (GHSA-86w9-cpqp-85rv)**: `npm run audit:deps` ahora corre `scripts/audit-deps.mjs`, que acepta ese aviso **hasta el 1 de noviembre de 2026** (no hay versión corregida; arreglo abierto en digitalbazaar/forge#1152; NOMFLOW no usa la verificación RSA de forge). Al vencer el CI falla a propósito: revisar si ya existe `node-forge` corregido (actualizar y quitar la excepción) o renovar la fecha con justificación. Si el aviso se vuelve explotable aquí, reemplazar `node-forge` (ver `certificates/digital-signature.ts`).
 - Graphify: solo extracción por código; la semántica con LLM está prohibida sin aprobación (envía contenido a un tercero).
@@ -111,6 +123,7 @@ Higiene: la matriz `docs/traceability.md` se actualizó el 26 de septiembre de 2
 - **Carga de nómina**: el período y la liquidación salen de las columnas `PER` y `N_LIQ`; cada volante del archivo reemplaza al publicado y los demás de la liquidación se conservan. Un contenido idéntico se detecta al aplicar, no al validar.
 
 - **Fechas de negocio**: «hoy» y las vigencias (roles, asignaciones, suplencias, calendarios, nombres de archivo) se cuentan por el día de Colombia con `todayBogota()` / `dateBogota()` de `apps/api/src/common/dates.ts` (web: `lib/dates.ts`). Nunca `new Date().toISOString().slice(0, 10)`: es UTC y desde las 19:00 locales ya es mañana (un rol que vence hoy se daba por vencido cinco horas antes). Las pruebas con fecha simulada usan `vi.useFakeTimers({ toFake: ['Date'] })` (ver `auth/fecha-colombia.e2e.spec.ts`).
+- **Copilot y las ramas de PR**: el agente de Copilot puede subir commits a la rama de un PR (pasó en #106: un arreglo de `admin-gestion.spec.ts`). El CI de un commit del bot queda en `action_required` hasta que alguien lo apruebe, así que el PR se queda sin checks. Antes de integrar, comprobar que la cabeza del PR es el commit propio (`gh pr view --json commits`).
 - **Pruebas de navegador en un worktree**: Playwright lee las credenciales de Garage del `.env` de la raíz; un worktree nuevo no lo tiene y fallan retenciones, certificado laboral y constancias (503). Copiar el `.env` (está ignorado). En WSL exportar también `LD_LIBRARY_PATH` (ver `docs/local-stack.md`).
 
 ## 9. Cierre de una tarea (definición de terminado)

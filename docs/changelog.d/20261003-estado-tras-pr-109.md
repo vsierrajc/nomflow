@@ -1,0 +1,1 @@
+Documentación: STATUS y HANDOFF al día hasta el PR 109 (vacaciones: fecha inicial, constancia con firma del jefe, reasignación de aprobador, aviso y devolución parcial al anular, contrato vigente, fechas en hora de Colombia) y bitácora de la sesión.
