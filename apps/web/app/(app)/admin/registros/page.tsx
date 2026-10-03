@@ -6,6 +6,7 @@ import { Badge, Notice, PageHeader, SelectField, formatDate } from '@/components
 import { Field } from '@/components/ui';
 import { NETWORK_ERROR } from '@/lib/api';
 import { useAdmin } from '@/lib/admin';
+import { todayBogota as today } from '@/lib/dates';
 
 interface Summary {
   audit: {
@@ -63,7 +64,6 @@ const ERRORS: Record<string, string> = {
 const kb = (b: number) =>
   b < 1024 * 1024 ? `${(b / 1024).toFixed(1)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`;
 const num = (n: number) => n.toLocaleString('es-CO');
-const today = () => new Date().toISOString().slice(0, 10);
 
 export default function LogsPage() {
   const { call } = useAdmin();

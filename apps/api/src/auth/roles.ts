@@ -1,6 +1,7 @@
 import { and, eq, gte, inArray, isNull, lte, or } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { roleAssignments } from '../db/schema';
+import { todayBogota } from '../common/dates';
 
 export type RoleName = (typeof roleAssignments.$inferSelect)['role'];
 
@@ -12,7 +13,7 @@ export async function activeCompaniesForRole(
   accountId: string,
   role: RoleName,
 ): Promise<string[]> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayBogota();
   const rows = await db
     .select({ c: roleAssignments.companyCode })
     .from(roleAssignments)
@@ -32,7 +33,7 @@ export async function hasActiveRole(
   accountId: string,
   roles: readonly RoleName[],
 ): Promise<boolean> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayBogota();
   const rows = await db
     .select({ id: roleAssignments.id })
     .from(roleAssignments)

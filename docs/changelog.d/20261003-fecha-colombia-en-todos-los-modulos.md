@@ -1,0 +1,1 @@
+Fechas en hora de Colombia: las vigencias de roles y asignaciones, las suplencias, el jefe vigente, los destinatarios de avisos, los calendarios de las pantallas y los nombres de archivo ya cuentan «hoy» por el día de Colombia y no por UTC; antes, desde las 19:00 un rol que vencía hoy se daba por vencido cinco horas antes y no se podía crear una suplencia que empezara hoy.

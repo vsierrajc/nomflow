@@ -11,6 +11,7 @@ import { HTTP_ACTION } from '../audit/request-audit.service';
 import { EncryptedObjectStore, objectEncryptionSecret } from '../storage/encrypted-object-store';
 import type { DbColdStoreProvider } from '../storage/archive-settings.service';
 import { COLD_PROVIDER } from '../storage/storage.module';
+import { dateBogota } from '../common/dates';
 
 export type AuditKind = 'HTTP' | 'EVENTOS' | 'TODO';
 export type LogErrorCode =
@@ -655,7 +656,7 @@ export class LogsService {
     const ext = a.source === 'AUDITORIA' ? 'jsonl.gz' : 'log.gz';
     return {
       data: gz,
-      fileName: `${a.source.toLowerCase()}-${a.createdAt.toISOString().slice(0, 10)}-${a.id.slice(0, 8)}.${ext}`,
+      fileName: `${a.source.toLowerCase()}-${dateBogota(a.createdAt)}-${a.id.slice(0, 8)}.${ext}`,
     };
   }
 

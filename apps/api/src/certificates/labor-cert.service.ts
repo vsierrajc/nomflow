@@ -30,6 +30,7 @@ import {
   type CertKind,
   type VariableName,
 } from './template-engine';
+import { dateBogota } from '../common/dates';
 
 export type CertErrorCode =
   | 'NOT_FOUND'
@@ -723,7 +724,7 @@ export async function getPdf(
   await audit(db, viewerId, 'LABOR_CERT_DOWNLOAD', id, 'OK', { asAdmin });
   return {
     data,
-    fileName: `certificado-laboral-${r.nIde}-${r.createdAt.toISOString().slice(0, 10)}.pdf`,
+    fileName: `certificado-laboral-${r.nIde}-${dateBogota(r.createdAt)}.pdf`,
   };
 }
 

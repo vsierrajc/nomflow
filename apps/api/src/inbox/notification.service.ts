@@ -15,6 +15,7 @@ import {
 } from '../db/schema';
 import { MAILER, type Mailer } from '../mail/mailer';
 import { nameOf, vacationDates } from './inbox.service';
+import { todayBogota } from '../common/dates';
 
 export interface NotificationSettingsValues {
   notifyApprover: boolean;
@@ -142,7 +143,7 @@ export class NotificationService {
 
   /** Quiénes pueden dar la aprobación final en una empresa (cuentas activas con el rol vigente). */
   private async finalApprovers(cEmp: string): Promise<string[]> {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayBogota();
     const rows = await this.db
       .selectDistinct({ id: roleAssignments.accountId })
       .from(roleAssignments)

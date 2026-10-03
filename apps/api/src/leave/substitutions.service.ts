@@ -9,6 +9,7 @@ import {
   roleAssignments,
 } from '../db/schema';
 import { APPROVER_ROLE_NAMES } from './approver-signature.service';
+import { todayBogota } from '../common/dates';
 
 export type SubstitutionErrorCode =
   | 'NOT_APPROVER'
@@ -35,7 +36,7 @@ export const MAX_SUBSTITUTION_DAYS = 90;
 const DAY = 86_400_000;
 
 type Sub = typeof approvalSubstitutions.$inferSelect;
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => todayBogota();
 const isDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
 const spanDays = (from: string, to: string) =>
   Math.round((Date.parse(to) - Date.parse(from)) / DAY) + 1;

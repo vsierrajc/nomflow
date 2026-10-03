@@ -5,6 +5,7 @@ import { Badge, Notice } from '@/components/admin-ui';
 import { EmptyState, Field, Loading } from '@/components/ui';
 import { NETWORK_ERROR } from '@/lib/api';
 import { useAdmin } from '@/lib/admin';
+import { todayBogota as today } from '@/lib/dates';
 import {
   PHASE_LABEL,
   dateLabel,
@@ -18,8 +19,6 @@ interface Candidate {
   id: string;
   name: string;
 }
-
-const today = () => new Date().toISOString().slice(0, 10);
 
 /** Quien aprueba designa a su suplente por un rango de fechas y ve en qué suplencias participa. */
 export default function SubstitutionsPage() {

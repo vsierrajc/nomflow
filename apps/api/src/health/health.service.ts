@@ -8,6 +8,7 @@ import { MAILER, type Mailer } from '../mail/mailer';
 import { getSettings as getMailSettings, isEmail } from '../mail/mail-settings.service';
 import { getArchiveSettings } from '../storage/archive-settings.service';
 import { OBJECT_STORE, ObjectStoreError, type ObjectStore } from '../storage/object-store';
+import { todayBogota } from '../common/dates';
 
 export type Level = 'OK' | 'WARN' | 'CRIT' | 'UNKNOWN';
 
@@ -422,7 +423,7 @@ export class HealthService {
   }
 
   async recipients(): Promise<string[]> {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayBogota();
     const extra = parseRecipients(
       (await this.getSettings().catch(() => DEFAULT_SETTINGS)).extraRecipients,
     );

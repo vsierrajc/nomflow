@@ -11,6 +11,7 @@ import {
   roleAssignments,
 } from '../db/schema';
 import { CATALOGS, type CatalogKind } from './catalog.parser';
+import { todayBogota } from '../common/dates';
 
 export type EntryErrorCode =
   'COMPANY_REQUIRED' | 'COMPANY_NOT_FOUND' | 'EXISTS' | 'NOT_FOUND' | 'VERSION_CONFLICT' | 'IN_USE';
@@ -89,7 +90,7 @@ async function attachAreaApprovers<T extends { code: string }>(
   cEmp: string,
   items: T[],
 ): Promise<(T & { manager: string | null; director: string | null })[]> {
-  const t = new Date().toISOString().slice(0, 10);
+  const t = todayBogota();
   const managers = await db
     .select({
       cArea: areaManagerAssignments.cArea,
@@ -189,7 +190,7 @@ async function usage(
       const employees = await count(
         and(active, eq(employeeSnapshots.cEmp, cEmp), eq(employeeSnapshots.cArea, code)),
       );
-      const today = new Date().toISOString().slice(0, 10);
+      const today = todayBogota();
       const [m] = await db
         .select({ n: sql<number>`count(*)::int` })
         .from(areaManagerAssignments)
