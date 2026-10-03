@@ -106,7 +106,7 @@ scripts/stack.sh            levanta y detiene el stack local
 
 ## Inicio rápido
 
-**Requisitos:** Node.js 20 (`.nvmrc`), Docker con Compose y `openssl`.
+**Requisitos:** Node.js 22 (`.nvmrc`; `nvm install` lo instala), Docker con Compose y `openssl`.
 
 ```bash
 npm ci
