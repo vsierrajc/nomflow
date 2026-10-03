@@ -1,6 +1,6 @@
 # Traspaso para la próxima sesión
 
-Actualizado: 29 de septiembre de 2026. Estado del código: `main` (PR #1 a #84 integrados). En revisión: [PR #85](https://github.com/vsierrajc/nomflow/pull/85) (`feat/ESS-EXIT-001-aviso-baja-zip`), backend y web del módulo de baja/ZIP completos y probados (vitest e2e + Playwright); falta revisión de otra persona antes de integrar. Este archivo se **reescribe al cerrar cada sesión** (SSD 10.2); el historial vive en `docs/sessions/`. No contiene claves, correos ni datos de personas. **El plan por fases está en [PLAN.md](PLAN.md).**
+Actualizado: 2 de octubre de 2026. Estado del código: `main` (PR hasta el #101 integrados; no hay PR abiertos). Los PR #97-#101 los integró el usuario por decisión explícita, sin revisión de otra persona. Este archivo se **reescribe al cerrar cada sesión** (SSD 10.2); el historial vive en `docs/sessions/`. No contiene claves, correos ni datos de personas. **El plan por fases está en [PLAN.md](PLAN.md).**
 
 ## 1. Cómo arrancar (10 minutos)
 
@@ -26,17 +26,17 @@ npm run test:e2e          # pruebas de navegador (ver docs/local-stack.md si Chr
 
 Identidad y cuentas (clave asignada, doble paso opcional, sesión por inactividad), importación de EMPLEADOS, empresas, logo y encabezado/pie en imagen, catálogos, conceptos de nómina, roles con alcance (jefe y director de área, gerente general), importación de NOMINA por período y liquidación del archivo, volantes PDF en carta según el modelo, certificados de retención (carpeta y navegador), certificado laboral con firma imagen y digital, vacaciones con aprobación jerárquica, permisos, bandeja de entrada y avisos por correo, salud del sistema, almacenamiento cifrado en Garage, archivo histórico en Google, gestión de registros, área administrativa completa, rediseño de la interfaz, stack local, Graphify y CI. 400 pruebas de API y unas 115 de navegador.
 
-## 2.0 Rama en trabajo: ESS-RET-001 (retención de datos)
+## 2.0 Integrado: ESS-RET-001 (retención de datos, #91)
 
 `feat/ESS-RET-politica-retencion`: política de retención de sesiones, códigos, filas de importación y ZIP caducados (`apps/api/src/registros/data-retention*`, página `/admin/retencion`). Los certificados de retención nunca se purgan solos: solo borrado manual tras la baja. Antes de activar `auto_enabled` con datos reales: `pg_dump` y aprobación. Detalle en `docs/sessions/2026-09-30-politica-retencion.md`.
 
-## 2.0b PR abierto: ESS-AUTH-003 (app autenticadora TOTP)
+## 2.0b Integrado: ESS-AUTH-003 (app autenticadora TOTP, #99)
 
-[PR #99](https://github.com/vsierrajc/nomflow/pull/99), rama `feat/ESS-AUTH-003-totp`. Servicio en `apps/api/src/auth/totp.service.ts`, pantallas en `apps/web/components/totp-setup.tsx` y `/cuenta/seguridad`. **Antes de integrar:** la rama está apilada sobre #98 (`feat/ESS-ORG-002-suplencias`, que a su vez apila #97) y su migración es `0038_totp`; integrar después de ellos. La `0038_anular_disfrute_festivos` sin publicar de ESS-LEAVE-002 debe pasar a `0039` (renumerar y regenerar su snapshot). Rotar `SESSION_SECRET`/`SETTINGS_ENCRYPTION_KEY` deja ilegibles los secretos TOTP (documentado en README). Pendiente a futuro: exigir TOTP por rol y aceptarlo en los actos de firma. Detalle en `docs/sessions/2026-10-02-totp.md`.
+[PR #99](https://github.com/vsierrajc/nomflow/pull/99). Servicio en `apps/api/src/auth/totp.service.ts`, pantallas en `apps/web/components/totp-setup.tsx` y `/cuenta/seguridad`. La migración es `0038_totp`; `0039_anular_disfrute_festivos` (#101) va después. Rotar `SESSION_SECRET`/`SETTINGS_ENCRYPTION_KEY` deja ilegibles los secretos TOTP (documentado en README). Pendiente a futuro: exigir TOTP por rol (administradores y aprobadores) y aceptarlo en los actos de firma (reautenticación). Detalle en `docs/sessions/2026-10-02-totp.md`.
 
-## 2.1 PR abierto: ESS-EXIT-001 (aviso de baja y ZIP)
+## 2.1 Integrado: ESS-EXIT-001 (aviso de baja y ZIP, #85)
 
-[PR #85](https://github.com/vsierrajc/nomflow/pull/85). Backend completo en `apps/api/src/exit/` (settings, programación de baja, aviso por correo, exportación ZIP asíncrona vía job en proceso sin Redis, incumplimiento auditado si `EST = C` llega sin aviso previo, endpoints "revisar/generar ahora" para no depender del temporizador) y web en `apps/web/app/(app)/admin/bajas` y `apps/web/app/(app)/mi-baja`. Probado con `apps/api/src/exit/exit.e2e.spec.ts` (6 casos) y `apps/web/e2e/bajas.spec.ts` + `apps/web/e2e/mi-baja.spec.ts` (7 casos de navegador, que encontraron y corrigieron dos errores reales: `e.currentTarget` nulo tras un `await`, y un código HTTP de cancelar inconsistente entre backend y frontend). Verificación obligatoria completa en verde (422 pruebas de API). Pendiente antes de integrar: revisión de otra persona. Detalle en `docs/sessions/2026-09-29-aviso-baja-zip.md` y `docs/sessions/2026-09-29-aviso-baja-zip-2.md`.
+[PR #85](https://github.com/vsierrajc/nomflow/pull/85). Backend completo en `apps/api/src/exit/` (settings, programación de baja, aviso por correo, exportación ZIP asíncrona vía job en proceso sin Redis, incumplimiento auditado si `EST = C` llega sin aviso previo, endpoints "revisar/generar ahora" para no depender del temporizador) y web en `apps/web/app/(app)/admin/bajas` y `apps/web/app/(app)/mi-baja`. Probado con `apps/api/src/exit/exit.e2e.spec.ts` (6 casos) y `apps/web/e2e/bajas.spec.ts` + `apps/web/e2e/mi-baja.spec.ts` (7 casos de navegador, que encontraron y corrigieron dos errores reales: `e.currentTarget` nulo tras un `await`, y un código HTTP de cancelar inconsistente entre backend y frontend). Verificación obligatoria completa en verde (422 pruebas de API). Integrado en #85. Detalle en `docs/sessions/2026-09-29-aviso-baja-zip.md` y `docs/sessions/2026-09-29-aviso-baja-zip-2.md`.
 
 ## 3. Pendientes que esperan datos o personas (fase 0 del plan)
 
