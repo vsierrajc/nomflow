@@ -94,6 +94,7 @@ test.describe('acceso al área administrativa', () => {
           'Cuentas y roles',
           'Importaciones',
           'Períodos de vacaciones',
+          'Disfrutes aprobados',
           'Bajas y exportación',
           'Suplencias',
         ],

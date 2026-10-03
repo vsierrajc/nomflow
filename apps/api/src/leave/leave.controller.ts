@@ -13,6 +13,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Post,
   Put,
@@ -52,7 +53,14 @@ import {
   periodCompanies,
 } from './prog-vac.service';
 import { periodsWorkbook } from './prog-vac.export';
-import { HolidayApiError, getSettings, saveSettings, syncYear } from './holiday-api.service';
+import {
+  HolidayApiError,
+  getSettings,
+  holidayYearStatus,
+  loadYearNow,
+  saveSettings,
+  syncYear,
+} from './holiday-api.service';
 import { archivedVacationRequestIds } from '../storage/archive.service';
 import { OBJECT_STORE, ObjectStoreError, type ObjectStore } from '../storage/object-store';
 import { getVacationDocument, tryEnsureVacationDocument } from './vacation-document.service';
@@ -210,6 +218,25 @@ export class AdminHolidayApiController {
     }
   }
 
+  /** Años por vigilar (el actual, el siguiente y los que fallaron) y el último intento de cada uno. */
+  @Get('years')
+  @Header('Cache-Control', 'no-store')
+  years() {
+    return holidayYearStatus(this.db);
+  }
+
+  /** Reintento manual de un año sin calendario publicado. */
+  @Post('years/:year/load')
+  @HttpCode(200)
+  @UseGuards(RecentAuthGuard)
+  async loadYear(@Param('year', ParseIntPipe) year: number, @Req() req: AuthedRequest) {
+    try {
+      return await loadYearNow(this.db, req.auth.accountId, year);
+    } catch (e) {
+      return mapApi(e);
+    }
+  }
+
   @Post('sync')
   @HttpCode(200)
   @UseGuards(RecentAuthGuard)
@@ -232,6 +259,8 @@ function mapApi(e: unknown): never {
     case 'NOT_CONFIGURED':
     case 'NO_API_KEY':
       throw new BadRequestException({ code: e.code });
+    case 'ALREADY_PUBLISHED':
+      throw new ConflictException({ code: e.code });
     default:
       // El servicio externo falló: se conserva la última versión local publicada.
       throw new BadGatewayException({ code: e.code });

@@ -1,7 +1,13 @@
 import { isIP } from 'node:net';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
-import { auditLogs, holidayApiSettings, holidayCalendars, holidays } from '../db/schema';
+import {
+  auditLogs,
+  holidayApiSettings,
+  holidayCalendars,
+  holidayYearLoads,
+  holidays,
+} from '../db/schema';
 import { isValidIsoDate } from './business-days';
 import { REGION, createDraft, HolidayError, publish } from './holidays.service';
 import { open, seal } from '../security/secret-box';
@@ -15,7 +21,8 @@ export type HolidayApiErrorCode =
   | 'RATE_LIMITED'
   | 'UNAVAILABLE'
   | 'INVALID_RESPONSE'
-  | 'NOT_JSON';
+  | 'NOT_JSON'
+  | 'ALREADY_PUBLISHED';
 
 export class HolidayApiError extends Error {
   constructor(readonly code: HolidayApiErrorCode) {
@@ -287,6 +294,7 @@ async function autoLoadYear(db: Db, requester: string, year: number): Promise<vo
       .update(holidayApiSettings)
       .set({ lastSyncAt: new Date(), lastSyncYear: year, lastSyncStatus: status })
       .where(eq(holidayApiSettings.id, 1));
+    await noteYearLoad(db, year, status);
     await audit(db, requester, 'HOLIDAY_API_AUTOLOAD', status);
   };
   try {
@@ -336,4 +344,104 @@ export async function ensureHolidayYears(
     }
     await job;
   }
+}
+
+/* ---------------------- estado por año y carga manual ---------------------- */
+
+/** Recuerda en la base el último intento de cargar un año (sobrevive a los reinicios). */
+async function noteYearLoad(db: Db, year: number, status: string): Promise<void> {
+  const ok = status === 'OK';
+  await db
+    .insert(holidayYearLoads)
+    .values({
+      year,
+      lastStatus: status,
+      lastAttemptAt: new Date(),
+      lastSuccessAt: ok ? new Date() : null,
+      failures: ok ? 0 : 1,
+    })
+    .onConflictDoUpdate({
+      target: holidayYearLoads.year,
+      set: {
+        lastStatus: status,
+        lastAttemptAt: new Date(),
+        ...(ok
+          ? { lastSuccessAt: new Date(), failures: 0 }
+          : { failures: sql`${holidayYearLoads.failures} + 1` }),
+      },
+    });
+}
+
+const failureCode = (e: unknown) =>
+  e instanceof HolidayApiError
+    ? e.code
+    : e instanceof HolidayError
+      ? 'INVALID_RESPONSE'
+      : 'UNAVAILABLE';
+
+/**
+ * Años que conviene tener cargados: el actual, el siguiente y los que un cálculo pidió y no se pudieron
+ * cargar. No se consulta nada: solo se informa lo que hay, para que el administrador decida reintentar.
+ */
+export async function holidayYearStatus(db: Db) {
+  const [s] = await db.select().from(holidayApiSettings).where(eq(holidayApiSettings.id, 1));
+  const loads = await db.select().from(holidayYearLoads).orderBy(asc(holidayYearLoads.year));
+  const now = new Date().getUTCFullYear();
+  const candidates = new Set<number>([now, now + 1]);
+  for (const l of loads) if (l.lastStatus !== 'OK') candidates.add(l.year);
+  const years = [];
+  for (const year of [...candidates].sort((a, b) => a - b)) {
+    const published = await hasPublished(db, year);
+    const load = loads.find((l) => l.year === year);
+    // un año ya publicado y sin fallos pendientes solo se muestra si es el actual o el siguiente
+    if (published && year !== now && year !== now + 1) continue;
+    years.push({
+      year,
+      published,
+      /** CALCULO: un cálculo lo pidió; ACTUAL_O_SIGUIENTE: se vigila aunque nadie lo haya pedido. */
+      reason: load ? 'CALCULO' : 'ACTUAL_O_SIGUIENTE',
+      lastAttemptAt: load?.lastAttemptAt ?? null,
+      lastStatus: load?.lastStatus ?? null,
+      failures: load?.failures ?? 0,
+    });
+  }
+  return { configured: Boolean(s?.apiKeyEnc), years };
+}
+
+/**
+ * Reintento manual: consulta el servicio, deja el calendario publicado y recuerda el resultado. Solo si el
+ * año no tiene calendario publicado (un año con información nunca se vuelve a consultar). Responde el
+ * estado del intento sin lanzar cuando el servicio externo falla.
+ */
+export async function loadYearNow(db: Db, actor: string, year: number) {
+  if (!Number.isInteger(year) || year < 2000 || year > 2100)
+    throw new HolidayApiError('INVALID_YEAR');
+  if (await hasPublished(db, year)) throw new HolidayApiError('ALREADY_PUBLISHED');
+  const [s] = await db.select().from(holidayApiSettings).where(eq(holidayApiSettings.id, 1));
+  if (!s) throw new HolidayApiError('NOT_CONFIGURED');
+  if (!s.apiKeyEnc) throw new HolidayApiError('NO_API_KEY');
+  failedAt.delete(year); // un reintento manual no espera la pausa tras un fallo
+  let status = 'OK';
+  try {
+    const days = await fetchYear(s.url, open(s.apiKeyEnc), year);
+    const draft = await createDraft(
+      db,
+      actor,
+      year,
+      days,
+      'API',
+      `Carga manual desde Festivos: el año no tenía calendario (${days.length} días)`,
+    );
+    await publish(db, actor, draft.id);
+  } catch (e) {
+    status = failureCode(e);
+    failedAt.set(year, Date.now());
+  }
+  await db
+    .update(holidayApiSettings)
+    .set({ lastSyncAt: new Date(), lastSyncYear: year, lastSyncStatus: status })
+    .where(eq(holidayApiSettings.id, 1));
+  await noteYearLoad(db, year, status);
+  await audit(db, actor, 'HOLIDAY_API_LOAD', status);
+  return { year, status, published: status === 'OK' };
 }

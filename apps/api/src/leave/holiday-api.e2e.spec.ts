@@ -19,7 +19,7 @@ import {
   roleAssignments,
   shifts,
 } from '../db/schema';
-import { resetAutoLoadState } from './holiday-api.service';
+import { ensureHolidayYears, resetAutoLoadState } from './holiday-api.service';
 import { open, seal } from '../security/secret-box';
 
 const url = process.env.DATABASE_URL;
@@ -131,7 +131,7 @@ describe.skipIf(!url)('API de festivos: configuración y sincronización (HTTP +
       { date: '2031-05-01', name_es: 'Día del Trabajo' },
     ];
     await db.execute(
-      sql`TRUNCATE prog_vac, holiday_api_settings, holidays, holiday_calendars, audit_logs, sessions, role_assignments, accounts, employee_snapshots, shifts CASCADE`,
+      sql`TRUNCATE prog_vac, holiday_year_loads, holiday_api_settings, holidays, holiday_calendars, audit_logs, sessions, role_assignments, accounts, employee_snapshots, shifts CASCADE`,
     );
     await db.insert(shifts).values({
       code: '01',
@@ -343,6 +343,72 @@ describe.skipIf(!url)('API de festivos: configuración y sincronización (HTTP +
       expect(res.map((r) => r.status)).toEqual([200, 200, 200]);
       expect(seen).toHaveLength(1);
       expect(await published(2041)).toHaveLength(1);
+    });
+  });
+
+  describe('estado por año y reintento manual', () => {
+    const years = async () => (await call(hr, 'get', '/admin/holiday-api/years').expect(200)).body;
+    const requester = async () => (await db.select().from(accounts))[0]?.id ?? '';
+
+    it('lista el año actual y el siguiente sin consultar nada, y solo a administradores', async () => {
+      const now = new Date().getUTCFullYear();
+      const st = await years();
+      expect(st.configured).toBe(false);
+      expect(st.years.map((y: { year: number }) => y.year)).toEqual([now, now + 1]);
+      expect(
+        st.years.every(
+          (y: { published: boolean; reason: string; lastStatus: string | null }) =>
+            !y.published && y.reason === 'ACTUAL_O_SIGUIENTE' && y.lastStatus === null,
+        ),
+      ).toBe(true);
+      expect(seen).toHaveLength(0); // informar no consulta el servicio
+      await call(emp, 'get', '/admin/holiday-api/years').expect(403);
+      await call(emp, 'post', '/admin/holiday-api/years/2031/load').expect(403);
+    });
+
+    it('un cálculo que falla deja el año pendiente en la base y el reintento manual lo carga', async () => {
+      await configure().expect(200);
+      mode = '500';
+      await ensureHolidayYears(db, await requester(), [2031]);
+      resetAutoLoadState(); // como tras un reinicio: el fallo ya no está en memoria
+      let st = await years();
+      let y = st.years.find((r: { year: number }) => r.year === 2031);
+      expect(y).toMatchObject({
+        published: false,
+        reason: 'CALCULO',
+        lastStatus: 'UNAVAILABLE',
+        failures: 1,
+      });
+
+      // reintentar mientras sigue caído: no lanza, cuenta otro fallo
+      const again = await call(hr, 'post', '/admin/holiday-api/years/2031/load').expect(200);
+      expect(again.body).toMatchObject({ year: 2031, status: 'UNAVAILABLE', published: false });
+      y = (await years()).years.find((r: { year: number }) => r.year === 2031);
+      expect(y.failures).toBe(2);
+
+      // con el servicio de vuelta, el reintento publica el calendario y el año deja de estar pendiente
+      mode = 'ok';
+      const done = await call(hr, 'post', '/admin/holiday-api/years/2031/load').expect(200);
+      expect(done.body).toMatchObject({ year: 2031, status: 'OK', published: true });
+      st = await years();
+      expect(st.years.find((r: { year: number }) => r.year === 2031)).toBeUndefined();
+      const cal = await db.select().from(holidayCalendars);
+      expect(cal.some((c) => c.year === 2031 && c.status === 'PUBLICADO')).toBe(true);
+      const acts = (await db.select().from(auditLogs)).map((l) => l.action);
+      expect(acts).toContain('HOLIDAY_API_LOAD');
+
+      // un año con calendario publicado no se vuelve a consultar
+      const before = seen.length;
+      const dup = await call(hr, 'post', '/admin/holiday-api/years/2031/load').expect(409);
+      expect(dup.body.code).toBe('ALREADY_PUBLISHED');
+      expect(seen).toHaveLength(before);
+    });
+
+    it('valida el año y exige el servicio configurado', async () => {
+      await call(hr, 'post', '/admin/holiday-api/years/1999/load').expect(400);
+      await call(hr, 'post', '/admin/holiday-api/years/abc/load').expect(400);
+      const res = await call(hr, 'post', '/admin/holiday-api/years/2031/load').expect(400);
+      expect(res.body.code).toBe('NOT_CONFIGURED');
     });
   });
 });

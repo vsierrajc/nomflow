@@ -124,6 +124,8 @@ test.describe('lectores de pantalla: estructura y nombres', () => {
       '/admin/registros',
       '/admin/retencion',
       '/admin/suplencias',
+      '/admin/disfrutes',
+      '/admin/festivos',
     ]) {
       await page.goto(path);
       expect(await findings(page), path).toEqual([]);

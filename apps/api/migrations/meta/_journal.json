@@ -274,6 +274,13 @@
       "when": 1790988695059,
       "tag": "0038_totp",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1790991511153,
+      "tag": "0039_anular_disfrute_festivos",
+      "breakpoints": true
     }
   ]
 }
