@@ -32,7 +32,7 @@ Identidad y cuentas (clave asignada, doble paso opcional, sesión por inactivida
 
 ## 2.0b PR abierto: ESS-AUTH-003 (app autenticadora TOTP)
 
-[PR #99](https://github.com/vsierrajc/nomflow/pull/99), rama `feat/ESS-AUTH-003-totp`. Servicio en `apps/api/src/auth/totp.service.ts`, pantallas en `apps/web/components/totp-setup.tsx` y `/cuenta/seguridad`. **Antes de integrar:** la migración `0036_totp` choca en numeración con la `0036` de ESS-ORG-002/ESS-LEAVE-002 (aún sin integrar): quien integre segundo renumera y regenera el snapshot. Rotar `SESSION_SECRET`/`SETTINGS_ENCRYPTION_KEY` deja ilegibles los secretos TOTP (documentado en README). Pendiente a futuro: exigir TOTP por rol y aceptarlo en los actos de firma. Detalle en `docs/sessions/2026-10-02-totp.md`.
+[PR #99](https://github.com/vsierrajc/nomflow/pull/99), rama `feat/ESS-AUTH-003-totp`. Servicio en `apps/api/src/auth/totp.service.ts`, pantallas en `apps/web/components/totp-setup.tsx` y `/cuenta/seguridad`. **Antes de integrar:** la rama está apilada sobre #98 (`feat/ESS-ORG-002-suplencias`, que a su vez apila #97) y su migración es `0038_totp`; integrar después de ellos. La `0038_anular_disfrute_festivos` sin publicar de ESS-LEAVE-002 debe pasar a `0039` (renumerar y regenerar su snapshot). Rotar `SESSION_SECRET`/`SETTINGS_ENCRYPTION_KEY` deja ilegibles los secretos TOTP (documentado en README). Pendiente a futuro: exigir TOTP por rol y aceptarlo en los actos de firma. Detalle en `docs/sessions/2026-10-02-totp.md`.
 
 ## 2.1 PR abierto: ESS-EXIT-001 (aviso de baja y ZIP)
 
