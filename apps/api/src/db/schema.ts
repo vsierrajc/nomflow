@@ -99,6 +99,8 @@ export const accounts = pgTable(
     /** Verificación en dos pasos opcional: cada ingreso exige además un código enviado al correo. */
     twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),
     twoFactorEnabledAt: timestamp('two_factor_enabled_at', { withTimezone: true }),
+    /** Método del segundo paso: EMAIL (código al correo) o TOTP (app autenticadora). */
+    twoFactorMethod: text('two_factor_method').notNull().default('EMAIL'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -891,13 +893,42 @@ export const twoFactorChallenges = pgTable(
       .references(() => accounts.id),
     /** LOGIN: segundo paso del ingreso. ENABLE: confirmar que se controla el correo al activarlo. */
     purpose: text('purpose').notNull(),
-    codeHash: text('code_hash').notNull(),
+    /** Método con el que se verifica: EMAIL (hay codeHash) o TOTP (el código lo calcula la app). */
+    method: text('method').notNull().default('EMAIL'),
+    codeHash: text('code_hash'),
     attempts: integer('attempts').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     usedAt: timestamp('used_at', { withTimezone: true }),
   },
   (t) => [index('two_factor_challenges_account_idx').on(t.accountId, t.purpose, t.createdAt)],
+);
+
+/** Secreto TOTP (RFC 6238) de una cuenta, cifrado. Solo cuenta cuando `confirmedAt` no es nulo. */
+export const accountTotp = pgTable('account_totp', {
+  accountId: uuid('account_id')
+    .primaryKey()
+    .references(() => accounts.id),
+  secretSealed: text('secret_sealed').notNull(),
+  confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+  /** Último paso de 30 s aceptado: impide reutilizar un código dentro de su ventana. */
+  lastUsedStep: integer('last_used_step'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Códigos de respaldo de un solo uso (se guardan con hash). */
+export const accountRecoveryCodes = pgTable(
+  'account_recovery_codes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id),
+    codeHash: text('code_hash').notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('account_recovery_codes_account_idx').on(t.accountId)],
 );
 
 /** Constancia PDF de una solicitud de vacaciones aprobada, guardada como objeto (ADR-003). */

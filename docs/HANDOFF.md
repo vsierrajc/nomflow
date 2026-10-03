@@ -30,6 +30,10 @@ Identidad y cuentas (clave asignada, doble paso opcional, sesión por inactivida
 
 `feat/ESS-RET-politica-retencion`: política de retención de sesiones, códigos, filas de importación y ZIP caducados (`apps/api/src/registros/data-retention*`, página `/admin/retencion`). Los certificados de retención nunca se purgan solos: solo borrado manual tras la baja. Antes de activar `auto_enabled` con datos reales: `pg_dump` y aprobación. Detalle en `docs/sessions/2026-09-30-politica-retencion.md`.
 
+## 2.0b PR abierto: ESS-AUTH-003 (app autenticadora TOTP)
+
+[PR #99](https://github.com/vsierrajc/nomflow/pull/99), rama `feat/ESS-AUTH-003-totp`. Servicio en `apps/api/src/auth/totp.service.ts`, pantallas en `apps/web/components/totp-setup.tsx` y `/cuenta/seguridad`. **Antes de integrar:** la rama está apilada sobre #98 (`feat/ESS-ORG-002-suplencias`, que a su vez apila #97) y su migración es `0038_totp`; integrar después de ellos. La `0038_anular_disfrute_festivos` sin publicar de ESS-LEAVE-002 debe pasar a `0039` (renumerar y regenerar su snapshot). Rotar `SESSION_SECRET`/`SETTINGS_ENCRYPTION_KEY` deja ilegibles los secretos TOTP (documentado en README). Pendiente a futuro: exigir TOTP por rol y aceptarlo en los actos de firma. Detalle en `docs/sessions/2026-10-02-totp.md`.
+
 ## 2.1 PR abierto: ESS-EXIT-001 (aviso de baja y ZIP)
 
 [PR #85](https://github.com/vsierrajc/nomflow/pull/85). Backend completo en `apps/api/src/exit/` (settings, programación de baja, aviso por correo, exportación ZIP asíncrona vía job en proceso sin Redis, incumplimiento auditado si `EST = C` llega sin aviso previo, endpoints "revisar/generar ahora" para no depender del temporizador) y web en `apps/web/app/(app)/admin/bajas` y `apps/web/app/(app)/mi-baja`. Probado con `apps/api/src/exit/exit.e2e.spec.ts` (6 casos) y `apps/web/e2e/bajas.spec.ts` + `apps/web/e2e/mi-baja.spec.ts` (7 casos de navegador, que encontraron y corrigieron dos errores reales: `e.currentTarget` nulo tras un `await`, y un código HTTP de cancelar inconsistente entre backend y frontend). Verificación obligatoria completa en verde (422 pruebas de API). Pendiente antes de integrar: revisión de otra persona. Detalle en `docs/sessions/2026-09-29-aviso-baja-zip.md` y `docs/sessions/2026-09-29-aviso-baja-zip-2.md`.
@@ -106,6 +110,7 @@ Higiene: la matriz `docs/traceability.md` se actualizó el 26 de septiembre de 2
 - **`docs/CHANGELOG.md` ya no se edita por PR**: cada cambio añade un archivo en `docs/changelog.d/` (ver su README) y de vez en cuando se corre `npm run changelog:compile` en un commit aparte. Si aun así aparece un conflicto en `CHANGELOG.md` (rama vieja, o alguien lo editó a mano), resolver quitando las marcas de conflicto y conservando ambas líneas.
 - **Carga de nómina**: el período y la liquidación salen de las columnas `PER` y `N_LIQ`; cada volante del archivo reemplaza al publicado y los demás de la liquidación se conservan. Un contenido idéntico se detecta al aplicar, no al validar.
 
+- **Pruebas de navegador en un worktree**: Playwright lee las credenciales de Garage del `.env` de la raíz; un worktree nuevo no lo tiene y fallan retenciones, certificado laboral y constancias (503). Copiar el `.env` (está ignorado). En WSL exportar también `LD_LIBRARY_PATH` (ver `docs/local-stack.md`).
 
 ## 9. Cierre de una tarea (definición de terminado)
 

@@ -45,6 +45,13 @@ import {
   getState,
   startEnable,
 } from './two-factor.service';
+import {
+  TotpError,
+  confirmTotpEnroll,
+  disableTotp,
+  regenerateRecoveryCodes,
+  startTotpEnroll,
+} from './totp.service';
 import { ABSOLUTE_TIMEOUT_MS, csrfTokenFor, revokeSession } from './session.service';
 
 const LoginDto = z.object({
@@ -117,7 +124,10 @@ export class AuthController {
     @Body() body: unknown,
     @Req() req: AuthedRequest,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<{ csrfToken: string } | { twoFactorRequired: true; challengeId: string }> {
+  ): Promise<
+    | { csrfToken: string }
+    | { twoFactorRequired: true; challengeId: string; method: 'EMAIL' | 'TOTP' }
+  > {
     const dto = LoginDto.safeParse(body);
     if (!dto.success) throw new BadRequestException();
     try {
@@ -128,7 +138,8 @@ export class AuthController {
         { ip: req.ip, userAgent: req.headers['user-agent'] },
         this.mailer,
       );
-      if (r.kind === 'TWO_FACTOR') return { twoFactorRequired: true, challengeId: r.challengeId };
+      if (r.kind === 'TWO_FACTOR')
+        return { twoFactorRequired: true, challengeId: r.challengeId, method: r.method };
       return this.startSession(res, r);
     } catch (e) {
       if (e instanceof LoginError) throw new UnauthorizedException('Credenciales inválidas');
@@ -242,6 +253,25 @@ const ConfirmTwoFactorDto = z.object({
   code: z.string().trim().min(4).max(12),
 });
 const DisableTwoFactorDto = z.object({ password: z.string().min(1).max(200) });
+const TotpConfirmDto = z.object({ code: z.string().trim().min(6).max(12) });
+const TotpReauthDto = z.object({
+  password: z.string().min(1).max(200),
+  code: z.string().trim().min(6).max(12),
+});
+
+function mapTotp(e: unknown): never {
+  if (!(e instanceof TotpError)) throw e;
+  switch (e.code) {
+    case 'ALREADY_ENABLED':
+    case 'NOT_ENABLED':
+    case 'NOT_PENDING':
+      throw new ConflictException({ code: e.code });
+    case 'INVALID_CREDENTIALS':
+      throw new UnauthorizedException('Credenciales inválidas');
+    default:
+      throw new BadRequestException({ code: 'INVALID_CODE' });
+  }
+}
 
 function mapTwoFactor(e: unknown): never {
   if (!(e instanceof TwoFactorError)) throw e;
@@ -311,6 +341,71 @@ export class MeTwoFactorController {
       return await getState(this.db, req.auth.accountId);
     } catch (e) {
       return mapTwoFactor(e);
+    }
+  }
+
+  /** App autenticadora (TOTP), paso 1: devuelve el QR y la clave manual. */
+  @Post('totp/start')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @UseGuards(RecentAuthGuard)
+  async totpStart(@Req() req: AuthedRequest) {
+    try {
+      return await startTotpEnroll(this.db, req.auth.accountId);
+    } catch (e) {
+      return mapTotp(e);
+    }
+  }
+
+  /** Paso 2: el primer código de la app la activa y entrega los códigos de respaldo (una sola vez). */
+  @Post('totp/confirm')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @UseGuards(IpRateLimitGuard, RecentAuthGuard)
+  @RateLimit(RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS)
+  async totpConfirm(@Body() body: unknown, @Req() req: AuthedRequest) {
+    const dto = TotpConfirmDto.safeParse(body);
+    if (!dto.success) throw new BadRequestException({ code: 'INVALID_CODE' });
+    try {
+      const { recoveryCodes } = await confirmTotpEnroll(this.db, req.auth.accountId, dto.data.code);
+      return { ...(await getState(this.db, req.auth.accountId)), recoveryCodes };
+    } catch (e) {
+      return mapTotp(e);
+    }
+  }
+
+  @Post('totp/disable')
+  @HttpCode(200)
+  @UseGuards(IpRateLimitGuard, RecentAuthGuard)
+  @RateLimit(RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS)
+  async totpDisable(@Body() body: unknown, @Req() req: AuthedRequest) {
+    const dto = TotpReauthDto.safeParse(body);
+    if (!dto.success) throw new BadRequestException();
+    try {
+      await disableTotp(this.db, req.auth.accountId, dto.data.password, dto.data.code);
+      return await getState(this.db, req.auth.accountId);
+    } catch (e) {
+      return mapTotp(e);
+    }
+  }
+
+  @Post('totp/recovery-codes')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @UseGuards(IpRateLimitGuard, RecentAuthGuard)
+  @RateLimit(RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS)
+  async totpRecoveryCodes(@Body() body: unknown, @Req() req: AuthedRequest) {
+    const dto = TotpReauthDto.safeParse(body);
+    if (!dto.success) throw new BadRequestException();
+    try {
+      return await regenerateRecoveryCodes(
+        this.db,
+        req.auth.accountId,
+        dto.data.password,
+        dto.data.code,
+      );
+    } catch (e) {
+      return mapTotp(e);
     }
   }
 }

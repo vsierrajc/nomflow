@@ -4,7 +4,8 @@ import type { Db } from '../db/client';
 import { accounts, auditLogs, twoFactorChallenges } from '../db/schema';
 import type { Mailer } from '../mail/mailer';
 import { verifyPassword } from '../accounts/password.service';
-import { getSessionSecret, revokeAllForAccount } from './session.service';
+import { getSessionSecret } from './session.service';
+import { clearTotpByAdmin, clearTotpData, getTotpState } from './totp.service';
 
 export const TWO_FACTOR_TTL_MINUTES = 10;
 export const MAX_CHALLENGE_ATTEMPTS = 5;
@@ -145,6 +146,7 @@ export async function verifyChallenge(
       and(
         eq(twoFactorChallenges.id, challengeId),
         eq(twoFactorChallenges.purpose, purpose),
+        eq(twoFactorChallenges.method, 'EMAIL'),
         isNull(twoFactorChallenges.usedAt),
         gt(twoFactorChallenges.expiresAt, new Date()),
         lt(twoFactorChallenges.attempts, MAX_CHALLENGE_ATTEMPTS),
@@ -167,7 +169,10 @@ export async function verifyChallenge(
     )
     .returning({ id: twoFactorChallenges.id });
   if (!counted) return reject(challenge.accountId);
-  if (!equalHex(hashCode(challenge.accountId, purpose, code), challenge.codeHash))
+  if (
+    !challenge.codeHash ||
+    !equalHex(hashCode(challenge.accountId, purpose, code), challenge.codeHash)
+  )
     return reject(challenge.accountId);
 
   const used = await db
@@ -182,10 +187,20 @@ export async function verifyChallenge(
 
 export async function getState(db: Db, accountId: string) {
   const [a] = await db
-    .select({ enabled: accounts.twoFactorEnabled, enabledAt: accounts.twoFactorEnabledAt })
+    .select({
+      enabled: accounts.twoFactorEnabled,
+      enabledAt: accounts.twoFactorEnabledAt,
+      method: accounts.twoFactorMethod,
+    })
     .from(accounts)
     .where(eq(accounts.id, accountId));
-  return { enabled: a?.enabled ?? false, enabledAt: a?.enabledAt ?? null };
+  const enabled = a?.enabled ?? false;
+  return {
+    enabled,
+    enabledAt: a?.enabledAt ?? null,
+    method: enabled && a?.method === 'TOTP' ? ('TOTP' as const) : ('EMAIL' as const),
+    recoveryCodesLeft: enabled ? (await getTotpState(db, accountId)).recoveryCodesLeft : 0,
+  };
 }
 
 /** Paso 1 de la activación: envía un código al correo para comprobar que se controla ese buzón. */
@@ -216,8 +231,14 @@ export async function disableOwn(db: Db, accountId: string, password: string) {
   }
   await db
     .update(accounts)
-    .set({ twoFactorEnabled: false, twoFactorEnabledAt: null, updatedAt: new Date() })
+    .set({
+      twoFactorEnabled: false,
+      twoFactorEnabledAt: null,
+      twoFactorMethod: 'EMAIL',
+      updatedAt: new Date(),
+    })
     .where(eq(accounts.id, accountId));
+  await clearTotpData(db, accountId);
   await audit(db, accountId, 'TWO_FACTOR_DISABLE', 'SUCCESS');
 }
 
@@ -228,9 +249,14 @@ export async function disableByAdmin(db: Db, actorId: string, accountId: string)
   if (!a.twoFactorEnabled) throw new TwoFactorError('NOT_ENABLED');
   await db
     .update(accounts)
-    .set({ twoFactorEnabled: false, twoFactorEnabledAt: null, updatedAt: new Date() })
+    .set({
+      twoFactorEnabled: false,
+      twoFactorEnabledAt: null,
+      twoFactorMethod: 'EMAIL',
+      updatedAt: new Date(),
+    })
     .where(eq(accounts.id, accountId));
-  await revokeAllForAccount(db, accountId);
+  await clearTotpByAdmin(db, actorId, accountId);
   await db.insert(auditLogs).values({
     actorAccountId: actorId,
     action: 'TWO_FACTOR_DISABLE_ADMIN',

@@ -23,6 +23,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "exceljs": "^4.4.0",
+    "otpauth": "^9.5.2",
     "pg": "^8.23.0"
   }
 }

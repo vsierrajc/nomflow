@@ -19,6 +19,7 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   // Segundo paso (opcional): el código enviado al correo, para quien activó la verificación en dos pasos.
   const [challenge, setChallenge] = useState<string | null>(null);
+  const [method, setMethod] = useState<'EMAIL' | 'TOTP'>('EMAIL');
   const [codeError, setCodeError] = useState<string | null>(null);
   const codeRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
@@ -49,13 +50,18 @@ export default function LoginPage() {
     if (next.password) return passwordRef.current?.focus();
 
     setBusy(true);
-    const res = await api<{ twoFactorRequired?: boolean; challengeId?: string }>('/auth/login', {
+    const res = await api<{
+      twoFactorRequired?: boolean;
+      challengeId?: string;
+      method?: 'EMAIL' | 'TOTP';
+    }>('/auth/login', {
       method: 'POST',
       body: { email, password },
     });
     setBusy(false);
     if (res.status === 200) {
       if (res.data?.twoFactorRequired && res.data.challengeId) {
+        setMethod(res.data.method === 'TOTP' ? 'TOTP' : 'EMAIL');
         setChallenge(res.data.challengeId);
         return;
       }
@@ -75,10 +81,19 @@ export default function LoginPage() {
   async function onVerify(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (busy || !challenge) return;
-    const code = String(new FormData(e.currentTarget).get('code') ?? '').replace(/\s/g, '');
+    const code = String(new FormData(e.currentTarget).get('code') ?? '').trim();
     setCodeError(null);
-    if (!/^\d{6}$/.test(code)) {
-      setCodeError('Escriba los 6 dígitos del código.');
+    // Con app autenticadora también sirve un código de respaldo (letras y números, con guion).
+    const valid =
+      method === 'TOTP'
+        ? /^\d{6}$/.test(code.replace(/\s/g, '')) || /^[A-Za-z0-9 -]{10,12}$/.test(code)
+        : /^\d{6}$/.test(code.replace(/\s/g, ''));
+    if (!valid) {
+      setCodeError(
+        method === 'TOTP'
+          ? 'Escriba los 6 dígitos de su app o un código de respaldo.'
+          : 'Escriba los 6 dígitos del código.',
+      );
       codeRef.current?.focus();
       return;
     }
@@ -95,7 +110,7 @@ export default function LoginPage() {
     setCodeError(
       res.status === 0
         ? NETWORK_ERROR
-        : 'El código es incorrecto, venció o ya se usó. Tras varios intentos fallidos debe volver a ingresar su clave para recibir uno nuevo.',
+        : 'El código es incorrecto, venció o ya se usó. Tras varios intentos fallidos debe volver a ingresar su clave para empezar de nuevo.',
     );
     codeRef.current?.focus();
     codeRef.current?.select();
@@ -105,12 +120,23 @@ export default function LoginPage() {
     return (
       <LoginLanding
         title="Verificación en dos pasos"
-        lead="Le enviamos un código de 6 dígitos al correo de su cuenta. Escríbalo para terminar de ingresar."
+        lead={
+          method === 'TOTP'
+            ? 'Abra su app autenticadora y escriba el código de 6 dígitos de NOMFLOW para terminar de ingresar.'
+            : 'Le enviamos un código de 6 dígitos al correo de su cuenta. Escríbalo para terminar de ingresar.'
+        }
         help={
-          <p>
-            El código vence en 10 minutos y solo sirve una vez. Si no le llega, revise la carpeta de
-            correo no deseado o vuelva a ingresar para pedir uno nuevo.
-          </p>
+          method === 'TOTP' ? (
+            <p>
+              Si no tiene su teléfono, escriba uno de sus códigos de respaldo (cada uno sirve una
+              sola vez) o pida ayuda a Gestión Humana.
+            </p>
+          ) : (
+            <p>
+              El código vence en 10 minutos y solo sirve una vez. Si no le llega, revise la carpeta
+              de correo no deseado o vuelva a ingresar para pedir uno nuevo.
+            </p>
+          )
         }
       >
         {codeError ? <Alert kind="error">{codeError}</Alert> : null}
@@ -118,9 +144,9 @@ export default function LoginPage() {
           <Field
             label="Código de verificación"
             name="code"
-            inputMode="numeric"
+            inputMode={method === 'TOTP' ? 'text' : 'numeric'}
             autoComplete="one-time-code"
-            maxLength={7}
+            maxLength={method === 'TOTP' ? 13 : 7}
             required
             inputRef={codeRef}
           />
