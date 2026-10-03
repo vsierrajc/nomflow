@@ -271,12 +271,17 @@ function RolesDialog({ account, onClose }: { account: Account; onClose: () => vo
   // Áreas del catálogo de la empresa elegida (todas las activas).
   useEffect(() => {
     if (!cEmp) return;
+    // La respuesta de una empresa que ya no es la elegida no debe pisar las áreas de la actual.
+    let stale = false;
     void (async () => {
       const list = await loadCatalog(call, 'AREA', cEmp);
-      if (!list) return;
+      if (stale || !list) return;
       setAreaList(list);
       setAreaCode((cur) => (list.some((a) => a.value === cur) ? cur : ''));
     })();
+    return () => {
+      stale = true;
+    };
   }, [call, cEmp]);
 
   async function grant(e: FormEvent<HTMLFormElement>) {

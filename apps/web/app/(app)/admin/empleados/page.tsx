@@ -162,17 +162,24 @@ function EmployeeForm({
   // Áreas, centros de costo y cargos dependen de la empresa elegida.
   useEffect(() => {
     if (!cEmp) return;
+    // Si el usuario cambia de empresa antes de que llegue la respuesta, la de la anterior se descarta:
+    // no debe pisar las listas de la elegida.
+    let stale = false;
     void (async () => {
       const [a, c, j] = await Promise.all([
         loadCatalog(call, 'AREA', cEmp),
         loadCatalog(call, 'CCOSTO', cEmp),
         loadCatalog(call, 'CARGO', cEmp),
       ]);
+      if (stale) return;
       if (!a || !c || !j) return setListsError(true);
       setAreas(a);
       setCosts(c);
       setJobs(j);
     })();
+    return () => {
+      stale = true;
+    };
   }, [call, cEmp]);
 
   function changeCompany(next: string) {

@@ -1,0 +1,1 @@
+Administración → Empleados y Cuentas y roles: si se cambia de empresa antes de que llegue la respuesta de la anterior, esa respuesta tardía ya no pisa las áreas, centros de costo y cargos de la empresa elegida (era la causa de una prueba de navegador intermitente).
