@@ -95,6 +95,22 @@ async function contractOf(db: Runner, accountId: string) {
   return row ?? null;
 }
 
+/** Si el contrato de la solicitud sigue vigente (EST = V). Una solicitud no se aprueba para quien ya salió. */
+async function contractIsActive(db: Runner, nIde: string, nCont: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: employeeSnapshots.id })
+    .from(employeeSnapshots)
+    .where(
+      and(
+        eq(employeeSnapshots.nIde, nIde),
+        eq(employeeSnapshots.nCont, nCont),
+        eq(employeeSnapshots.est, 'V'),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
 async function overlaps(
   db: Runner,
   nIde: string,
@@ -535,7 +551,12 @@ export function managerApprove(db: Db, actor: string, id: string) {
     from: ['PENDIENTE_JEFE'],
     to: 'PENDIENTE_FINAL',
     action: 'APROBAR_JEFE',
-    guard: (req) => asManager(db, actor, req),
+    guard: async (req) => {
+      const behalf = await asManager(db, actor, req);
+      if (!(await contractIsActive(db, req.nIde, req.nCont)))
+        throw new VacationError('NO_ACTIVE_CONTRACT');
+      return behalf;
+    },
   });
 }
 
@@ -624,6 +645,9 @@ export async function finalApprove(db: Db, actor: string, id: string) {
       const req = await loadRequest(tx, id);
       const behalf = await asFinal(tx, actor, req);
       if (req.status !== 'PENDIENTE_FINAL') throw new VacationError('INVALID_STATE');
+      // Si la persona ya salió, no se le concede el disfrute ni se descuentan días: se rechaza la solicitud.
+      if (!(await contractIsActive(tx, req.nIde, req.nCont)))
+        throw new VacationError('NO_ACTIVE_CONTRACT');
       const rev = await currentRevision(tx, req);
       const allocs = await tx
         .select()

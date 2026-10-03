@@ -573,6 +573,38 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
     expect(await status(id)).toBe('PENDIENTE_JEFE');
   });
 
+  it('si el empleado ya salió (EST = C), no se aprueba su solicitud ni se descuentan días; sí se puede rechazar', async () => {
+    const a = await submit('2026-03-02', [{ progVacId: p1, days: 2 }]).expect(201);
+    const b = await submit('2026-06-01', [{ progVacId: p1, days: 1 }]).expect(201);
+    const [idA, idB] = [a.body.id as string, b.body.id as string];
+    await send(mgr, 'post', `/approvals/vacations/manager/${idA}/approve`).expect(200);
+    expect(await status(idA)).toBe('PENDIENTE_FINAL');
+
+    await db.update(employeeSnapshots).set({ est: 'C' }).where(eq(employeeSnapshots.nIde, '100'));
+
+    // ni el jefe ni la aprobación final conceden algo a quien ya no tiene contrato vigente
+    const finRes = await send(fin, 'post', `/approvals/vacations/final/${idA}/approve`).expect(422);
+    expect(finRes.body.code).toBe('NO_ACTIVE_CONTRACT');
+    const mgrRes = await send(mgr, 'post', `/approvals/vacations/manager/${idB}/approve`).expect(
+      422,
+    );
+    expect(mgrRes.body.code).toBe('NO_ACTIVE_CONTRACT');
+    expect(await status(idA)).toBe('PENDIENTE_FINAL');
+    expect(await status(idB)).toBe('PENDIENTE_JEFE');
+    expect(await db.select().from(vacaciones)).toHaveLength(0);
+    expect((await db.select().from(progVac).where(eq(progVac.id, p1)))[0]?.disp).toBe(10);
+
+    // la salida es rechazarlas, con motivo
+    await send(fin, 'post', `/approvals/vacations/final/${idA}/reject`, {
+      reason: 'La persona ya no tiene contrato vigente',
+    }).expect(200);
+    await send(mgr, 'post', `/approvals/vacations/manager/${idB}/reject`, {
+      reason: 'La persona ya no tiene contrato vigente',
+    }).expect(200);
+    expect(await status(idA)).toBe('RECHAZADA');
+    expect(await status(idB)).toBe('RECHAZADA');
+  });
+
   it('una solicitud nueva o una propuesta no pueden empezar antes de hoy (hora de Colombia)', async () => {
     const previous = process.env.VACATION_ALLOW_PAST_START;
     delete process.env.VACATION_ALLOW_PAST_START;
