@@ -5,11 +5,9 @@ import { Notice, formatDate } from '@/components/admin-ui';
 import { Alert, Field, Loading, PasswordField, SubmitButton } from '@/components/ui';
 import { NETWORK_ERROR } from '@/lib/api';
 import { useAdmin } from '@/lib/admin';
+import { RecoveryCodes, TotpEnroll, totpErrorText, type TotpState } from '@/components/totp-setup';
 
-interface State {
-  enabled: boolean;
-  enabledAt: string | null;
-}
+type State = TotpState;
 
 function errorText(status: number, data: unknown): string {
   const code = ((data ?? {}) as { code?: string }).code;
@@ -33,6 +31,8 @@ export default function TwoFactorPage() {
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [enrolling, setEnrolling] = useState(false);
+  const [codes, setCodes] = useState<string[] | null>(null);
 
   const load = useCallback(async () => {
     const res = await call<State>('/me/two-factor');
@@ -98,6 +98,68 @@ export default function TwoFactorPage() {
     } else setError(errorText(res.status, res.data));
   }
 
+  async function reauthTotp(path: string, e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    setOk(null);
+    const form = e.currentTarget;
+    const data = new FormData(form);
+    const password = String(data.get('password') ?? '');
+    const code = String(data.get('code') ?? '').trim();
+    if (!password || !code)
+      return setError('Escriba su clave y un código de la app o de respaldo.');
+    setBusy(true);
+    const res = await call<State & { recoveryCodes?: string[] }>(path, {
+      method: 'POST',
+      body: { password, code },
+    });
+    setBusy(false);
+    if (res.status !== 200 || !res.data) return setError(totpErrorText(res.status, res.data));
+    form.reset();
+    if (res.data.recoveryCodes) {
+      setCodes(res.data.recoveryCodes);
+      await load();
+    } else {
+      setState(res.data);
+      setOk('App autenticadora desactivada. Los ingresos vuelven a pedir un código por correo.');
+    }
+  }
+
+  if (codes)
+    return (
+      <>
+        <div className="page-head">
+          <h1>Verificación en dos pasos</h1>
+        </div>
+        <RecoveryCodes
+          codes={codes}
+          onDone={() => {
+            setCodes(null);
+            setOk(
+              'Verificación con app autenticadora activa. Sus códigos de respaldo están listos.',
+            );
+          }}
+        />
+      </>
+    );
+
+  if (enrolling)
+    return (
+      <>
+        <div className="page-head">
+          <h1>Verificación en dos pasos</h1>
+        </div>
+        <TotpEnroll
+          onCancel={() => setEnrolling(false)}
+          onActivated={(next, recovery) => {
+            setState(next);
+            setEnrolling(false);
+            setCodes(recovery);
+          }}
+        />
+      </>
+    );
+
   return (
     <>
       <div className="page-head">
@@ -154,7 +216,78 @@ export default function TwoFactorPage() {
         </section>
       ) : null}
 
-      {state !== null && state.enabled ? (
+      {state !== null && state.method !== 'TOTP' ? (
+        <section className="panel" aria-label="Usar una app autenticadora">
+          <h2>App autenticadora (Microsoft o Google Authenticator)</h2>
+          <p>
+            Alternativa al correo: un código de 6 dígitos que su teléfono calcula, sin depender del
+            buzón. Se configura escaneando un código QR.
+          </p>
+          <button type="button" onClick={() => setEnrolling(true)}>
+            {state.enabled ? 'Cambiar a app autenticadora' : 'Configurar app autenticadora'}
+          </button>
+        </section>
+      ) : null}
+
+      {state !== null && state.method === 'TOTP' ? (
+        <>
+          <section className="panel" aria-label="App autenticadora activa">
+            <h2>Estado: activada con app autenticadora</h2>
+            <p>
+              Está activada desde el{' '}
+              {state.enabledAt ? formatDate(state.enabledAt) : 'día indicado'}. Cada ingreso pide el
+              código de 6 dígitos de su app. Le quedan {state.recoveryCodesLeft} códigos de respaldo
+              sin usar.
+            </p>
+          </section>
+          <section className="panel" aria-label="Regenerar códigos de respaldo">
+            <h2>Códigos de respaldo nuevos</h2>
+            <p>Reemplazan a los anteriores, que dejan de servir.</p>
+            <form
+              onSubmit={(e) => void reauthTotp('/me/two-factor/totp/recovery-codes', e)}
+              noValidate
+            >
+              <PasswordField
+                label="Clave (para generar códigos nuevos)"
+                name="password"
+                autoComplete="current-password"
+                required
+              />
+              <Field
+                label="Código actual de la app"
+                name="code"
+                autoComplete="one-time-code"
+                required
+              />
+              <button type="submit" className="secondary" disabled={busy}>
+                Generar códigos de respaldo nuevos
+              </button>
+            </form>
+          </section>
+          <section className="panel" aria-label="Desactivar la app autenticadora">
+            <h2>Volver al código por correo</h2>
+            <form onSubmit={(e) => void reauthTotp('/me/two-factor/totp/disable', e)} noValidate>
+              <PasswordField
+                label="Clave (para desactivar la app)"
+                name="password"
+                autoComplete="current-password"
+                required
+              />
+              <Field
+                label="Código actual de la app"
+                name="code"
+                autoComplete="one-time-code"
+                required
+              />
+              <button type="submit" className="secondary" disabled={busy}>
+                Desactivar app autenticadora
+              </button>
+            </form>
+          </section>
+        </>
+      ) : null}
+
+      {state !== null && state.enabled && state.method !== 'TOTP' ? (
         <section className="panel" aria-label="Desactivar la verificación en dos pasos">
           <h2>Estado: activada</h2>
           <p>

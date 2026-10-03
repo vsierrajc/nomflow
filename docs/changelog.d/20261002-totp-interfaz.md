@@ -1,0 +1,1 @@
+Mi cuenta > Verificación en dos pasos: se puede activar la app autenticadora (Microsoft o Google Authenticator) escaneando un QR, con clave manual de respaldo y 10 códigos de un solo uso; el ingreso pide el código de la app o uno de respaldo.
