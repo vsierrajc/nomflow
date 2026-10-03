@@ -31,6 +31,9 @@ describe('pasos del flujo', () => {
     expect(st('APROBADA')).toEqual(['done', 'done', 'done', 'done']);
     expect(st('RECHAZADA')).toEqual(['done', 'rejected', 'todo', 'todo']);
     expect(st('CANCELADA')).toEqual(['done', 'cancelled', 'todo', 'todo']);
+    // anulada por Gestión Humana: ya había sido aprobada, y el resultado dice «Anulada»
+    expect(st('ANULADA')).toEqual(['done', 'done', 'done', 'cancelled']);
+    expect(vacationSteps('ANULADA').at(-1)?.label).toBe('Anulada');
   });
   it('permisos: solo decide el jefe', () => {
     const st = (s: string) => permitSteps(s).map((x) => x.state);

@@ -10,6 +10,7 @@ import {
   notificationSettings,
   permitRequests,
   roleAssignments,
+  vacaciones,
   vacationRequests,
 } from '../db/schema';
 import { MAILER, type Mailer } from '../mail/mailer';
@@ -176,12 +177,20 @@ export class NotificationService {
             'PENDIENTE_FINAL',
           ]),
           and(
-            inArray(vacationRequests.status, ['APROBADA', 'RECHAZADA']),
+            inArray(vacationRequests.status, ['APROBADA', 'RECHAZADA', 'ANULADA']),
             gte(vacationRequests.updatedAt, new Date(Date.now() - RESULT_DAYS * DAY)),
           ),
         ),
       );
     const dates = await vacationDates(this.db, vac);
+    const annulIds = vac.filter((r) => r.status === 'ANULADA').map((r) => r.id);
+    const annulReason = new Map<string, string>();
+    if (annulIds.length > 0)
+      for (const a of await this.db
+        .select({ requestId: vacaciones.requestId, reason: vacaciones.annulReason })
+        .from(vacaciones)
+        .where(inArray(vacaciones.requestId, annulIds)))
+        if (a.reason) annulReason.set(a.requestId, a.reason);
     for (const r of vac) {
       const who = await nameOf(this.db, names, r.nIde, r.nCont);
       const d = dates.get(r.id) ?? '';
@@ -208,6 +217,16 @@ export class NotificationService {
           recipient: r.accountId,
           category: 'NUEVA',
           text: `Su solicitud de vacaciones (${d}): el jefe propuso un cambio y espera su respuesta.`,
+        });
+      else if (r.status === 'ANULADA' && s.notifyEmployee)
+        out.push({
+          ...base,
+          recipient: r.accountId,
+          category: 'RESULTADO',
+          text:
+            `Su disfrute de vacaciones (${d}) fue anulado por Gestión Humana.` +
+            (annulReason.has(r.id) ? ` Motivo: ${annulReason.get(r.id)}.` : '') +
+            ' Los días volvieron a su saldo y puede solicitar de nuevo.',
         });
       else if ((r.status === 'APROBADA' || r.status === 'RECHAZADA') && s.notifyEmployee)
         out.push({

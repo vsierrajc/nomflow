@@ -16,6 +16,7 @@ import {
   permitRequests,
   permitTypes,
   roleAssignments,
+  vacaciones,
   vacationRequests,
   vacationRevisions,
 } from '../db/schema';
@@ -199,6 +200,54 @@ describe.skipIf(!url)('avisos por correo del flujo (HTTP + PostgreSQL)', () => {
     expect(to()).toEqual(['emp@x.co']);
     expect(sent[0]?.subject).toContain('Respuesta');
     expect(sent[0]?.text).toContain('fue aprobada');
+  });
+
+  it('si Gestión Humana anula un disfrute, el empleado recibe el aviso con el motivo, una sola vez', async () => {
+    const id = await vacation('APROBADA');
+    await svc.sweep();
+    expect(sent[0]?.text).toContain('fue aprobada');
+    sent.length = 0;
+
+    const [rev] = await db
+      .select()
+      .from(vacationRevisions)
+      .where(eq(vacationRevisions.requestId, id));
+    await db.insert(vacaciones).values({
+      requestId: id,
+      revisionId: rev?.id ?? '',
+      nIde: 'EMP',
+      nCont: '1',
+      fecIniDis: '2026-11-02',
+      fecFinDis: '2026-11-13',
+      diasDis: 11,
+      diasHabiles: 10,
+      fechaRetorno: '2026-11-16',
+      annulledAt: new Date(),
+      annulledBy: ids.ADM ?? '',
+      annulReason: 'Se aprobó con las fechas equivocadas',
+    });
+    await db.update(vacationRequests).set({ status: 'ANULADA' }).where(eq(vacationRequests.id, id));
+    await svc.sweep();
+    expect(to()).toEqual(['emp@x.co']);
+    expect(sent[0]?.subject).toContain('Respuesta');
+    expect(sent[0]?.text).toContain('fue anulado por Gestión Humana');
+    expect(sent[0]?.text).toContain('Motivo: Se aprobó con las fechas equivocadas.');
+    expect(sent[0]?.text).toContain('puede solicitar de nuevo');
+
+    // no se repite en el barrido siguiente
+    sent.length = 0;
+    await svc.sweep();
+    expect(sent).toHaveLength(0);
+  });
+
+  it('una anulación vieja ya no se avisa', async () => {
+    const id = await vacation('ANULADA');
+    await db
+      .update(vacationRequests)
+      .set({ updatedAt: new Date(Date.now() - 10 * 86_400_000) })
+      .where(eq(vacationRequests.id, id));
+    await svc.sweep();
+    expect(sent).toHaveLength(0);
   });
 
   it('permisos: aviso al jefe y respuesta al empleado', async () => {

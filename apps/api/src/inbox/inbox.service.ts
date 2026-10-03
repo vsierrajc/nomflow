@@ -47,6 +47,7 @@ const VACATION_LABEL: Record<string, string> = {
   APROBADA: 'Aprobada',
   RECHAZADA: 'Rechazada',
   CANCELADA: 'Cancelada',
+  ANULADA: 'Anulada por Gestión Humana',
 };
 const PERMIT_LABEL: Record<string, string> = {
   PENDIENTE_JEFE: 'Pendiente del jefe de área',
@@ -82,6 +83,9 @@ export function vacationSteps(status: string): FlowStep[] {
       return s('done', 'done', 'done', 'done');
     case 'RECHAZADA':
       return s('done', 'rejected', 'todo', 'todo', 'Rechazada');
+    case 'ANULADA':
+      // ya había pasado por todas las aprobaciones: Gestión Humana la anuló después
+      return s('done', 'done', 'done', 'cancelled', 'Anulada');
     default:
       return s('done', 'cancelled', 'todo', 'todo', 'Cancelada');
   }
