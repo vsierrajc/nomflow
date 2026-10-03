@@ -89,6 +89,8 @@ export function vacationError(status: number, data: unknown): string {
       return 'Indique al menos un día por período elegido.';
     case 'INVALID_DATE':
       return 'La fecha no es válida.';
+    case 'START_IN_PAST':
+      return 'La fecha inicial no puede ser anterior a hoy.';
     case 'NO_MANAGER':
       return 'Su área no tiene un jefe vigente asignado, por lo que no se puede enviar la solicitud. Avise a Gestión Humana.';
     case 'OVERLAP':

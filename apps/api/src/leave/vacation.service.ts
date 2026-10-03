@@ -19,6 +19,7 @@ import {
   resolveAreaManager,
   resolveGeneralManager,
 } from '../org/area-managers.service';
+import { todayBogota } from './business-days';
 import { PlanError, hashPlan, planLeave, prepareCalendars, type Allocation } from './leave-plan';
 import { internalState } from './prog-vac.service';
 
@@ -37,7 +38,8 @@ export type VacationErrorCode =
   | 'ALREADY_ANNULLED'
   | 'ENDED'
   | 'PERIOD_GONE'
-  | 'ANNULLED';
+  | 'ANNULLED'
+  | 'START_IN_PAST';
 
 export class VacationError extends Error {
   constructor(
@@ -50,6 +52,16 @@ export class VacationError extends Error {
 
 export const OPEN_STATUSES = ['PENDIENTE_JEFE', 'REVISION_EMPLEADO', 'PENDIENTE_FINAL'] as const;
 const BLOCKING = [...OPEN_STATUSES, 'APROBADA'];
+
+/**
+ * Una solicitud nueva (o una propuesta del jefe) no puede empezar antes de hoy (hora de Colombia).
+ * Solo en creación: la aprobación final vuelve a calcular con la fecha ya aceptada, que puede haber pasado
+ * mientras esperaba. `VACATION_ALLOW_PAST_START=true` permite registrar vacaciones ya tomadas.
+ */
+export function assertStartNotPast(start: string): void {
+  if (process.env.VACATION_ALLOW_PAST_START === 'true') return;
+  if (start < todayBogota()) throw new VacationError('START_IN_PAST');
+}
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 type Runner = Db | Tx;
@@ -228,9 +240,10 @@ export async function submitRequest(
 ) {
   const c = await contractOf(db, accountId);
   if (!c?.cEmp || !c.cArea) throw new VacationError('NO_ACTIVE_CONTRACT');
+  assertStartNotPast(input.start);
   await prepareCalendars(db, accountId, input.start, input.allocations);
   const plan = await planLeave(db, c, input.start, input.allocations);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayBogota();
   const approver = await firstApprover(db, accountId, c.cEmp, c.cArea, today);
   if (!approver) {
     await audit(db, accountId, 'VACATION_SUBMIT', null, 'NO_MANAGER');
@@ -544,6 +557,7 @@ export async function managerPropose(
   input: { start: string; allocations: Allocation[]; reason?: string | undefined },
 ) {
   const reason = needReason(input.reason);
+  assertStartNotPast(input.start);
   // Fuera de la transacción: puede consultar el servicio externo si falta el calendario de un año.
   await prepareCalendars(db, actor, input.start, input.allocations);
   try {
@@ -720,7 +734,7 @@ export async function annulApproved(
       if (req.status !== 'APROBADA') throw new VacationError('NOT_APPROVED');
       const [vac] = await tx.select().from(vacaciones).where(eq(vacaciones.requestId, id));
       if (!vac) throw new VacationError('NOT_APPROVED');
-      if (vac.fecFinDis < new Date().toISOString().slice(0, 10)) throw new VacationError('ENDED');
+      if (vac.fecFinDis < todayBogota()) throw new VacationError('ENDED');
       const rev = await currentRevision(tx, req);
       const allocs = await tx
         .select()
@@ -859,7 +873,7 @@ export async function adminApproved(db: Db, q: ApprovedQuery) {
       .limit(1);
     names.set(nIde, e?.nombre ?? nIde);
   }
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayBogota();
   return {
     total,
     page: q.page,

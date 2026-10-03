@@ -7,13 +7,10 @@ import {
 } from '@nestjs/common';
 import type { Db } from '../db/client';
 import { DB } from '../db/db.module';
+import { todayBogota } from './business-days';
 import { runVacationCycles } from './vacation-cycle.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-function todayBogota(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
-}
 
 /**
  * Una vez al día genera el período de vacaciones (15 días) del ciclo de 360 días que se cumpla, por cada

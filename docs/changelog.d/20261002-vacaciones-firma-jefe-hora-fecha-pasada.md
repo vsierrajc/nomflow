@@ -1,0 +1,1 @@
+Vacaciones: la constancia de una solicitud en la que el jefe propuso cambios ahora lleva también la firma del jefe; «hoy» se calcula en hora de Colombia (antes UTC) al anular un disfrute, listar los anulables y resolver el aprobador al enviar; y una solicitud nueva o una propuesta ya no puede empezar antes de hoy (`VACATION_ALLOW_PAST_START=true` lo permite).
