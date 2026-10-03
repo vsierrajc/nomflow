@@ -17,6 +17,7 @@ import { letterheadForCompanyCode } from '../org/letterhead.service';
 import { logoForCompanyCode } from '../org/logos.service';
 import { ObjectStoreError, type ObjectStore } from '../storage/object-store';
 import { renderVacationPdf, type VacationDocData } from './vacation-document.pdf';
+import { signatureForDocument } from './approver-signature.service';
 import { VacationError, loadViewable } from './vacation.service';
 
 const ACTION_LABEL: Record<string, string> = {
@@ -25,6 +26,13 @@ const ACTION_LABEL: Record<string, string> = {
   PROPONER: 'Cambio propuesto por el jefe de área',
   APROBAR_JEFE: 'Aprobada por el jefe de área',
   APROBAR_FINAL: 'Aprobación final',
+};
+
+/** Cargo con que firma quien dio la primera aprobación, según el rol con que actuó. */
+const FIRST_APPROVER_TITLE: Record<string, string> = {
+  AREA_MANAGER: 'Jefe de área',
+  AREA_DIRECTOR: 'Director de área',
+  GENERAL_MANAGER: 'Gerente general',
 };
 
 const sha256 = (b: Buffer) => createHash('sha256').update(b).digest('hex');
@@ -70,6 +78,7 @@ async function buildData(db: Db, requestId: string): Promise<VacationDocData | n
       revision: vacationActions.revisionNumber,
       comment: vacationActions.comment,
       nIde: accounts.nIde,
+      accountId: accounts.id,
     })
     .from(vacationActions)
     .innerJoin(accounts, eq(accounts.id, vacationActions.actorAccountId))
@@ -87,6 +96,21 @@ async function buildData(db: Db, requestId: string): Promise<VacationDocData | n
   }
   const [company] = await db.select().from(companies).where(eq(companies.cEmp, req.cEmp));
   const finalAction = actions.filter((a) => a.action === 'APROBAR_FINAL').at(-1);
+  const firstAction = actions.filter((a) => a.action === 'APROBAR_JEFE').at(-1);
+  const signatures = [];
+  for (const [act, title] of [
+    [firstAction, FIRST_APPROVER_TITLE[req.firstApproverRole] ?? 'Jefe de área'],
+    [finalAction, 'Aprobación final'],
+  ] as const) {
+    if (!act) continue;
+    const sig = await signatureForDocument(db, act.accountId);
+    signatures.push({
+      title,
+      name: nameOf.get(act.nIde) ?? act.nIde,
+      at: act.at,
+      image: sig?.data ?? null,
+    });
+  }
   return {
     requestId,
     revision: rev.number,
@@ -112,6 +136,7 @@ async function buildData(db: Db, requestId: string): Promise<VacationDocData | n
         revision: a.revision,
         comment: a.comment,
       })),
+    signatures,
     approvedAt: finalAction?.at ?? req.updatedAt,
   };
 }

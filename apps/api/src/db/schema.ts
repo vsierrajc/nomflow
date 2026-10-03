@@ -1082,6 +1082,25 @@ export const certificateSigners = pgTable(
   (t) => [uniqueIndex('certificate_signers_uq').on(t.cEmp, t.accountId)],
 );
 
+/**
+ * Firma en imagen de quien aprueba vacaciones (jefe, director, gerente o aprobación final), para la
+ * constancia. Es propia de cada persona y de este uso: autorizarla para certificados laborales no
+ * la habilita aquí. Una por cuenta.
+ */
+export const approverSignatures = pgTable('approver_signatures', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id')
+    .notNull()
+    .unique()
+    .references(() => accounts.id),
+  signature: bytea('signature').notNull(),
+  contentType: text('content_type').notNull(),
+  sha256: text('sha256').notNull(),
+  /** Cuándo la persona cargó su firma y autorizó su uso en las constancias de vacaciones. */
+  consentAt: timestamp('consent_at', { withTimezone: true }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** Historial de certificados laborales emitidos: uno por solicitud del empleado. */
 export const certificateRequests = pgTable(
   'certificate_requests',

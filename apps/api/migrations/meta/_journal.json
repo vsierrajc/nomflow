@@ -253,6 +253,13 @@
       "when": 1790805629328,
       "tag": "0035_certificado_retirado_bandeja",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790879037754,
+      "tag": "0036_firma_aprobador",
+      "breakpoints": true
     }
   ]
 }

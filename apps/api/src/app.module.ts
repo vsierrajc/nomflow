@@ -34,6 +34,7 @@ import {
   ManagerPermitsController,
   MePermitsController,
 } from './leave/permit.controller';
+import { MeApproverSignatureController } from './leave/approver-signature.controller';
 import { AdminShiftsController } from './leave/shift.controller';
 import {
   AdminLaborCertController,
@@ -84,6 +85,7 @@ import { ExitModule } from './exit/exit.module';
     MePermitsController,
     ManagerPermitsController,
     AdminShiftsController,
+    MeApproverSignatureController,
     AdminMailController,
     InboxController,
     AdminNotificationsController,

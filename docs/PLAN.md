@@ -50,7 +50,7 @@ Decisiones de esta fase: valor inicial de `PRE_BAJA_AVISO_DIAS`, si cuenta días
 
 | # | Alcance | Referencia |
 | --- | --- | --- |
-| 3.1 | **PDF de la constancia con las firmas** visuales de quienes aprueban (jefe, director, gerente y aprobación final) | ESS-LEAVE-003 |
+| 3.1 | ~~**PDF de la constancia con las firmas** visuales de quienes aprueban (jefe, director, gerente y aprobación final)~~ DONE: cada aprobador carga su firma en Mi cuenta → Mi firma de aprobación (`/me/approver-signature`, con autorización propia, distinta de la de certificados); la constancia lleva la firma del primer aprobador (con su cargo: jefe, director o gerente) y de la aprobación final, o dice «Firma en imagen no registrada» | ESS-LEAVE-003 |
 | 3.2 | **Suplencias** del jefe, del director y del aprobador final | ESS-ORG-002 |
 | 3.3 | Corrección de disfrutes ya registrados y reintento de la API de festivos | ESS-LEAVE-002, ESS-HOL-001 |
 | 3.4 | Reglas de permisos por tipo (anticipación mínima, tope anual), consulta administrativa con motivo y PDF; decidir si la jerarquía jefe > director > gerente aplica también a permisos | ESS-PERM-001 |
