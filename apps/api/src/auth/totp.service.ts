@@ -1,9 +1,15 @@
 import { createHmac, randomBytes } from 'node:crypto';
-import { and, eq, isNull, or, lt, sql } from 'drizzle-orm';
+import { and, eq, gt, isNull, lt, or, sql } from 'drizzle-orm';
 import * as OTPAuth from 'otpauth';
 import QRCode from 'qrcode';
 import type { Db } from '../db/client';
-import { accountRecoveryCodes, accounts, accountTotp, auditLogs } from '../db/schema';
+import {
+  accountRecoveryCodes,
+  accounts,
+  accountTotp,
+  auditLogs,
+  twoFactorChallenges,
+} from '../db/schema';
 import { verifyPassword } from '../accounts/password.service';
 import { open, seal } from '../security/secret-box';
 import { getSessionSecret, revokeAllForAccount } from './session.service';
@@ -284,4 +290,97 @@ export async function clearTotpByAdmin(db: Db, actorId: string, accountId: strin
     resourceId: accountId,
     result: 'SUCCESS',
   });
+}
+
+export const TOTP_CHALLENGE_TTL_MINUTES = 10;
+export const MAX_TOTP_CHALLENGE_ATTEMPTS = 5;
+
+/** Reto del ingreso con TOTP: no hay código que enviar, solo un identificador con intentos limitados. */
+export async function issueTotpChallenge(
+  db: Db,
+  accountId: string,
+): Promise<{ challengeId: string }> {
+  const challenge = await db.transaction(async (tx) => {
+    await tx
+      .update(twoFactorChallenges)
+      .set({ usedAt: new Date() })
+      .where(
+        and(
+          eq(twoFactorChallenges.accountId, accountId),
+          eq(twoFactorChallenges.purpose, 'LOGIN'),
+          isNull(twoFactorChallenges.usedAt),
+        ),
+      );
+    const [row] = await tx
+      .insert(twoFactorChallenges)
+      .values({
+        accountId,
+        purpose: 'LOGIN',
+        method: 'TOTP',
+        expiresAt: new Date(Date.now() + TOTP_CHALLENGE_TTL_MINUTES * 60_000),
+      })
+      .returning({ id: twoFactorChallenges.id });
+    if (!row) throw new Error('reto no creado');
+    return row;
+  });
+  return { challengeId: challenge.id };
+}
+
+/** Método del reto de ingreso vigente, o null si no existe, venció o ya se usó. */
+export async function loginChallengeMethod(db: Db, challengeId: string) {
+  const [c] = await db
+    .select({ method: twoFactorChallenges.method })
+    .from(twoFactorChallenges)
+    .where(
+      and(
+        eq(twoFactorChallenges.id, challengeId),
+        eq(twoFactorChallenges.purpose, 'LOGIN'),
+        isNull(twoFactorChallenges.usedAt),
+        gt(twoFactorChallenges.expiresAt, new Date()),
+      ),
+    );
+  return c?.method ?? null;
+}
+
+/**
+ * Verifica el código de un reto TOTP. Cada intento cuenta (máx. 5); con un acierto el reto se
+ * consume. Devuelve la cuenta del reto.
+ */
+export async function verifyTotpChallenge(
+  db: Db,
+  challengeId: string,
+  code: string,
+): Promise<string> {
+  const reject = async (accountId: string | null): Promise<never> => {
+    await audit(db, accountId, 'TOTP_LOGIN_VERIFY', 'INVALID_CODE');
+    throw new TotpError('INVALID_CODE');
+  };
+  const [counted] = await db
+    .update(twoFactorChallenges)
+    .set({ attempts: sql`${twoFactorChallenges.attempts} + 1` })
+    .where(
+      and(
+        eq(twoFactorChallenges.id, challengeId),
+        eq(twoFactorChallenges.purpose, 'LOGIN'),
+        eq(twoFactorChallenges.method, 'TOTP'),
+        isNull(twoFactorChallenges.usedAt),
+        gt(twoFactorChallenges.expiresAt, new Date()),
+        lt(twoFactorChallenges.attempts, MAX_TOTP_CHALLENGE_ATTEMPTS),
+      ),
+    )
+    .returning({ accountId: twoFactorChallenges.accountId });
+  if (!counted) return reject(null);
+  try {
+    await verifyTotp(db, counted.accountId, code);
+  } catch (e) {
+    if (e instanceof TotpError) return reject(counted.accountId);
+    throw e;
+  }
+  const used = await db
+    .update(twoFactorChallenges)
+    .set({ usedAt: new Date() })
+    .where(and(eq(twoFactorChallenges.id, challengeId), isNull(twoFactorChallenges.usedAt)))
+    .returning({ id: twoFactorChallenges.id });
+  if (used.length === 0) return reject(counted.accountId);
+  return counted.accountId;
 }

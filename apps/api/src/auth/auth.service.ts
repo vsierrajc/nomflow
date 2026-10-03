@@ -7,6 +7,12 @@ import { ADMIN_ROLES, hasActiveRole } from './roles';
 import type { Mailer } from '../mail/mailer';
 import { createSession, markReauthenticated, type SessionMeta } from './session.service';
 import { issueChallenge, verifyChallenge, TwoFactorError } from './two-factor.service';
+import {
+  issueTotpChallenge,
+  loginChallengeMethod,
+  TotpError,
+  verifyTotpChallenge,
+} from './totp.service';
 
 export const MAX_FAILED_ATTEMPTS = 5;
 export const LOCK_MINUTES = 15;
@@ -41,7 +47,7 @@ async function fail(db: Db, accountId: string | null, reason: LoginFailure): Pro
 export type LoginResult =
   | { kind: 'SESSION'; token: string; sessionId: string; accountId: string }
   /** La clave fue correcta y falta el código enviado al correo (doble paso activado). */
-  | { kind: 'TWO_FACTOR'; challengeId: string };
+  | { kind: 'TWO_FACTOR'; challengeId: string; method: 'EMAIL' | 'TOTP' };
 
 export async function login(
   db: Db,
@@ -99,9 +105,13 @@ export async function login(
   if (account.twoFactorEnabled) {
     // Nunca se abre sesión sin el código: si no se puede enviar, el ingreso falla.
     try {
-      const { challengeId } = await issueChallenge(db, mailer, account.id, 'LOGIN');
+      const method = account.twoFactorMethod === 'TOTP' ? 'TOTP' : 'EMAIL';
+      const { challengeId } =
+        method === 'TOTP'
+          ? await issueTotpChallenge(db, account.id)
+          : await issueChallenge(db, mailer, account.id, 'LOGIN');
       await audit(db, account.id, 'LOGIN', 'TWO_FACTOR_REQUIRED');
-      return { kind: 'TWO_FACTOR', challengeId };
+      return { kind: 'TWO_FACTOR', challengeId, method };
     } catch (e) {
       if (e instanceof TwoFactorError) return fail(db, account.id, 'TWO_FACTOR_UNAVAILABLE');
       throw e;
@@ -125,9 +135,13 @@ export async function completeTwoFactorLogin(
 ): Promise<LoginResult> {
   let accountId: string;
   try {
-    accountId = await verifyChallenge(db, challengeId, 'LOGIN', code);
+    accountId =
+      (await loginChallengeMethod(db, challengeId)) === 'TOTP'
+        ? await verifyTotpChallenge(db, challengeId, code)
+        : await verifyChallenge(db, challengeId, 'LOGIN', code);
   } catch (e) {
-    if (e instanceof TwoFactorError) return fail(db, null, 'INVALID_CREDENTIALS');
+    if (e instanceof TwoFactorError || e instanceof TotpError)
+      return fail(db, null, 'INVALID_CREDENTIALS');
     throw e;
   }
   const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId));

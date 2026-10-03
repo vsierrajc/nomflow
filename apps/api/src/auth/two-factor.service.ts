@@ -5,7 +5,7 @@ import { accounts, auditLogs, twoFactorChallenges } from '../db/schema';
 import type { Mailer } from '../mail/mailer';
 import { verifyPassword } from '../accounts/password.service';
 import { getSessionSecret } from './session.service';
-import { clearTotpByAdmin, clearTotpData } from './totp.service';
+import { clearTotpByAdmin, clearTotpData, getTotpState } from './totp.service';
 
 export const TWO_FACTOR_TTL_MINUTES = 10;
 export const MAX_CHALLENGE_ATTEMPTS = 5;
@@ -187,10 +187,20 @@ export async function verifyChallenge(
 
 export async function getState(db: Db, accountId: string) {
   const [a] = await db
-    .select({ enabled: accounts.twoFactorEnabled, enabledAt: accounts.twoFactorEnabledAt })
+    .select({
+      enabled: accounts.twoFactorEnabled,
+      enabledAt: accounts.twoFactorEnabledAt,
+      method: accounts.twoFactorMethod,
+    })
     .from(accounts)
     .where(eq(accounts.id, accountId));
-  return { enabled: a?.enabled ?? false, enabledAt: a?.enabledAt ?? null };
+  const enabled = a?.enabled ?? false;
+  return {
+    enabled,
+    enabledAt: a?.enabledAt ?? null,
+    method: enabled && a?.method === 'TOTP' ? ('TOTP' as const) : ('EMAIL' as const),
+    recoveryCodesLeft: enabled ? (await getTotpState(db, accountId)).recoveryCodesLeft : 0,
+  };
 }
 
 /** Paso 1 de la activación: envía un código al correo para comprobar que se controla ese buzón. */
