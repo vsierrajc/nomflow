@@ -1,0 +1,1 @@
+ALTER TABLE "prog_vac_adjustments" ALTER COLUMN "actor_account_id" DROP NOT NULL;

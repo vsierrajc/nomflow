@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createDb } from '../db/client';
 import { runMigrations } from '../db/migrate';
-import { employeeSnapshots, progVac } from '../db/schema';
+import { employeeSnapshots, progVac, progVacAdjustments } from '../db/schema';
 import { addDays } from './business-days';
 import { CYCLE_DAYS, cycleRange, dueCycles, runVacationCycles } from './vacation-cycle.service';
 
@@ -116,6 +116,49 @@ describe.skipIf(!url)('generación automática de vacaciones por ciclo (HTTP + P
     expect(rows).toHaveLength(4);
     expect(rows[0]).toMatchObject({ estado: 'VENCIDA', disp: 0 }); // el ciclo 1, el más antiguo
     expect(rows.slice(1).every((p) => p.estado === 'ACTIVA' && p.disp === 15)).toBe(true);
+  });
+
+  it('el vencimiento deja un ajuste versionado del sistema con los días que se pierden', async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const start = addDays(today, -CYCLE_DAYS * 4);
+    await employee('510', start);
+    for (let n = 1; n <= 3; n++) {
+      const { perIni, perFin } = cycleRange(start, n);
+      // el ciclo más antiguo ya se disfrutó en parte: le quedaban 6 de 15 días
+      await db
+        .insert(progVac)
+        .values({ nIde: '510', nCont: '1', perIni, perFin, dias: 15, disp: n === 1 ? 6 : 15 });
+    }
+    await runVacationCycles(db, today);
+    const [expired] = (await periodsOf('510')).slice(0, 1);
+    expect(expired).toMatchObject({ estado: 'VENCIDA', disp: 0 });
+
+    const history = await db
+      .select()
+      .from(progVacAdjustments)
+      .where(eq(progVacAdjustments.progVacId, expired?.id ?? ''));
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({
+      actorAccountId: null, // lo hizo el sistema
+      version: 2,
+      oldDias: 15,
+      newDias: 15,
+      oldDisp: 6,
+      newDisp: 0,
+    });
+    expect(history[0]?.reason).toContain('Vencido por el tope de 3 períodos acumulados');
+    expect(
+      (
+        await db
+          .select()
+          .from(progVac)
+          .where(eq(progVac.id, expired?.id ?? ''))
+      )[0]?.version,
+    ).toBe(2);
+    // los otros períodos no se tocan
+    const others = (await periodsOf('510')).slice(1);
+    expect(others.every((p) => p.version === 1)).toBe(true);
+    expect(await db.select().from(progVacAdjustments)).toHaveLength(1);
   });
 
   it('un período ya liquidado no cuenta para el tope de 3', async () => {

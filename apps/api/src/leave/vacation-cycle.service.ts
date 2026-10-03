@@ -1,6 +1,6 @@
 import { and, asc, eq, isNotNull, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
-import { auditLogs, employeeSnapshots, progVac } from '../db/schema';
+import { auditLogs, employeeSnapshots, progVac, progVacAdjustments } from '../db/schema';
 import { addDays, isValidIsoDate } from './business-days';
 
 /** Días de un ciclo de causación y días de vacación que otorga (SSD, regla de negocio confirmada). */
@@ -112,7 +112,14 @@ export async function runVacationCycles(db: Db, today: string): Promise<CycleRun
         if (already.length > 0) return; // ya creado por una ejecución anterior o manualmente
 
         const accrued = await tx
-          .select({ id: progVac.id, perIni: progVac.perIni, createdAt: progVac.createdAt })
+          .select({
+            id: progVac.id,
+            perIni: progVac.perIni,
+            dias: progVac.dias,
+            disp: progVac.disp,
+            version: progVac.version,
+            createdAt: progVac.createdAt,
+          })
           .from(progVac)
           .where(
             and(
@@ -126,9 +133,21 @@ export async function runVacationCycles(db: Db, today: string): Promise<CycleRun
         if (accrued.length >= MAX_ACCRUED_PERIODS) {
           const oldest = accrued[0];
           if (oldest) {
+            // Los días que se pierden quedan en el historial versionado del período, sin usuario (sistema).
+            const version = oldest.version + 1;
+            await tx.insert(progVacAdjustments).values({
+              progVacId: oldest.id,
+              actorAccountId: null,
+              version,
+              oldDias: oldest.dias,
+              newDias: oldest.dias,
+              oldDisp: oldest.disp,
+              newDisp: 0,
+              reason: `Vencido por el tope de ${MAX_ACCRUED_PERIODS} períodos acumulados al generarse el ciclo ${perIni} a ${perFin} (ciclo automático)`,
+            });
             await tx
               .update(progVac)
-              .set({ disp: 0, estado: 'VENCIDA', updatedAt: new Date() })
+              .set({ disp: 0, estado: 'VENCIDA', version, updatedAt: new Date() })
               .where(eq(progVac.id, oldest.id));
             await audit(tx, 'VACATION_CYCLE_EXPIRE', oldest.id, 'SUCCESS', {
               nIde: c.nIde,

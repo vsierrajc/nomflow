@@ -595,9 +595,8 @@ export const progVacAdjustments = pgTable(
     progVacId: uuid('prog_vac_id')
       .notNull()
       .references(() => progVac.id),
-    actorAccountId: uuid('actor_account_id')
-      .notNull()
-      .references(() => accounts.id),
+    /** Nulo: lo hizo el sistema (el ciclo automático al vencer un período), sin un usuario. */
+    actorAccountId: uuid('actor_account_id').references(() => accounts.id),
     version: integer('version').notNull(),
     oldDias: integer('old_dias').notNull(),
     newDias: integer('new_dias').notNull(),

@@ -281,6 +281,13 @@
       "when": 1790991511153,
       "tag": "0039_anular_disfrute_festivos",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1791031282025,
+      "tag": "0040_ajuste_del_sistema",
+      "breakpoints": true
     }
   ]
 }
