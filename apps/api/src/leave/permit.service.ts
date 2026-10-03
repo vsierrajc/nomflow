@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import {
   auditLogs,
@@ -216,6 +216,7 @@ async function overlaps(
     .where(
       and(
         eq(vacaciones.nIde, nIde),
+        isNull(vacaciones.annulledAt),
         sql`${vacaciones.fecIniDis} <= ${end} and ${vacaciones.fecFinDis} >= ${start}`,
       ),
     )

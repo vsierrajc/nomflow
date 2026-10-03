@@ -726,12 +726,30 @@ export const vacaciones = pgTable(
     diasHabiles: integer('dias_habiles').notNull(),
     fechaRetorno: date('fecha_retorno').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Gestión Humana anuló el disfrute: los días volvieron a PROG_VAC y deja de contar como disfrute. */
+    annulledAt: timestamp('annulled_at', { withTimezone: true }),
+    annulledBy: uuid('annulled_by').references(() => accounts.id),
+    annulReason: text('annul_reason'),
   },
   (t) => [
     uniqueIndex('vacaciones_request_uq').on(t.requestId),
     index('vacaciones_person_idx').on(t.nIde, t.nCont, t.fecIniDis),
   ],
 );
+
+/**
+ * Último intento de cargar el calendario de festivos de un año desde el servicio externo. Sobrevive a
+ * los reinicios (antes el fallo solo se recordaba en memoria) y alimenta la pantalla de años pendientes.
+ */
+export const holidayYearLoads = pgTable('holiday_year_loads', {
+  year: integer('year').primaryKey(),
+  lastAttemptAt: timestamp('last_attempt_at', { withTimezone: true }).notNull().defaultNow(),
+  /** OK o el código del fallo (UNAVAILABLE, INVALID_RESPONSE, ...). */
+  lastStatus: text('last_status').notNull(),
+  lastSuccessAt: timestamp('last_success_at', { withTimezone: true }),
+  /** Fallos seguidos desde el último éxito. */
+  failures: integer('failures').notNull().default(0),
+});
 
 /** Configuración del servicio externo de festivos (una sola fila). La clave se guarda cifrada. */
 export const holidayApiSettings = pgTable('holiday_api_settings', {

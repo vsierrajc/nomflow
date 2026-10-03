@@ -217,6 +217,7 @@ export async function getVacationDocument(
   requestId: string,
 ): Promise<{ data: Buffer; fileName: string }> {
   const { req } = await loadViewable(db, viewerId, requestId);
+  if (req.status === 'ANULADA') throw new VacationError('ANNULLED'); // el disfrute se anuló: ya no se entrega
   if (req.status !== 'APROBADA') throw new VacationError('NOT_FOUND'); // solo hay constancia si se aprobó
   const doc = await ensureVacationDocument(db, store, requestId);
   if (!doc) throw new VacationError('NOT_FOUND');

@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import {
   accounts,
@@ -32,7 +32,12 @@ export type VacationErrorCode =
   | 'REASON_REQUIRED'
   | 'CALENDAR_CHANGED'
   | 'INSUFFICIENT_DISP'
-  | 'NO_ACTIVE_CONTRACT';
+  | 'NO_ACTIVE_CONTRACT'
+  | 'NOT_APPROVED'
+  | 'ALREADY_ANNULLED'
+  | 'ENDED'
+  | 'PERIOD_GONE'
+  | 'ANNULLED';
 
 export class VacationError extends Error {
   constructor(
@@ -689,6 +694,184 @@ export async function listApprovedFor(db: Db, nIde: string) {
   return db
     .select()
     .from(vacaciones)
-    .where(eq(vacaciones.nIde, nIde))
+    .where(and(eq(vacaciones.nIde, nIde), isNull(vacaciones.annulledAt)))
     .orderBy(desc(vacaciones.fecIniDis));
+}
+
+// ---------- anulación de un disfrute ya aprobado (Gestión Humana) ----------
+
+/**
+ * Anula un disfrute aprobado: devuelve los días a los períodos de PROG_VAC de donde se descontaron, marca
+ * la solicitud como ANULADA y deja el motivo. Solo mientras el disfrute no haya terminado. La constancia
+ * deja de entregarse y el empleado puede solicitar de nuevo.
+ */
+export async function annulApproved(
+  db: Db,
+  actor: string,
+  id: string,
+  reasonInput: string | undefined,
+) {
+  const reason = needReason(reasonInput);
+  try {
+    await db.transaction(async (tx) => {
+      await lockRequest(tx, id);
+      const req = await loadRequest(tx, id);
+      if (req.status === 'ANULADA') throw new VacationError('ALREADY_ANNULLED');
+      if (req.status !== 'APROBADA') throw new VacationError('NOT_APPROVED');
+      const [vac] = await tx.select().from(vacaciones).where(eq(vacaciones.requestId, id));
+      if (!vac) throw new VacationError('NOT_APPROVED');
+      if (vac.fecFinDis < new Date().toISOString().slice(0, 10)) throw new VacationError('ENDED');
+      const rev = await currentRevision(tx, req);
+      const allocs = await tx
+        .select()
+        .from(vacationRevisionAllocations)
+        .where(eq(vacationRevisionAllocations.revisionId, rev.id))
+        .orderBy(vacationRevisionAllocations.progVacId); // orden estable: evita interbloqueos
+
+      for (const a of allocs) {
+        const [orig] = await tx.select().from(progVac).where(eq(progVac.id, a.progVacId));
+        if (!orig) throw new VacationError('PERIOD_GONE');
+        // Si una importación reemplazó el período, los días vuelven a su versión vigente.
+        const [p] = orig.active
+          ? await tx.select().from(progVac).where(eq(progVac.id, orig.id)).for('update')
+          : await tx
+              .select()
+              .from(progVac)
+              .where(
+                and(
+                  eq(progVac.nIde, orig.nIde),
+                  eq(progVac.nCont, orig.nCont),
+                  eq(progVac.perIni, orig.perIni),
+                  eq(progVac.perFin, orig.perFin),
+                  eq(progVac.active, true),
+                ),
+              )
+              .for('update');
+        if (!p) throw new VacationError('PERIOD_GONE');
+        const disp = Math.min(p.dias, p.disp + a.days);
+        const version = p.version + 1;
+        await tx.insert(progVacAdjustments).values({
+          progVacId: p.id,
+          actorAccountId: actor,
+          version,
+          oldDias: p.dias,
+          newDias: p.dias,
+          oldDisp: p.disp,
+          newDisp: disp,
+          reason: `Disfrute anulado (solicitud ${id}): ${reason}`,
+        });
+        await tx
+          .update(progVac)
+          .set({ disp, estado: internalState(disp), version, updatedAt: new Date() })
+          .where(eq(progVac.id, p.id));
+      }
+      await tx
+        .update(vacaciones)
+        .set({ annulledAt: new Date(), annulledBy: actor, annulReason: reason })
+        .where(eq(vacaciones.id, vac.id));
+      await tx
+        .update(vacationRequests)
+        .set({ status: 'ANULADA', updatedAt: new Date() })
+        .where(eq(vacationRequests.id, id));
+      await record(tx, id, rev.number, actor, 'ANULAR', rev.contentHash, reason);
+    });
+  } catch (e) {
+    await audit(db, actor, 'VACATION_ANULAR', id, errCode(e));
+    throw e;
+  }
+  await audit(db, actor, 'VACATION_ANULAR', id, 'SUCCESS');
+}
+
+export interface ApprovedQuery {
+  q?: string | undefined;
+  status?: 'APROBADA' | 'ANULADA' | undefined;
+  page: number;
+  pageSize: number;
+}
+
+/** Para Gestión Humana: disfrutes aprobados (y los anulados), con lo que se devolvería a cada período. */
+export async function adminApproved(db: Db, q: ApprovedQuery) {
+  const filters = [
+    q.status
+      ? eq(vacationRequests.status, q.status)
+      : inArray(vacationRequests.status, ['APROBADA', 'ANULADA']),
+  ];
+  if (q.q) {
+    const like = `%${q.q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+    filters.push(
+      sql`(${vacationRequests.nIde} ilike ${like} or exists (select 1 from employee_snapshots e where e.n_ide = ${vacationRequests.nIde} and e.nombre ilike ${like}))`,
+    );
+  }
+  const where = and(...filters);
+  const [{ total } = { total: 0 }] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(vacationRequests)
+    .innerJoin(vacaciones, eq(vacaciones.requestId, vacationRequests.id))
+    .where(where);
+  const rows = await db
+    .select({
+      id: vacationRequests.id,
+      nIde: vacationRequests.nIde,
+      status: vacationRequests.status,
+      revisionId: vacaciones.revisionId,
+      start: vacaciones.fecIniDis,
+      end: vacaciones.fecFinDis,
+      calendarDiff: vacaciones.diasDis,
+      businessDays: vacaciones.diasHabiles,
+      returnDate: vacaciones.fechaRetorno,
+      approvedAt: vacaciones.createdAt,
+      annulledAt: vacaciones.annulledAt,
+      annulReason: vacaciones.annulReason,
+    })
+    .from(vacationRequests)
+    .innerJoin(vacaciones, eq(vacaciones.requestId, vacationRequests.id))
+    .where(where)
+    .orderBy(desc(vacaciones.fecIniDis), desc(vacaciones.createdAt))
+    .limit(q.pageSize)
+    .offset((q.page - 1) * q.pageSize);
+
+  const allocs = rows.length
+    ? await db
+        .select({
+          revisionId: vacationRevisionAllocations.revisionId,
+          days: vacationRevisionAllocations.days,
+          perIni: progVac.perIni,
+          perFin: progVac.perFin,
+        })
+        .from(vacationRevisionAllocations)
+        .innerJoin(progVac, eq(progVac.id, vacationRevisionAllocations.progVacId))
+        .where(
+          inArray(
+            vacationRevisionAllocations.revisionId,
+            rows.map((r) => r.revisionId),
+          ),
+        )
+        .orderBy(progVac.perIni)
+    : [];
+  const nIdes = [...new Set(rows.map((r) => r.nIde))];
+  const names = new Map<string, string>();
+  for (const nIde of nIdes) {
+    const [e] = await db
+      .select({ nombre: employeeSnapshots.nombre })
+      .from(employeeSnapshots)
+      .where(eq(employeeSnapshots.nIde, nIde))
+      .orderBy(sql`case when ${employeeSnapshots.est} = 'V' then 0 else 1 end`)
+      .limit(1);
+    names.set(nIde, e?.nombre ?? nIde);
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  return {
+    total,
+    page: q.page,
+    pageSize: q.pageSize,
+    items: rows.map(({ revisionId, ...r }) => ({
+      ...r,
+      employee: names.get(r.nIde) ?? r.nIde,
+      /** Se puede anular mientras el disfrute no haya terminado. */
+      canAnnul: r.status === 'APROBADA' && r.end >= today,
+      allocations: allocs
+        .filter((a) => a.revisionId === revisionId)
+        .map((a) => ({ perIni: a.perIni, perFin: a.perFin, days: a.days })),
+    })),
+  };
 }

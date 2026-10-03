@@ -663,6 +663,106 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
     expect(text).toContain('no equivalen a una firma digital');
   });
 
+  describe('anular un disfrute aprobado', () => {
+    const annul = (s: Sess, id: string, reason = 'Se aprobó con las fechas equivocadas') =>
+      send(s, 'post', `/admin/vacations/${id}/annul`, { reason });
+    const disp = async (id: string) =>
+      (await db.select().from(progVac).where(eq(progVac.id, id)))[0]?.disp;
+    const future = () => new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10);
+    const past = () => new Date(Date.now() - 5 * 86_400_000).toISOString().slice(0, 10);
+
+    it('devuelve los días, anula la constancia y deja volver a solicitar', async () => {
+      const id = await approved('2026-03-02', 5);
+      expect(await disp(p1)).toBe(5); // 10 - 5
+      await pdf(emp, id).expect(200);
+      // el disfrute del escenario es de marzo de 2026: se lo lleva a una fecha que aún no termina
+      await db.update(vacaciones).set({ fecFinDis: future() });
+
+      // solo Gestión Humana, con motivo, y solo lo aprobado
+      await annul(emp, id).expect(403);
+      await annul(mgr, id).expect(403);
+      await annul(adm, id, 'corto').expect(400);
+      const pending = await submit('2026-04-06', [{ progVacId: p1, days: 1 }]).expect(201);
+      await annul(adm, pending.body.id).expect(409); // NOT_APPROVED
+      await annul(adm, '00000000-0000-4000-8000-000000000000').expect(404);
+
+      const list = (await send(adm, 'get', '/admin/vacations/approved').expect(200)).body;
+      expect(list.items.find((r: { id: string }) => r.id === id)).toMatchObject({
+        employee: 'Persona 100',
+        status: 'APROBADA',
+        businessDays: 5,
+        canAnnul: true,
+        allocations: [{ days: 5 }],
+      });
+
+      await annul(adm, id).expect(204);
+      expect(await disp(p1)).toBe(10); // devueltos
+      expect(await status(id)).toBe('ANULADA');
+      const [vac] = await db.select().from(vacaciones).where(eq(vacaciones.requestId, id));
+      expect(vac?.annulledAt).not.toBeNull();
+      expect(vac?.annulReason).toContain('fechas equivocadas');
+      const adj = await db.select().from(progVacAdjustments);
+      expect(adj.some((a) => a.reason.startsWith('Disfrute anulado') && a.newDisp === 10)).toBe(
+        true,
+      );
+      expect((await db.select().from(vacationActions)).map((a) => a.action)).toContain('ANULAR');
+
+      // la constancia ya no se entrega; no se anula dos veces; el filtro por estado funciona
+      const res = await pdf(emp, id);
+      expect(res.status).toBe(409);
+      expect(res.body.code).toBe('ANNULLED');
+      await annul(adm, id).expect(409);
+      const count = async (qs: string) =>
+        (await send(adm, 'get', `/admin/vacations/approved?${qs}`).expect(200)).body.total;
+      expect(await count('status=ANULADA')).toBe(1);
+      expect(await count('status=APROBADA')).toBe(0);
+      expect(await count('q=Persona')).toBe(1);
+      await send(adm, 'get', '/admin/vacations/approved?status=X').expect(400);
+
+      // el empleado puede pedir de nuevo las mismas fechas
+      await send(emp, 'post', `/me/vacations/${pending.body.id}/cancel`).expect(200);
+      await submit('2026-03-02', [{ progVacId: p1, days: 5 }]).expect(201);
+      expect((await db.select().from(auditLogs)).map((l) => l.action)).toContain('VACATION_ANULAR');
+    });
+
+    it('no anula un disfrute que ya terminó, y devuelve los días a la versión vigente de un período reemplazado', async () => {
+      const id = await approved('2026-03-02', 5);
+      // ya terminó: no se corrige
+      await db.update(vacaciones).set({ fecFinDis: past() });
+      const ended = await annul(adm, id).expect(409);
+      expect(ended.body.code).toBe('ENDED');
+      expect(await status(id)).toBe('APROBADA');
+
+      // aún no termina, pero la importación reemplazó el período: los días vuelven a la versión vigente
+      await db.update(vacaciones).set({ fecFinDis: future() });
+      await db.update(progVac).set({ active: false }).where(eq(progVac.id, p1));
+      const [orig] = await db.select().from(progVac).where(eq(progVac.id, p1));
+      const [fresh] = await db
+        .insert(progVac)
+        .values({
+          nIde: '100',
+          nCont: '1',
+          perIni: orig?.perIni ?? '',
+          perFin: orig?.perFin ?? '',
+          dias: 15,
+          disp: 3,
+        })
+        .returning({ id: progVac.id });
+      await annul(adm, id).expect(204);
+      expect(await disp(fresh?.id ?? '')).toBe(8); // 3 + 5
+      expect(await disp(p1)).toBe(5); // la versión reemplazada no se toca
+    });
+
+    it('si el período ya no existe, no anula y lo explica', async () => {
+      const id = await approved('2026-03-02', 5);
+      await db.update(vacaciones).set({ fecFinDis: future() });
+      await db.update(progVac).set({ active: false }).where(eq(progVac.id, p1));
+      const res = await annul(adm, id).expect(409);
+      expect(res.body.code).toBe('PERIOD_GONE');
+      expect(await status(id)).toBe('APROBADA');
+    });
+  });
+
   describe('suplencias de quien aprueba', () => {
     const d = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
     const designate = (s: Sess, substituteAccountId: string, from = d(0), to = d(3)) =>

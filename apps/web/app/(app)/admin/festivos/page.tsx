@@ -75,9 +75,22 @@ const SYNC_ERROR: Record<string, string> = {
   NOT_CONFIGURED: 'Primero guarde la URL del servicio.',
   NO_API_KEY: 'Primero guarde la clave (API KEY) del servicio.',
   INVALID_YEAR: 'Escriba un año válido.',
+  ALREADY_PUBLISHED: 'Ese año ya tiene un calendario publicado: no se vuelve a consultar.',
   INVALID_URL:
     'La URL no es válida: use https, sin usuario, clave ni parámetros, y una dirección pública.',
 };
+
+interface YearStatus {
+  configured: boolean;
+  years: {
+    year: number;
+    published: boolean;
+    reason: 'CALCULO' | 'ACTUAL_O_SIGUIENTE';
+    lastAttemptAt: string | null;
+    lastStatus: string | null;
+    failures: number;
+  }[];
+}
 
 const STATUS = {
   BORRADOR: 'Borrador',
@@ -109,6 +122,8 @@ export default function HolidaysPage() {
   const [sync, setSync] = useState<SyncResult | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [viewing, setViewing] = useState<Viewing | null>(null);
+  const [years, setYears] = useState<YearStatus | null>(null);
+  const [loadingYear, setLoadingYear] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     const res = await call<Calendar[]>('/admin/holidays');
@@ -122,10 +137,33 @@ export default function HolidaysPage() {
     else setApiError(NETWORK_ERROR);
   }, [call]);
 
+  const loadYears = useCallback(async () => {
+    const res = await call<YearStatus>('/admin/holiday-api/years');
+    if (res.status === 200 && res.data) setYears(res.data);
+  }, [call]);
+
   useEffect(() => {
     void load();
     void loadApi();
-  }, [load, loadApi]);
+    void loadYears();
+  }, [load, loadApi, loadYears]);
+
+  /** Reintento manual: consulta el servicio y deja publicado el año si responde. */
+  async function loadYear(year: number) {
+    setApiError(null);
+    setApiOk(null);
+    setLoadingYear(year);
+    const res = await call<{ status: string; published: boolean }>(
+      `/admin/holiday-api/years/${year}/load`,
+      { method: 'POST', body: {} },
+    );
+    setLoadingYear(null);
+    if (res.status === 200 && res.data) {
+      if (res.data.published) setApiOk(`Calendario ${year} cargado y publicado.`);
+      else setApiError(SYNC_ERROR[res.data.status] ?? NETWORK_ERROR);
+      await Promise.all([loadYears(), load()]);
+    } else apiFail(res);
+  }
 
   function apiFail(res: { status: number; data?: unknown }) {
     const code = (res.data as { code?: string } | undefined)?.code ?? '';
@@ -320,6 +358,75 @@ export default function HolidaysPage() {
               <p className="muted">Ese año todavía no tenía calendario publicado.</p>
             )}
           </div>
+        ) : null}
+      </section>
+
+      <section className="import-panel" aria-label="Calendarios por año">
+        <h2>Calendarios por año</h2>
+        <p className="muted">
+          Se vigilan el año actual, el siguiente y los años que un cálculo de vacaciones pidió y no
+          se pudieron cargar. No se consulta nada solo: use «Cargar ahora» para reintentar.
+        </p>
+        {years === null ? (
+          <p className="muted">Cargando…</p>
+        ) : (
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="Estado de los años">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Año</th>
+                  <th scope="col">Calendario</th>
+                  <th scope="col">Por qué se vigila</th>
+                  <th scope="col">Último intento</th>
+                  <th scope="col">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {years.years.map((y) => (
+                  <tr key={y.year}>
+                    <td>{y.year}</td>
+                    <td>
+                      <Badge kind={y.published ? 'ok' : 'warn'}>
+                        {y.published ? 'Publicado' : 'Sin calendario'}
+                      </Badge>
+                    </td>
+                    <td>
+                      {y.reason === 'CALCULO' ? 'Un cálculo lo pidió' : 'Año actual o siguiente'}
+                    </td>
+                    <td>
+                      {y.lastAttemptAt ? (
+                        <>
+                          {formatDate(y.lastAttemptAt)}:{' '}
+                          {y.lastStatus === 'OK'
+                            ? 'cargado'
+                            : (SYNC_ERROR[y.lastStatus ?? ''] ?? y.lastStatus)}
+                          {y.failures > 0 ? ` (${y.failures} fallos seguidos)` : ''}
+                        </>
+                      ) : (
+                        <span className="muted">Sin intentos</span>
+                      )}
+                    </td>
+                    <td>
+                      {!y.published ? (
+                        <button
+                          type="button"
+                          className="secondary"
+                          disabled={!years.configured || loadingYear !== null}
+                          aria-label={`Cargar ahora el calendario ${y.year} desde el servicio`}
+                          onClick={() => void loadYear(y.year)}
+                        >
+                          {loadingYear === y.year ? 'Consultando…' : 'Cargar ahora'}
+                        </button>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {years && !years.configured ? (
+          <p className="muted">Configure el servicio (URL y clave) para poder cargar años.</p>
         ) : null}
       </section>
 

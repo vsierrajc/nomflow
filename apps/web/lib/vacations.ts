@@ -52,6 +52,7 @@ export const STATUS_LABEL: Record<string, string> = {
   APROBADA: 'Aprobada',
   RECHAZADA: 'Rechazada',
   CANCELADA: 'Cancelada',
+  ANULADA: 'Anulada por Gestión Humana',
 };
 
 export const ACTION_LABEL: Record<string, string> = {
@@ -62,6 +63,7 @@ export const ACTION_LABEL: Record<string, string> = {
   APROBAR_FINAL: 'Aprobación final',
   RECHAZAR: 'Rechazada',
   CANCELAR: 'Cancelada por el empleado',
+  ANULAR: 'Disfrute anulado por Gestión Humana',
 };
 
 export const OPEN = ['PENDIENTE_JEFE', 'REVISION_EMPLEADO', 'PENDIENTE_FINAL'];
