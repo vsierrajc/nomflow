@@ -729,6 +729,10 @@ export const vacaciones = pgTable(
     annulledAt: timestamp('annulled_at', { withTimezone: true }),
     annulledBy: uuid('annulled_by').references(() => accounts.id),
     annulReason: text('annul_reason'),
+    /** Al anular: días hábiles devueltos a PROG_VAC, los ya disfrutados que se conservan y hasta qué fecha. */
+    diasDevueltos: integer('dias_devueltos'),
+    diasDisfrutados: integer('dias_disfrutados'),
+    disfrutadosHasta: date('disfrutados_hasta'),
   },
   (t) => [
     uniqueIndex('vacaciones_request_uq').on(t.requestId),

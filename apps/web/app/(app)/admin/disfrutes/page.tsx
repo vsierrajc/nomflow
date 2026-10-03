@@ -22,6 +22,20 @@ interface Row {
   annulReason: string | null;
   canAnnul: boolean;
   allocations: { perIni: string; perFin: string; days: number }[];
+  /** Lo que se devolvería según hasta cuándo cuenten como disfrutados los días; solo si se puede anular. */
+  returnPreview: Record<Until, Preview> | null;
+  diasDevueltos: number | null;
+  diasDisfrutados: number | null;
+  disfrutadosHasta: string | null;
+}
+
+type Until = 'YESTERDAY' | 'TODAY';
+
+interface Preview {
+  cutoff: string;
+  enjoyedDays: number;
+  returnedDays: number;
+  allocations: { perIni: string; perFin: string; days: number; returned: number }[];
 }
 
 interface Page {
@@ -36,6 +50,8 @@ const ERRORS: Record<string, string> = {
   NOT_APPROVED: 'Solo se anula un disfrute aprobado.',
   ALREADY_ANNULLED: 'Ese disfrute ya está anulado.',
   ENDED: 'El disfrute ya terminó: no se puede anular.',
+  NOTHING_TO_RETURN:
+    'Con esa opción ya no queda ningún día por devolver (todos cuentan como disfrutados). Elija «hasta ayer» o deje el disfrute como está.',
   PERIOD_GONE:
     'No se encontró el período de PROG_VAC de donde se descontaron los días. Ajústelo primero en Períodos de vacaciones.',
 };
@@ -51,6 +67,8 @@ export default function ApprovedVacationsPage() {
   const [page, setPage] = useState(1);
   const [annulling, setAnnulling] = useState<Row | null>(null);
   const [annulError, setAnnulError] = useState<string | null>(null);
+  // Hasta cuándo cuentan como ya disfrutados los días de un disfrute en curso. Por omisión, hasta ayer.
+  const [until, setUntil] = useState<Until>('YESTERDAY');
 
   const load = useCallback(async () => {
     const qs = new URLSearchParams({ page: String(page), pageSize: '25' });
@@ -81,11 +99,11 @@ export default function ApprovedVacationsPage() {
     setOk(null);
     const res = await call(`/admin/vacations/${annulling.id}/annul`, {
       method: 'POST',
-      body: { reason },
+      body: { reason, enjoyedUntil: until },
     });
     if (res.status === 204) {
       setOk(
-        'Disfrute anulado. Los días volvieron a los períodos y la constancia ya no se entrega.',
+        'Disfrute anulado. Los días no disfrutados volvieron a los períodos y la constancia ya no se entrega.',
       );
       setAnnulling(null);
       await load();
@@ -164,6 +182,16 @@ export default function ApprovedVacationsPage() {
                         {r.status === 'APROBADA' ? 'Aprobado' : 'Anulado'}
                       </Badge>
                       {r.annulReason ? <span className="muted"> {r.annulReason}</span> : null}
+                      {r.diasDevueltos !== null ? (
+                        <span className="muted">
+                          {' '}
+                          Se devolvieron {r.diasDevueltos} de {r.businessDays} días hábiles
+                          {r.diasDisfrutados
+                            ? `; se conservan ${r.diasDisfrutados} ya disfrutados (hasta el ${longDate(r.disfrutadosHasta)})`
+                            : ''}
+                          .
+                        </span>
+                      ) : null}
                     </td>
                     <td>
                       {r.canAnnul ? (
@@ -173,6 +201,7 @@ export default function ApprovedVacationsPage() {
                           aria-label={`Anular el disfrute de ${r.employee} que empieza el ${longDate(r.start)}`}
                           onClick={() => {
                             setAnnulError(null);
+                            setUntil('YESTERDAY');
                             setAnnulling(r);
                           }}
                         >
@@ -197,19 +226,18 @@ export default function ApprovedVacationsPage() {
             {annulError ? <Notice kind="error">{annulError}</Notice> : null}
             <p>
               Disfrute de {annulling.employee} del {longDate(annulling.start)} al{' '}
-              {longDate(annulling.end)}. Se devolverán {annulling.businessDays} días hábiles:
+              {longDate(annulling.end)} ({annulling.businessDays} días hábiles aprobados).
             </p>
-            <ul>
-              {annulling.allocations.map((a) => (
-                <li key={`${a.perIni}-${a.perFin}`}>
-                  {a.days} {a.days === 1 ? 'día' : 'días'} al período {longDate(a.perIni)} a{' '}
-                  {longDate(a.perFin)}
-                </li>
-              ))}
-            </ul>
+            {annulling.returnPreview ? (
+              <ReturnChoice row={annulling} until={until} onChange={setUntil} />
+            ) : null}
             <Field label="Motivo (mínimo 10 caracteres)" name="reason" required maxLength={500} />
             <div className="toolbar">
-              <button type="submit" className="danger">
+              <button
+                type="submit"
+                className="danger"
+                disabled={annulling.returnPreview?.[until].returnedDays === 0}
+              >
                 Anular disfrute
               </button>
               <button type="button" className="secondary" onClick={() => setAnnulling(null)}>
@@ -218,6 +246,70 @@ export default function ApprovedVacationsPage() {
             </div>
           </form>
         </Modal>
+      ) : null}
+    </>
+  );
+}
+
+/** Hasta cuándo cuentan como disfrutados los días, y qué se devolvería con la opción elegida. */
+function ReturnChoice({
+  row,
+  until,
+  onChange,
+}: {
+  row: Row;
+  until: Until;
+  onChange: (u: Until) => void;
+}) {
+  const preview = row.returnPreview;
+  if (!preview) return null;
+  const chosen = preview[until];
+  // Si las dos opciones dan lo mismo (el disfrute aún no empieza), no hay nada que elegir.
+  const differs = preview.YESTERDAY.enjoyedDays !== preview.TODAY.enjoyedDays;
+  return (
+    <>
+      {differs ? (
+        <fieldset className="enjoyed-choice">
+          <legend>Contar como ya disfrutados los días</legend>
+          <label>
+            <input
+              type="radio"
+              name="enjoyedUntil"
+              checked={until === 'YESTERDAY'}
+              onChange={() => onChange('YESTERDAY')}
+            />{' '}
+            Hasta ayer ({longDate(preview.YESTERDAY.cutoff)}): hoy todavía no cuenta
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="enjoyedUntil"
+              checked={until === 'TODAY'}
+              onChange={() => onChange('TODAY')}
+            />{' '}
+            Hasta hoy ({longDate(preview.TODAY.cutoff)}): hoy ya cuenta como disfrutado
+          </label>
+        </fieldset>
+      ) : null}
+      <p aria-live="polite">
+        {chosen.enjoyedDays > 0
+          ? `Ya disfrutados: ${chosen.enjoyedDays} ${chosen.enjoyedDays === 1 ? 'día hábil' : 'días hábiles'} (se conservan descontados, del período más antiguo primero). `
+          : 'Todavía no se ha disfrutado ningún día. '}
+        {chosen.returnedDays > 0
+          ? `Se devolverán ${chosen.returnedDays} ${chosen.returnedDays === 1 ? 'día hábil' : 'días hábiles'}:`
+          : 'No queda ningún día por devolver con esta opción.'}
+      </p>
+      {chosen.returnedDays > 0 ? (
+        <ul>
+          {chosen.allocations
+            .filter((a) => a.returned > 0)
+            .map((a) => (
+              <li key={`${a.perIni}-${a.perFin}`}>
+                {a.returned} {a.returned === 1 ? 'día' : 'días'} al período {longDate(a.perIni)} a{' '}
+                {longDate(a.perFin)}
+              </li>
+            ))}
+        </ul>
       ) : null}
     </>
   );

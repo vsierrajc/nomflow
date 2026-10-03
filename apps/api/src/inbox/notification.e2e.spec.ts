@@ -240,6 +240,38 @@ describe.skipIf(!url)('avisos por correo del flujo (HTTP + PostgreSQL)', () => {
     expect(sent).toHaveLength(0);
   });
 
+  it('si el disfrute estaba en curso, el aviso dice cuántos días se conservan y cuántos se devolvieron', async () => {
+    const id = await vacation('ANULADA');
+    const [rev] = await db
+      .select()
+      .from(vacationRevisions)
+      .where(eq(vacationRevisions.requestId, id));
+    await db.insert(vacaciones).values({
+      requestId: id,
+      revisionId: rev?.id ?? '',
+      nIde: 'EMP',
+      nCont: '1',
+      fecIniDis: '2026-11-02',
+      fecFinDis: '2026-11-13',
+      diasDis: 11,
+      diasHabiles: 10,
+      fechaRetorno: '2026-11-16',
+      annulledAt: new Date(),
+      annulledBy: ids.ADM ?? '',
+      annulReason: 'Se requiere su presencia',
+      diasDevueltos: 6,
+      diasDisfrutados: 4,
+      disfrutadosHasta: '2026-11-05',
+    });
+    await svc.sweep();
+    expect(to()).toEqual(['emp@x.co']);
+    expect(sent[0]?.text).toContain('Motivo: Se requiere su presencia.');
+    expect(sent[0]?.text).toContain(
+      'Se conservan 4 días ya disfrutados y se devolvieron 6 a su saldo',
+    );
+    expect(sent[0]?.text).toContain('puede solicitar de nuevo');
+  });
+
   it('una anulación vieja ya no se avisa', async () => {
     const id = await vacation('ANULADA');
     await db

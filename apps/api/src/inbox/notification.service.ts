@@ -185,13 +185,21 @@ export class NotificationService {
       );
     const dates = await vacationDates(this.db, vac);
     const annulIds = vac.filter((r) => r.status === 'ANULADA').map((r) => r.id);
-    const annulReason = new Map<string, string>();
+    const annulInfo = new Map<
+      string,
+      { reason: string | null; returned: number | null; enjoyed: number | null }
+    >();
     if (annulIds.length > 0)
       for (const a of await this.db
-        .select({ requestId: vacaciones.requestId, reason: vacaciones.annulReason })
+        .select({
+          requestId: vacaciones.requestId,
+          reason: vacaciones.annulReason,
+          returned: vacaciones.diasDevueltos,
+          enjoyed: vacaciones.diasDisfrutados,
+        })
         .from(vacaciones)
         .where(inArray(vacaciones.requestId, annulIds)))
-        if (a.reason) annulReason.set(a.requestId, a.reason);
+        annulInfo.set(a.requestId, a);
     for (const r of vac) {
       const who = await nameOf(this.db, names, r.nIde, r.nCont);
       const d = dates.get(r.id) ?? '';
@@ -226,8 +234,10 @@ export class NotificationService {
           category: 'RESULTADO',
           text:
             `Su disfrute de vacaciones (${d}) fue anulado por Gestión Humana.` +
-            (annulReason.has(r.id) ? ` Motivo: ${annulReason.get(r.id)}.` : '') +
-            ' Los días volvieron a su saldo y puede solicitar de nuevo.',
+            (annulInfo.get(r.id)?.reason ? ` Motivo: ${annulInfo.get(r.id)?.reason}.` : '') +
+            ((annulInfo.get(r.id)?.enjoyed ?? 0) > 0
+              ? ` Se conservan ${annulInfo.get(r.id)?.enjoyed} días ya disfrutados y se devolvieron ${annulInfo.get(r.id)?.returned} a su saldo; puede solicitar de nuevo.`
+              : ' Los días volvieron a su saldo y puede solicitar de nuevo.'),
         });
       else if ((r.status === 'APROBADA' || r.status === 'RECHAZADA') && s.notifyEmployee)
         out.push({

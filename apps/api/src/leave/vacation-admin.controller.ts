@@ -79,10 +79,16 @@ export class AdminVacationsController {
     @Body() body: unknown,
     @Req() req: AuthedRequest,
   ) {
-    const dto = z.object({ reason: z.string().max(500) }).safeParse(body);
+    const dto = z
+      .object({
+        reason: z.string().max(500),
+        // hasta cuándo cuentan como disfrutados los días de un disfrute en curso; por omisión, hasta ayer
+        enjoyedUntil: z.enum(['YESTERDAY', 'TODAY']).default('YESTERDAY'),
+      })
+      .safeParse(body);
     if (!dto.success) throw new BadRequestException({ code: 'REASON_REQUIRED' });
     try {
-      await annulApproved(this.db, req.auth.accountId, id, dto.data.reason);
+      await annulApproved(this.db, req.auth.accountId, id, dto.data.reason, dto.data.enjoyedUntil);
     } catch (e) {
       if (e instanceof VacationError) mapAnnul(e);
       throw e;

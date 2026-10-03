@@ -29,6 +29,8 @@ import {
   vacationDocuments,
   vacationActions,
   vacationRequests,
+  vacationRevisionAllocations,
+  vacationRevisions,
 } from '../db/schema';
 
 const url = process.env.DATABASE_URL;
@@ -847,13 +849,28 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
       (await db.select().from(progVac).where(eq(progVac.id, id)))[0]?.disp;
     const future = () => new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10);
     const past = () => new Date(Date.now() - 5 * 86_400_000).toISOString().slice(0, 10);
+    /** El disfrute del escenario es de marzo de 2026: se lo lleva al futuro, sin ningún día ya disfrutado. */
+    const notStarted = async () => {
+      for (const v of await db.select().from(vacaciones)) {
+        await db
+          .update(vacaciones)
+          .set({ fecIniDis: future(), fecFinDis: addDays(future(), v.diasHabiles) })
+          .where(eq(vacaciones.id, v.id));
+        await db
+          .update(vacationRevisions)
+          .set({
+            countedDays: Array.from({ length: v.diasHabiles }, (_, i) => addDays(future(), i)),
+          })
+          .where(eq(vacationRevisions.id, v.revisionId));
+      }
+    };
 
     it('devuelve los días, anula la constancia y deja volver a solicitar', async () => {
       const id = await approved('2026-03-02', 5);
       expect(await disp(p1)).toBe(5); // 10 - 5
       await pdf(emp, id).expect(200);
       // el disfrute del escenario es de marzo de 2026: se lo lleva a una fecha que aún no termina
-      await db.update(vacaciones).set({ fecFinDis: future() });
+      await notStarted();
 
       // solo Gestión Humana, con motivo, y solo lo aprobado
       await annul(emp, id).expect(403);
@@ -902,6 +919,137 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
       expect((await db.select().from(auditLogs)).map((l) => l.action)).toContain('VACATION_ANULAR');
     });
 
+    /**
+     * Un disfrute en curso: 5 días hábiles contados de anteayer a pasado mañana (hoy en medio), cargados 3 al período
+     * más antiguo (p2) y 2 al más reciente (p1). Se siembra directo para no depender del día de la semana.
+     */
+    async function inProgress(counted: string[], lastDay: string) {
+      const today = todayBogota();
+      await db.update(progVac).set({ disp: 2 }).where(eq(progVac.id, p2)); // 5 - 3
+      await db.update(progVac).set({ disp: 8 }).where(eq(progVac.id, p1)); // 10 - 2
+      const [req] = await db
+        .insert(vacationRequests)
+        .values({
+          accountId: emp.id,
+          nIde: '100',
+          nCont: '1',
+          cEmp: 'GA',
+          cArea: '10300',
+          managerAccountId: mgr.id,
+          status: 'APROBADA',
+        })
+        .returning({ id: vacationRequests.id });
+      const [rev] = await db
+        .insert(vacationRevisions)
+        .values({
+          requestId: req?.id ?? '',
+          number: 1,
+          startDate: counted[0] ?? today,
+          endDate: lastDay,
+          calendarDiff: 4,
+          businessDays: 5,
+          returnDate: addDays(lastDay, 1),
+          countedDays: counted,
+          calendarIds: [],
+          proposedBy: emp.id,
+          contentHash: 'h',
+        })
+        .returning({ id: vacationRevisions.id });
+      await db.insert(vacationRevisionAllocations).values([
+        { revisionId: rev?.id ?? '', progVacId: p2, days: 3 },
+        { revisionId: rev?.id ?? '', progVacId: p1, days: 2 },
+      ]);
+      await db.insert(vacaciones).values({
+        requestId: req?.id ?? '',
+        revisionId: rev?.id ?? '',
+        nIde: '100',
+        nCont: '1',
+        fecIniDis: counted[0] ?? today,
+        fecFinDis: lastDay,
+        diasDis: 4,
+        diasHabiles: 5,
+        fechaRetorno: addDays(lastDay, 1),
+      });
+      return req?.id ?? '';
+    }
+    const around = () => {
+      const t = todayBogota();
+      return [-2, -1, 0, 1, 2].map((n) => addDays(t, n));
+    };
+    const annulWith = (id: string, enjoyedUntil?: 'YESTERDAY' | 'TODAY') =>
+      send(adm, 'post', `/admin/vacations/${id}/annul`, {
+        reason: 'El empleado debe volver al trabajo',
+        ...(enjoyedUntil ? { enjoyedUntil } : {}),
+      });
+
+    it('en curso: por omisión devuelve solo los días no disfrutados (hasta ayer) y conserva los demás', async () => {
+      const days = around();
+      const id = await inProgress(days, days[4] ?? '');
+      // la vista previa muestra las dos opciones antes de decidir
+      const item = (
+        await send(adm, 'get', '/admin/vacations/approved').expect(200)
+      ).body.items.find((r: { id: string }) => r.id === id);
+      expect(item.returnPreview.YESTERDAY).toMatchObject({ enjoyedDays: 2, returnedDays: 3 });
+      expect(item.returnPreview.TODAY).toMatchObject({ enjoyedDays: 3, returnedDays: 2 });
+      expect(item.returnPreview.YESTERDAY.cutoff).toBe(addDays(todayBogota(), -1));
+
+      await annulWith(id).expect(204); // sin parámetro = hasta ayer
+      // los 2 días disfrutados se cargan al período más antiguo (p2): devuelve 1; p1 devuelve sus 2
+      expect(await disp(p2)).toBe(3);
+      expect(await disp(p1)).toBe(10);
+      const [vac] = await db.select().from(vacaciones).where(eq(vacaciones.requestId, id));
+      expect(vac).toMatchObject({
+        diasDevueltos: 3,
+        diasDisfrutados: 2,
+        disfrutadosHasta: addDays(todayBogota(), -1),
+      });
+      const action = (
+        await db.select().from(vacationActions).where(eq(vacationActions.requestId, id))
+      ).find((a) => a.action === 'ANULAR');
+      expect(action?.comment).toContain('Se conservan 2 días ya disfrutados');
+      const adj = (await db.select().from(progVacAdjustments)).map((a) => a.reason).join('\n');
+      expect(adj).toContain('se devuelven 3');
+    });
+
+    it('en curso: quien anula puede contar hoy como disfrutado', async () => {
+      const days = around();
+      const id = await inProgress(days, days[4] ?? '');
+      await annulWith(id, 'TODAY').expect(204);
+      expect(await disp(p2)).toBe(2); // los 3 días disfrutados quedan descontados del más antiguo
+      expect(await disp(p1)).toBe(10);
+      const [vac] = await db.select().from(vacaciones).where(eq(vacaciones.requestId, id));
+      expect(vac).toMatchObject({
+        diasDevueltos: 2,
+        diasDisfrutados: 3,
+        disfrutadosHasta: todayBogota(),
+      });
+    });
+
+    it('en curso: el último día con «hasta hoy» no queda nada por devolver; con «hasta ayer» sí', async () => {
+      const t = todayBogota();
+      const id = await inProgress(
+        [addDays(t, -4), addDays(t, -3), addDays(t, -2), addDays(t, -1), t],
+        t,
+      );
+      const res = await annulWith(id, 'TODAY').expect(409);
+      expect(res.body.code).toBe('NOTHING_TO_RETURN');
+      expect(await status(id)).toBe('APROBADA');
+      expect(await disp(p2)).toBe(2); // nada cambió
+      await annulWith(id, 'YESTERDAY').expect(204); // hoy aún no cuenta: queda 1 día por devolver
+      expect(await disp(p2)).toBe(2); // 3 disfrutados, todos de este período
+      expect(await disp(p1)).toBe(9); // 1 disfrutado y 1 devuelto
+    });
+
+    it('una opción inválida se rechaza', async () => {
+      const days = around();
+      const id = await inProgress(days, days[4] ?? '');
+      await send(adm, 'post', `/admin/vacations/${id}/annul`, {
+        reason: 'El empleado debe volver al trabajo',
+        enjoyedUntil: 'TOMORROW',
+      }).expect(400);
+      expect(await status(id)).toBe('APROBADA');
+    });
+
     it('no anula un disfrute que ya terminó, y devuelve los días a la versión vigente de un período reemplazado', async () => {
       const id = await approved('2026-03-02', 5);
       // ya terminó: no se corrige
@@ -911,7 +1059,7 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
       expect(await status(id)).toBe('APROBADA');
 
       // aún no termina, pero la importación reemplazó el período: los días vuelven a la versión vigente
-      await db.update(vacaciones).set({ fecFinDis: future() });
+      await notStarted();
       await db.update(progVac).set({ active: false }).where(eq(progVac.id, p1));
       const [orig] = await db.select().from(progVac).where(eq(progVac.id, p1));
       const [fresh] = await db
@@ -932,7 +1080,7 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
 
     it('si el período ya no existe, no anula y lo explica', async () => {
       const id = await approved('2026-03-02', 5);
-      await db.update(vacaciones).set({ fecFinDis: future() });
+      await notStarted();
       await db.update(progVac).set({ active: false }).where(eq(progVac.id, p1));
       const res = await annul(adm, id).expect(409);
       expect(res.body.code).toBe('PERIOD_GONE');
