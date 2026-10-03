@@ -1,0 +1,1 @@
+Auditoría de dependencias: nuevo script scripts/audit-deps.mjs con excepciones justificadas y con vencimiento; acepta hasta el 1 de noviembre de 2026 el aviso GHSA-86w9-cpqp-85rv de node-forge (sin versión corregida, parte vulnerable sin uso en NOMFLOW).
