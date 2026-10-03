@@ -39,7 +39,8 @@ export type VacationErrorCode =
   | 'ENDED'
   | 'PERIOD_GONE'
   | 'ANNULLED'
-  | 'START_IN_PAST';
+  | 'START_IN_PAST'
+  | 'ALREADY_CURRENT';
 
 export class VacationError extends Error {
   constructor(
@@ -888,4 +889,105 @@ export async function adminApproved(db: Db, q: ApprovedQuery) {
         .map((a) => ({ perIni: a.perIni, perFin: a.perFin, days: a.days })),
     })),
   };
+}
+
+// ---------- aprobador asignado que ya no es el vigente (Gestión Humana) ----------
+
+async function accountName(db: Runner, accountId: string, cache: Map<string, string>) {
+  const hit = cache.get(accountId);
+  if (hit) return hit;
+  const [row] = await db
+    .select({ nombre: employeeSnapshots.nombre, nIde: accounts.nIde })
+    .from(accounts)
+    .leftJoin(employeeSnapshots, eq(employeeSnapshots.nIde, accounts.nIde))
+    .where(eq(accounts.id, accountId))
+    .orderBy(sql`case when ${employeeSnapshots.est} = 'V' then 0 else 1 end`)
+    .limit(1);
+  const name = row?.nombre ?? row?.nIde ?? accountId;
+  cache.set(accountId, name);
+  return name;
+}
+
+/**
+ * Solicitudes que esperan el primer visto bueno, con quién la tiene asignada y quién es hoy el aprobador
+ * del área. La solicitud queda atada a quien era aprobador al enviarla: si el área cambió de jefe, el nuevo
+ * no la ve y el anterior ya no puede decidirla, y Gestión Humana la reasigna.
+ *
+ * - VIGENTE: la tiene quien hoy corresponde (el titular cuenta aunque esté en suplencia).
+ * - REASIGNABLE: hoy corresponde a otra persona o con otro cargo.
+ * - SIN_APROBADOR: el área no tiene hoy un único aprobador vigente.
+ */
+export async function pendingFirstApproval(db: Db) {
+  const reqs = await db
+    .select()
+    .from(vacationRequests)
+    .where(eq(vacationRequests.status, 'PENDIENTE_JEFE'))
+    .orderBy(vacationRequests.createdAt)
+    .limit(200);
+  const rows = await withNames(db, await summary(db, reqs), reqs);
+  const today = todayBogota();
+  const names = new Map<string, string>();
+  const items = [];
+  for (const [i, r] of rows.entries()) {
+    const req = reqs[i];
+    if (!req) continue;
+    const current = await firstApprover(db, req.accountId, req.cEmp, req.cArea, today);
+    const state =
+      !current || current.self
+        ? 'SIN_APROBADOR'
+        : current.accountId === req.managerAccountId && current.role === req.firstApproverRole
+          ? 'VIGENTE'
+          : 'REASIGNABLE';
+    items.push({
+      id: r.id,
+      employee: r.employee,
+      nIde: r.nIde,
+      start: r.start,
+      end: r.end,
+      businessDays: r.businessDays,
+      createdAt: r.createdAt,
+      assignedTo: await accountName(db, req.managerAccountId, names),
+      assignedRole: req.firstApproverRole,
+      currentApprover:
+        current && !current.self ? await accountName(db, current.accountId, names) : null,
+      currentRole: current && !current.self ? current.role : null,
+      state,
+    });
+  }
+  return items;
+}
+
+/** Pasa una solicitud pendiente del primer visto bueno a quien hoy es el aprobador del área. */
+export async function reassignApprover(db: Db, actor: string, id: string) {
+  try {
+    await db.transaction(async (tx) => {
+      await lockRequest(tx, id);
+      const req = await loadRequest(tx, id);
+      if (req.status !== 'PENDIENTE_JEFE') throw new VacationError('INVALID_STATE');
+      const current = await firstApprover(
+        tx as unknown as Db,
+        req.accountId,
+        req.cEmp,
+        req.cArea,
+        todayBogota(),
+      );
+      if (!current || current.self) throw new VacationError('NO_MANAGER');
+      if (current.accountId === req.managerAccountId && current.role === req.firstApproverRole)
+        throw new VacationError('ALREADY_CURRENT');
+      const rev = await currentRevision(tx, req);
+      await tx
+        .update(vacationRequests)
+        .set({
+          managerAccountId: current.accountId,
+          firstApproverRole: current.role,
+          updatedAt: new Date(),
+        })
+        .where(eq(vacationRequests.id, id));
+      await record(tx, id, rev.number, actor, 'REASIGNAR', rev.contentHash, 'Aprobador reasignado');
+    });
+  } catch (e) {
+    await audit(db, actor, 'VACATION_REASIGNAR', id, errCode(e));
+    throw e;
+  }
+  await audit(db, actor, 'VACATION_REASIGNAR', id, 'SUCCESS');
 }

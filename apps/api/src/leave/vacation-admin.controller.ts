@@ -8,6 +8,7 @@ import {
   HttpCode,
   Inject,
   NotFoundException,
+  UnprocessableEntityException,
   Param,
   ParseUUIDPipe,
   Post,
@@ -21,7 +22,13 @@ import { ADMIN_ROLES } from '../auth/roles';
 import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
 import type { Db } from '../db/client';
 import { DB } from '../db/db.module';
-import { VacationError, adminApproved, annulApproved } from './vacation.service';
+import {
+  VacationError,
+  adminApproved,
+  annulApproved,
+  pendingFirstApproval,
+  reassignApprover,
+} from './vacation.service';
 
 const Query_ = z.object({
   q: z.string().trim().max(100).optional(),
@@ -43,6 +50,25 @@ export class AdminVacationsController {
     const q = Query_.safeParse(query);
     if (!q.success) throw new BadRequestException();
     return adminApproved(this.db, q.data);
+  }
+
+  /** Solicitudes en espera del primer visto bueno y si su aprobador asignado sigue siendo el vigente. */
+  @Get('pending-approval')
+  @Header('Cache-Control', 'no-store')
+  pendingApproval() {
+    return pendingFirstApproval(this.db);
+  }
+
+  @Post(':id/reassign')
+  @HttpCode(204)
+  @UseGuards(RecentAuthGuard)
+  async reassign(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
+    try {
+      await reassignApprover(this.db, req.auth.accountId, id);
+    } catch (e) {
+      if (e instanceof VacationError) mapReassign(e);
+      throw e;
+    }
   }
 
   @Post(':id/annul')
@@ -68,5 +94,13 @@ function mapAnnul(e: VacationError): never {
   if (e.code === 'NOT_FOUND') throw new NotFoundException();
   if (e.code === 'REASON_REQUIRED') throw new BadRequestException({ code: e.code });
   // ya anulada, no aprobada, ya terminó o un período que no se encuentra: el estado impide anular
+  throw new ConflictException({ code: e.code });
+}
+
+function mapReassign(e: VacationError): never {
+  if (e.code === 'NOT_FOUND') throw new NotFoundException();
+  // el área no tiene hoy un único aprobador vigente: hay que designarlo antes
+  if (e.code === 'NO_MANAGER') throw new UnprocessableEntityException({ code: e.code });
+  // no está pendiente del primer visto bueno o ya la tiene quien corresponde
   throw new ConflictException({ code: e.code });
 }
