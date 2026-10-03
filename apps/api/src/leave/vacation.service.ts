@@ -19,6 +19,7 @@ import {
   resolveAreaManager,
   resolveGeneralManager,
 } from '../org/area-managers.service';
+import { planReturn, type EnjoyedUntil } from './annul-plan';
 import { todayBogota } from './business-days';
 import { PlanError, hashPlan, planLeave, prepareCalendars, type Allocation } from './leave-plan';
 import { internalState } from './prog-vac.service';
@@ -40,7 +41,8 @@ export type VacationErrorCode =
   | 'PERIOD_GONE'
   | 'ANNULLED'
   | 'START_IN_PAST'
-  | 'ALREADY_CURRENT';
+  | 'ALREADY_CURRENT'
+  | 'NOTHING_TO_RETURN';
 
 export class VacationError extends Error {
   constructor(
@@ -740,15 +742,17 @@ export async function listApprovedFor(db: Db, nIde: string) {
 // ---------- anulación de un disfrute ya aprobado (Gestión Humana) ----------
 
 /**
- * Anula un disfrute aprobado: devuelve los días a los períodos de PROG_VAC de donde se descontaron, marca
- * la solicitud como ANULADA y deja el motivo. Solo mientras el disfrute no haya terminado. La constancia
- * deja de entregarse y el empleado puede solicitar de nuevo.
+ * Anula un disfrute aprobado: devuelve a los períodos de PROG_VAC de donde se descontaron SOLO los días hábiles que
+ * aún no se han disfrutado, marca la solicitud como ANULADA y deja el motivo. Los días ya disfrutados se conservan
+ * descontados; `until` fija hasta cuándo cuentan como disfrutados (por omisión, hasta ayer: hoy todavía no).
+ * Solo mientras el disfrute no haya terminado. La constancia deja de entregarse y el empleado puede solicitar de nuevo.
  */
 export async function annulApproved(
   db: Db,
   actor: string,
   id: string,
   reasonInput: string | undefined,
+  until: EnjoyedUntil = 'YESTERDAY',
 ) {
   const reason = needReason(reasonInput);
   try {
@@ -759,15 +763,31 @@ export async function annulApproved(
       if (req.status !== 'APROBADA') throw new VacationError('NOT_APPROVED');
       const [vac] = await tx.select().from(vacaciones).where(eq(vacaciones.requestId, id));
       if (!vac) throw new VacationError('NOT_APPROVED');
-      if (vac.fecFinDis < todayBogota()) throw new VacationError('ENDED');
+      const today = todayBogota();
+      if (vac.fecFinDis < today) throw new VacationError('ENDED');
       const rev = await currentRevision(tx, req);
       const allocs = await tx
-        .select()
+        .select({
+          progVacId: vacationRevisionAllocations.progVacId,
+          days: vacationRevisionAllocations.days,
+          perIni: progVac.perIni,
+        })
         .from(vacationRevisionAllocations)
-        .where(eq(vacationRevisionAllocations.revisionId, rev.id))
-        .orderBy(vacationRevisionAllocations.progVacId); // orden estable: evita interbloqueos
+        .innerJoin(progVac, eq(progVac.id, vacationRevisionAllocations.progVacId))
+        .where(eq(vacationRevisionAllocations.revisionId, rev.id));
+      const plan = planReturn(rev.countedDays as string[], allocs, today, until);
+      if (plan.returnedDays === 0) throw new VacationError('NOTHING_TO_RETURN');
+      const why = reason.replace(/[.\s]+$/, '');
+      const note =
+        plan.enjoyedDays > 0
+          ? ` Se conservan ${plan.enjoyedDays} días ya disfrutados (hasta el ${plan.cutoff}) y se devuelven ${plan.returnedDays}.`
+          : '';
 
-      for (const a of allocs) {
+      // orden estable de los períodos: evita interbloqueos entre anulaciones y aprobaciones
+      for (const a of [...plan.allocations].sort((x, y) =>
+        x.progVacId.localeCompare(y.progVacId),
+      )) {
+        if (a.returned === 0) continue;
         const [orig] = await tx.select().from(progVac).where(eq(progVac.id, a.progVacId));
         if (!orig) throw new VacationError('PERIOD_GONE');
         // Si una importación reemplazó el período, los días vuelven a su versión vigente.
@@ -787,7 +807,7 @@ export async function annulApproved(
               )
               .for('update');
         if (!p) throw new VacationError('PERIOD_GONE');
-        const disp = Math.min(p.dias, p.disp + a.days);
+        const disp = Math.min(p.dias, p.disp + a.returned);
         const version = p.version + 1;
         await tx.insert(progVacAdjustments).values({
           progVacId: p.id,
@@ -797,7 +817,7 @@ export async function annulApproved(
           newDias: p.dias,
           oldDisp: p.disp,
           newDisp: disp,
-          reason: `Disfrute anulado (solicitud ${id}): ${reason}`,
+          reason: `Disfrute anulado (solicitud ${id}): ${why}.${note}`,
         });
         await tx
           .update(progVac)
@@ -806,13 +826,28 @@ export async function annulApproved(
       }
       await tx
         .update(vacaciones)
-        .set({ annulledAt: new Date(), annulledBy: actor, annulReason: reason })
+        .set({
+          annulledAt: new Date(),
+          annulledBy: actor,
+          annulReason: reason,
+          diasDevueltos: plan.returnedDays,
+          diasDisfrutados: plan.enjoyedDays,
+          disfrutadosHasta: plan.enjoyedDays > 0 ? plan.cutoff : null,
+        })
         .where(eq(vacaciones.id, vac.id));
       await tx
         .update(vacationRequests)
         .set({ status: 'ANULADA', updatedAt: new Date() })
         .where(eq(vacationRequests.id, id));
-      await record(tx, id, rev.number, actor, 'ANULAR', rev.contentHash, reason);
+      await record(
+        tx,
+        id,
+        rev.number,
+        actor,
+        'ANULAR',
+        rev.contentHash,
+        `${reason}.${note}`.trim(),
+      );
     });
   } catch (e) {
     await audit(db, actor, 'VACATION_ANULAR', id, errCode(e));
@@ -861,9 +896,14 @@ export async function adminApproved(db: Db, q: ApprovedQuery) {
       approvedAt: vacaciones.createdAt,
       annulledAt: vacaciones.annulledAt,
       annulReason: vacaciones.annulReason,
+      diasDevueltos: vacaciones.diasDevueltos,
+      diasDisfrutados: vacaciones.diasDisfrutados,
+      disfrutadosHasta: vacaciones.disfrutadosHasta,
+      countedDays: vacationRevisions.countedDays,
     })
     .from(vacationRequests)
     .innerJoin(vacaciones, eq(vacaciones.requestId, vacationRequests.id))
+    .innerJoin(vacationRevisions, eq(vacationRevisions.id, vacaciones.revisionId))
     .where(where)
     .orderBy(desc(vacaciones.fecIniDis), desc(vacaciones.createdAt))
     .limit(q.pageSize)
@@ -873,6 +913,7 @@ export async function adminApproved(db: Db, q: ApprovedQuery) {
     ? await db
         .select({
           revisionId: vacationRevisionAllocations.revisionId,
+          progVacId: vacationRevisionAllocations.progVacId,
           days: vacationRevisionAllocations.days,
           perIni: progVac.perIni,
           perFin: progVac.perFin,
@@ -903,15 +944,35 @@ export async function adminApproved(db: Db, q: ApprovedQuery) {
     total,
     page: q.page,
     pageSize: q.pageSize,
-    items: rows.map(({ revisionId, ...r }) => ({
-      ...r,
-      employee: names.get(r.nIde) ?? r.nIde,
-      /** Se puede anular mientras el disfrute no haya terminado. */
-      canAnnul: r.status === 'APROBADA' && r.end >= today,
-      allocations: allocs
-        .filter((a) => a.revisionId === revisionId)
-        .map((a) => ({ perIni: a.perIni, perFin: a.perFin, days: a.days })),
-    })),
+    items: rows.map(({ revisionId, countedDays, ...r }) => {
+      const mine = allocs.filter((a) => a.revisionId === revisionId);
+      const canAnnul = r.status === 'APROBADA' && r.end >= today;
+      /** Qué se devolvería con cada opción de «días ya disfrutados», para decidir al anular. */
+      const preview = (until: EnjoyedUntil) => {
+        const p = planReturn(countedDays as string[], mine, today, until);
+        return {
+          cutoff: p.cutoff,
+          enjoyedDays: p.enjoyedDays,
+          returnedDays: p.returnedDays,
+          allocations: p.allocations.map((a) => ({
+            perIni: a.perIni,
+            perFin: a.perFin,
+            days: a.days,
+            returned: a.returned,
+          })),
+        };
+      };
+      return {
+        ...r,
+        employee: names.get(r.nIde) ?? r.nIde,
+        /** Se puede anular mientras el disfrute no haya terminado. */
+        canAnnul,
+        allocations: mine.map((a) => ({ perIni: a.perIni, perFin: a.perFin, days: a.days })),
+        returnPreview: canAnnul
+          ? { YESTERDAY: preview('YESTERDAY'), TODAY: preview('TODAY') }
+          : null,
+      };
+    }),
   };
 }
 
