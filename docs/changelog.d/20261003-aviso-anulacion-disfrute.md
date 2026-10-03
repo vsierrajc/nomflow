@@ -1,0 +1,1 @@
+Vacaciones: cuando Gestión Humana anula un disfrute aprobado, el empleado recibe un correo con el motivo y su bandeja lo muestra como «Anulada por Gestión Humana» (antes no se le avisaba y aparecía como «Cancelada»).
