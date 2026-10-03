@@ -15,6 +15,7 @@ import { approverIdsFor, canActFor } from './substitutions.service';
 import { resolveAreaManager } from '../org/area-managers.service';
 import { diffDays, isValidIsoDate } from './business-days';
 import { activeContract } from './prog-vac.service';
+import { todayBogota } from '../common/dates';
 
 export type PermitErrorCode =
   | 'NOT_FOUND'
@@ -256,7 +257,7 @@ export async function submitPermit(db: Db, accountId: string, input: PermitInput
       throw new PermitError('INVALID_SUPPORT');
   } else if (type.supportRequired) throw new PermitError('SUPPORT_REQUIRED');
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayBogota();
   const manager = await resolveAreaManager(db, c.cEmp, c.cArea, today);
   if (!manager) {
     await audit(db, accountId, 'PERMIT_SUBMIT', null, 'NO_MANAGER');

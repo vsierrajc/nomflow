@@ -15,6 +15,7 @@ import { NETWORK_ERROR } from '@/lib/api';
 import { IconButton } from '@/components/icon-button';
 import { isSystemAdmin, useAdmin } from '@/lib/admin';
 import { loadCatalog, loadCompanies, type CatalogOption } from '@/lib/catalogs';
+import { todayBogota as today } from '@/lib/dates';
 
 interface Account {
   id: string;
@@ -69,7 +70,6 @@ const STATUS: Record<string, { label: string; kind: 'ok' | 'warn' | 'off' }> = {
   PENDIENTE_VERIFICACION: { label: 'Pendiente de activar', kind: 'warn' },
   BLOQUEADA: { label: 'Bloqueada', kind: 'off' },
 };
-const today = () => new Date().toISOString().slice(0, 10);
 
 function SecretDialog({
   title,

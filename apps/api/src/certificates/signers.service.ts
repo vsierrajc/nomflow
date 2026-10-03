@@ -12,6 +12,7 @@ import {
 import { inspectImage } from '../org/logos.service';
 import { open, seal } from '../security/secret-box';
 import { DigitalSignatureError, generateSelfSigned, inspectP12 } from './digital-signature';
+import { todayBogota } from '../common/dates';
 
 export type SignerErrorCode =
   | 'NOT_FOUND'
@@ -58,7 +59,7 @@ async function audit(
   });
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => todayBogota();
 
 /** El rol vigente de firmante (CERTIFICATE_APPROVER) de la empresa, que acompaña a cada firmante. */
 async function hasSignerRole(db: Db, accountId: string, cEmp: string): Promise<boolean> {

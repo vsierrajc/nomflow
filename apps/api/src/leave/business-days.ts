@@ -1,5 +1,7 @@
 /** Cálculo de disfrute de vacaciones (SSD 6.2). Fechas como texto ISO AAAA-MM-DD, sin zona horaria. */
 
+export { todayBogota } from '../common/dates';
+
 const DAY_MS = 86_400_000;
 
 const toUtc = (iso: string): number => {
@@ -10,14 +12,6 @@ const fromUtc = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
 export const addDays = (iso: string, n: number): string => fromUtc(toUtc(iso) + n * DAY_MS);
 export const diffDays = (from: string, to: string): number =>
   Math.round((toUtc(to) - toUtc(from)) / DAY_MS);
-
-/**
- * Fecha de hoy en Colombia (AAAA-MM-DD). El negocio opera en America/Bogota: con UTC, desde las 19:00
- * locales "hoy" ya sería mañana.
- */
-export function todayBogota(now: Date = new Date()): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(now);
-}
 
 export function isValidIsoDate(iso: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(iso) && fromUtc(toUtc(iso)) === iso;

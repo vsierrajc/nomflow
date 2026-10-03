@@ -13,6 +13,7 @@ import {
   TotpError,
   verifyTotpChallenge,
 } from './totp.service';
+import { todayBogota } from '../common/dates';
 
 export const MAX_FAILED_ATTEMPTS = 5;
 export const LOCK_MINUTES = 15;
@@ -271,7 +272,7 @@ export async function getProfile(db: Db, accountId: string): Promise<Profile> {
     .from(employeeSnapshots)
     .where(and(eq(employeeSnapshots.nIde, account.nIde), eq(employeeSnapshots.est, 'V')))
     .limit(1);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayBogota();
   const roles = await db
     .select({
       role: roleAssignments.role,

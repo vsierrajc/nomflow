@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { hashPassword } from '../accounts/password.service';
 import { createDb } from './client';
 import { accounts, roleAssignments } from './schema';
+import { todayBogota } from '../common/dates';
 
 const MIN_LENGTH = 12;
 
@@ -39,7 +40,7 @@ async function main(): Promise<void> {
       await tx.insert(roleAssignments).values({
         accountId: row.id,
         role: 'HR_ADMIN',
-        validFrom: new Date().toISOString().slice(0, 10),
+        validFrom: todayBogota(),
       });
     });
     console.log(`Administrador creado: ${email}`);

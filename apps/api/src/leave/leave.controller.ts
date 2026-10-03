@@ -82,6 +82,7 @@ import {
   managerReject,
   submitRequest,
 } from './vacation.service';
+import { todayBogota } from '../common/dates';
 
 const iso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const DraftDto = z.object({
@@ -301,7 +302,7 @@ export class AdminProgVacController {
     );
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="periodos-vacaciones-${new Date().toISOString().slice(0, 10)}.xlsx"`,
+      `attachment; filename="periodos-vacaciones-${todayBogota()}.xlsx"`,
     );
     return new StreamableFile(buf);
   }

@@ -9,6 +9,8 @@ import {
 } from '../db/schema';
 import { ADMIN_ROLES, hasActiveRole } from '../auth/roles';
 import { OrgError, areaExists } from './roles.service';
+import { todayBogota } from '../common/dates';
+import { addDays } from '../leave/business-days';
 
 export interface AreaApproversInput {
   /** Cuenta que pasa a ser jefe del área; `null` la deja sin jefe; ausente no la cambia. */
@@ -17,9 +19,8 @@ export interface AreaApproversInput {
   directorAccountId?: string | null | undefined;
 }
 
-const iso = (d: Date) => d.toISOString().slice(0, 10);
-const todayIso = () => iso(new Date());
-const yesterdayIso = () => iso(new Date(Date.now() - 24 * 3600 * 1000));
+const todayIso = () => todayBogota();
+const yesterdayIso = () => addDays(todayBogota(), -1);
 
 type Runner = Pick<Db, 'select' | 'insert' | 'update'>;
 

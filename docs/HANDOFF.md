@@ -110,6 +110,7 @@ Higiene: la matriz `docs/traceability.md` se actualizó el 26 de septiembre de 2
 - **`docs/CHANGELOG.md` ya no se edita por PR**: cada cambio añade un archivo en `docs/changelog.d/` (ver su README) y de vez en cuando se corre `npm run changelog:compile` en un commit aparte. Si aun así aparece un conflicto en `CHANGELOG.md` (rama vieja, o alguien lo editó a mano), resolver quitando las marcas de conflicto y conservando ambas líneas.
 - **Carga de nómina**: el período y la liquidación salen de las columnas `PER` y `N_LIQ`; cada volante del archivo reemplaza al publicado y los demás de la liquidación se conservan. Un contenido idéntico se detecta al aplicar, no al validar.
 
+- **Fechas de negocio**: «hoy» y las vigencias (roles, asignaciones, suplencias, calendarios, nombres de archivo) se cuentan por el día de Colombia con `todayBogota()` / `dateBogota()` de `apps/api/src/common/dates.ts` (web: `lib/dates.ts`). Nunca `new Date().toISOString().slice(0, 10)`: es UTC y desde las 19:00 locales ya es mañana (un rol que vence hoy se daba por vencido cinco horas antes). Las pruebas con fecha simulada usan `vi.useFakeTimers({ toFake: ['Date'] })` (ver `auth/fecha-colombia.e2e.spec.ts`).
 - **Pruebas de navegador en un worktree**: Playwright lee las credenciales de Garage del `.env` de la raíz; un worktree nuevo no lo tiene y fallan retenciones, certificado laboral y constancias (503). Copiar el `.env` (está ignorado). En WSL exportar también `LD_LIBRARY_PATH` (ver `docs/local-stack.md`).
 
 ## 9. Cierre de una tarea (definición de terminado)

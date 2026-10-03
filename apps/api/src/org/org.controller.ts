@@ -26,6 +26,7 @@ import { DB } from '../db/db.module';
 import { getAreaApprovers, setAreaApprovers } from './area-approvers.service';
 import { assignAreaManager, endAreaManager, listAreaManagers } from './area-managers.service';
 import { OrgError, endRole, grantRole, listRoles } from './roles.service';
+import { todayBogota } from '../common/dates';
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const GrantDto = z.object({
@@ -179,13 +180,7 @@ export class OrgController {
     const dto = EndRoleDto.safeParse(body ?? {});
     if (!dto.success) throw new BadRequestException();
     try {
-      await endRole(
-        this.db,
-        req.auth.accountId,
-        id,
-        roleId,
-        dto.data.validTo ?? new Date().toISOString().slice(0, 10),
-      );
+      await endRole(this.db, req.auth.accountId, id, roleId, dto.data.validTo ?? todayBogota());
     } catch (e) {
       map(e);
     }
