@@ -110,7 +110,13 @@ async function buildData(db: Db, requestId: string): Promise<VacationDocData | n
     return (nIde ? nameOf.get(nIde) : undefined) ?? nIde ?? '';
   };
   const finalAction = actions.filter((a) => a.action === 'APROBAR_FINAL').at(-1);
-  const firstAction = actions.filter((a) => a.action === 'APROBAR_JEFE').at(-1);
+  // Quien dio el primer visto bueno de la revisión aprobada: lo aprobó él mismo o la propuso él (y el
+  // empleado la aceptó). En ambos casos es su acto autenticado sobre esa misma revisión.
+  const firstAction = actions
+    .filter(
+      (a) => (a.action === 'APROBAR_JEFE' || a.action === 'PROPONER') && a.revision === rev.number,
+    )
+    .at(-1);
   const signatures = [];
   for (const [act, title] of [
     [firstAction, FIRST_APPROVER_TITLE[req.firstApproverRole] ?? 'Jefe de área'],

@@ -16,6 +16,8 @@ export default defineConfig({
       // 15 minutos (todas desde la misma IP del proceso); ip-rate-limit.e2e.spec.ts fija su propio
       // AUTH_RATE_LIMIT_MAX bajo para probar el límite en sí.
       AUTH_RATE_LIMIT_MAX: '1000',
+      // Las pruebas de vacaciones usan fechas fijas de 2026; la prueba de la fecha mínima fija la suya.
+      VACATION_ALLOW_PAST_START: 'true',
     },
   },
 });

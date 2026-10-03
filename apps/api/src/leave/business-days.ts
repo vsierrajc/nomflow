@@ -11,6 +11,14 @@ export const addDays = (iso: string, n: number): string => fromUtc(toUtc(iso) + 
 export const diffDays = (from: string, to: string): number =>
   Math.round((toUtc(to) - toUtc(from)) / DAY_MS);
 
+/**
+ * Fecha de hoy en Colombia (AAAA-MM-DD). El negocio opera en America/Bogota: con UTC, desde las 19:00
+ * locales "hoy" ya sería mañana.
+ */
+export function todayBogota(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(now);
+}
+
 export function isValidIsoDate(iso: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(iso) && fromUtc(toUtc(iso)) === iso;
 }

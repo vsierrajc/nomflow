@@ -68,6 +68,7 @@ import { PlanError, type Allocation } from './leave-plan';
 import { planLeave, prepareCalendars } from './leave-plan';
 import {
   VacationError,
+  assertStartNotPast,
   acceptRevision,
   cancelRequest,
   detail,
@@ -388,6 +389,7 @@ function mapLeave(e: unknown): never {
       case 'NO_ACTIVE_CONTRACT':
         throw new UnprocessableEntityException({ code: e.code });
       case 'REASON_REQUIRED':
+      case 'START_IN_PAST':
         throw new BadRequestException({ code: e.code });
       default:
         throw new ConflictException({ code: e.code });
@@ -425,6 +427,7 @@ export class MeVacationsController {
     const contract = await activeContract(this.db, req.auth.accountId);
     if (!contract) throw new NotFoundException();
     try {
+      assertStartNotPast(dto.data.start);
       await prepareCalendars(this.db, req.auth.accountId, dto.data.start, dto.data.allocations);
       return await planLeave(this.db, contract, dto.data.start, dto.data.allocations);
     } catch (e) {

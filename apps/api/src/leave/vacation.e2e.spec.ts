@@ -11,6 +11,7 @@ import { EncryptedObjectStore } from '../storage/encrypted-object-store';
 import { MemoryObjectStore } from '../storage/memory-object-store';
 import { OBJECT_STORE } from '../storage/object-store';
 import { createDb } from '../db/client';
+import { addDays, todayBogota } from './business-days';
 import { runMigrations } from '../db/migrate';
 import {
   auditLogs,
@@ -461,6 +462,66 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
     const det = await send(emp, 'get', `/me/vacations/${id}`).expect(200);
     expect(det.body.revisions).toHaveLength(2);
     expect(det.body.revisions[1].reason).toBe('Se reprograma por cierre de mes');
+  });
+
+  it('si el jefe propone cambios, la constancia lleva igualmente su firma (y la de la aprobación final)', async () => {
+    const b = await submit('2026-03-02', [{ progVacId: p1, days: 5 }]).expect(201);
+    const id = b.body.id as string;
+    await send(mgr, 'post', `/approvals/vacations/manager/${id}/propose`, {
+      start: '2026-03-30',
+      allocations: [{ progVacId: p1, days: 3 }],
+      reason: 'Se reprograma por cierre de mes',
+    }).expect(200);
+    await send(emp, 'post', `/me/vacations/${id}/accept`).expect(200);
+    await send(fin, 'post', `/approvals/vacations/final/${id}/approve`).expect(200);
+
+    // la propuesta es el acto autenticado del jefe sobre la revisión aprobada: no hay otro «aprobar»
+    const actions = (
+      await db.select().from(vacationActions).where(eq(vacationActions.requestId, id))
+    )
+      .sort((a, c) => a.at.getTime() - c.at.getTime())
+      .map((a) => `${a.action}@${a.revisionNumber}`);
+    expect(actions).toEqual(['ENVIAR@1', 'PROPONER@2', 'ACEPTAR@2', 'APROBAR_FINAL@2']);
+
+    const text = await pdfText(body(await binary(pdf(emp, id)).expect(200)));
+    expect(text).toContain('Jefe de área');
+    expect(text).toContain('Aprobación final');
+    expect(text.match(/Firma en imagen no registrada/g)).toHaveLength(2);
+  });
+
+  it('una solicitud nueva o una propuesta no pueden empezar antes de hoy (hora de Colombia)', async () => {
+    const previous = process.env.VACATION_ALLOW_PAST_START;
+    delete process.env.VACATION_ALLOW_PAST_START;
+    try {
+      const yesterday = addDays(todayBogota(), -1);
+      const body = { start: yesterday, allocations: [{ progVacId: p1, days: 2 }] };
+      for (const path of ['/me/vacations/preview', '/me/vacations']) {
+        const res = await send(emp, 'post', path, body).expect(400);
+        expect(res.body.code).toBe('START_IN_PAST');
+      }
+      expect(await db.select().from(vacationRequests)).toHaveLength(0);
+
+      // hoy sí pasa esta regla (otra regla, como el día hábil o el calendario, puede rechazarla)
+      const today = await send(emp, 'post', '/me/vacations/preview', {
+        ...body,
+        start: todayBogota(),
+      });
+      expect(today.body.code).not.toBe('START_IN_PAST');
+
+      // el jefe tampoco puede proponer una fecha pasada
+      process.env.VACATION_ALLOW_PAST_START = 'true';
+      const ok = await submit('2026-03-02', [{ progVacId: p1, days: 2 }]).expect(201);
+      delete process.env.VACATION_ALLOW_PAST_START;
+      const res = await send(mgr, 'post', `/approvals/vacations/manager/${ok.body.id}/propose`, {
+        ...body,
+        reason: 'Se reprograma por cierre de mes',
+      }).expect(400);
+      expect(res.body.code).toBe('START_IN_PAST');
+      expect(await status(ok.body.id as string)).toBe('PENDIENTE_JEFE');
+    } finally {
+      if (previous === undefined) delete process.env.VACATION_ALLOW_PAST_START;
+      else process.env.VACATION_ALLOW_PAST_START = previous;
+    }
   });
 
   it('solo quien tiene el rol y la asignación puede aprobar; nadie firma su propia solicitud', async () => {

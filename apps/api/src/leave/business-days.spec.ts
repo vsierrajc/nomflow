@@ -5,6 +5,7 @@ import {
   isBusinessDay,
   isValidIsoDate,
   yearsNeeded,
+  todayBogota,
 } from './business-days';
 
 const none = new Set<string>();
@@ -155,5 +156,14 @@ describe('utilidades', () => {
   it('yearsNeeded cubre el cruce de año', () => {
     expect(yearsNeeded('2026-12-20', 15)).toEqual([2026, 2027]);
     expect(yearsNeeded('2026-03-02', 5)).toEqual([2026]);
+  });
+});
+
+describe('todayBogota', () => {
+  it('usa la fecha de Colombia, no la de UTC', () => {
+    // 20:30 del 2 de octubre en Bogotá ya es 3 de octubre en UTC
+    expect(todayBogota(new Date('2026-10-03T01:30:00Z'))).toBe('2026-10-02');
+    expect(todayBogota(new Date('2026-10-03T04:59:59Z'))).toBe('2026-10-02');
+    expect(todayBogota(new Date('2026-10-03T05:00:00Z'))).toBe('2026-10-03');
   });
 });
