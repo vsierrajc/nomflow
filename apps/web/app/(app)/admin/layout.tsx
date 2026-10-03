@@ -35,6 +35,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
       { href: '/admin/importaciones', label: 'Importaciones' },
       { href: '/admin/vacaciones', label: 'Períodos de vacaciones' },
       { href: '/admin/disfrutes', label: 'Disfrutes aprobados' },
+      { href: '/admin/solicitudes-pendientes', label: 'Solicitudes pendientes' },
       { href: '/admin/bajas', label: 'Bajas y exportación' },
       { href: '/admin/suplencias', label: 'Suplencias' },
     ],

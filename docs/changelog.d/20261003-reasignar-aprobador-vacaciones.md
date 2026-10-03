@@ -1,0 +1,1 @@
+Vacaciones: Administración → Solicitudes pendientes muestra quién tiene cada solicitud en espera del primer visto bueno y la reasigna al aprobador vigente cuando el área cambió de jefe (antes el nuevo no la veía y el anterior ya no podía decidirla).

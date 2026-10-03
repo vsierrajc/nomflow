@@ -489,6 +489,90 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
     expect(text.match(/Firma en imagen no registrada/g)).toHaveLength(2);
   });
 
+  it('si el área cambió de jefe, Gestión Humana reasigna la solicitud pendiente al aprobador vigente', async () => {
+    const a = await submit('2026-03-02', [{ progVacId: p1, days: 2 }]).expect(201);
+    const id = a.body.id as string;
+    const pending = async () =>
+      (await send(adm, 'get', '/admin/vacations/pending-approval').expect(200)).body;
+
+    // sin cambios la tiene quien corresponde, y no hay nada que reasignar
+    expect(await pending()).toMatchObject([
+      { id, state: 'VIGENTE', assignedTo: 'Persona 200', currentApprover: 'Persona 200' },
+    ]);
+    const same = await send(adm, 'post', `/admin/vacations/${id}/reassign`).expect(409);
+    expect(same.body.code).toBe('ALREADY_CURRENT');
+
+    // el área cambia de jefe: el anterior termina su cargo y entra otra persona
+    const mgr2 = await person('250', 'm2@x.co', [{ role: 'AREA_MANAGER', area: true }]);
+    await db
+      .update(roleAssignments)
+      .set({ validTo: '2020-06-30' })
+      .where(eq(roleAssignments.accountId, mgr.id));
+    await db
+      .update(areaManagerAssignments)
+      .set({ validTo: '2020-06-30' })
+      .where(eq(areaManagerAssignments.managerAccountId, mgr.id));
+    await db.insert(areaManagerAssignments).values({
+      cEmp: 'GA',
+      cArea: '10300',
+      managerAccountId: mgr2.id,
+      validFrom: '2020-07-01',
+      createdBy: adm.id,
+    });
+    // la solicitud quedó atada al anterior: él ya no puede decidirla y el nuevo no la ve
+    await send(mgr, 'post', `/approvals/vacations/manager/${id}/approve`).expect(403);
+    expect((await send(mgr2, 'get', '/approvals/vacations/manager').expect(200)).body).toHaveLength(
+      0,
+    );
+    await send(mgr2, 'post', `/approvals/vacations/manager/${id}/approve`).expect(404);
+    expect(await pending()).toMatchObject([
+      { id, state: 'REASIGNABLE', assignedTo: 'Persona 200', currentApprover: 'Persona 250' },
+    ]);
+
+    // solo Gestión Humana reasigna
+    await send(emp, 'post', `/admin/vacations/${id}/reassign`).expect(403);
+    await send(
+      adm,
+      'post',
+      '/admin/vacations/00000000-0000-4000-8000-000000000000/reassign',
+    ).expect(404);
+    await send(adm, 'post', `/admin/vacations/${id}/reassign`).expect(204);
+
+    expect(await pending()).toMatchObject([{ id, state: 'VIGENTE', assignedTo: 'Persona 250' }]);
+    expect((await send(mgr2, 'get', '/approvals/vacations/manager').expect(200)).body).toHaveLength(
+      1,
+    );
+    await send(mgr, 'post', `/approvals/vacations/manager/${id}/approve`).expect(403); // sin el rol
+    await send(mgr2, 'post', `/approvals/vacations/manager/${id}/approve`).expect(200);
+    expect(await status(id)).toBe('PENDIENTE_FINAL');
+
+    const actions = (
+      await db.select().from(vacationActions).where(eq(vacationActions.requestId, id))
+    )
+      .sort((x, y) => x.at.getTime() - y.at.getTime())
+      .map((x) => x.action);
+    expect(actions).toEqual(['ENVIAR', 'REASIGNAR', 'APROBAR_JEFE']);
+    expect((await db.select().from(auditLogs)).map((l) => l.action)).toContain(
+      'VACATION_REASIGNAR',
+    );
+
+    // ya no está pendiente del jefe: no hay nada que reasignar
+    expect(await pending()).toEqual([]);
+    const late = await send(adm, 'post', `/admin/vacations/${id}/reassign`).expect(409);
+    expect(late.body.code).toBe('INVALID_STATE');
+  });
+
+  it('si el área no tiene un único aprobador vigente, se avisa y no se puede reasignar', async () => {
+    const a = await submit('2026-03-02', [{ progVacId: p1, days: 2 }]).expect(201);
+    const id = a.body.id as string;
+    await db.delete(areaManagerAssignments);
+    const list = (await send(adm, 'get', '/admin/vacations/pending-approval').expect(200)).body;
+    expect(list).toMatchObject([{ id, state: 'SIN_APROBADOR', currentApprover: null }]);
+    const res = await send(adm, 'post', `/admin/vacations/${id}/reassign`).expect(422);
+    expect(res.body.code).toBe('NO_MANAGER');
+    expect(await status(id)).toBe('PENDIENTE_JEFE');
+  });
+
   it('una solicitud nueva o una propuesta no pueden empezar antes de hoy (hora de Colombia)', async () => {
     const previous = process.env.VACATION_ALLOW_PAST_START;
     delete process.env.VACATION_ALLOW_PAST_START;

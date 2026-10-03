@@ -56,6 +56,7 @@ Decisiones de esta fase: valor inicial de `PRE_BAJA_AVISO_DIAS`, si cuenta días
 | 3.4 | Reglas de permisos por tipo (anticipación mínima, tope anual), consulta administrativa con motivo y PDF; decidir si la jerarquía jefe > director > gerente aplica también a permisos | ESS-PERM-001 |
 | 3.5 | Códigos de `EST` y fecha de corte de `PROG_VAC`; credencial y región de la API de festivos | SSD 12 |
 | 3.6 | ~~**Catálogo de turnos**: días laborales por turno, usados en el cálculo de días hábiles y fecha de retorno~~ DONE: tabla `shifts`, `/admin/turnos`, bloquea con `SHIFT_MISSING` si el empleado no tiene turno asignado o no existe en el catálogo | ESS-LEAVE-004 |
+| 3.7 | ~~Solicitud de vacaciones atada a un jefe que ya no es el del área~~ DONE: Administración → Solicitudes pendientes lista las solicitudes en espera del primer visto bueno, quién las tiene y quién es hoy el aprobador, y Gestión Humana las reasigna (`POST /admin/vacations/:id/reassign`, queda en el historial y en la auditoría). | ESS-LEAVE-005 |
 
 ## Fase 4 - Producción
 

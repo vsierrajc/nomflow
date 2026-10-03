@@ -64,6 +64,7 @@ export const ACTION_LABEL: Record<string, string> = {
   RECHAZAR: 'Rechazada',
   CANCELAR: 'Cancelada por el empleado',
   ANULAR: 'Disfrute anulado por Gestión Humana',
+  REASIGNAR: 'Aprobador reasignado por Gestión Humana',
 };
 
 export const OPEN = ['PENDIENTE_JEFE', 'REVISION_EMPLEADO', 'PENDIENTE_FINAL'];
