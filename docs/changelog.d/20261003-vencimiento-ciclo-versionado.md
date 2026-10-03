@@ -1,0 +1,1 @@
+Vacaciones: cuando el ciclo automático vence el período más antiguo por el tope de 3, queda un ajuste versionado del sistema en el historial del período con los días que se perdieron (antes solo quedaba en la auditoría).
