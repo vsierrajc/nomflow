@@ -22,6 +22,8 @@ integración de cada uno.
 - #108: no se aprueba (jefe ni aprobación final) a quien ya no tiene contrato vigente.
 - #109: la anulación de un disfrute en curso devuelve solo los días no disfrutados (migración `0041`).
 - #100: excepción de `audit:deps` para el aviso de `node-forge`, hasta el 2026-11-01.
+- #110: STATUS, HANDOFF y esta bitácora al día hasta el #109.
+- #111: las listas que dependen de la empresa (empleados, cuentas y roles) descartan la respuesta tardía de la empresa anterior; era la causa de la prueba intermitente `admin-gestion.spec.ts`.
 
 ## Pendiente
 
