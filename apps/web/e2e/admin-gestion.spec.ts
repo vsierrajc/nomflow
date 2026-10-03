@@ -78,6 +78,42 @@ test.describe('empleados', () => {
     await expect(d.getByLabel('Área (C_AREA)')).toHaveValue('');
   });
 
+  test('la respuesta tardía de otra empresa no pisa las listas de la que se eligió', async ({
+    page,
+  }) => {
+    await asAdmin(page);
+    const one = await setupOrg(); // áreas 10300 y 10400
+    const two = `G${uid().toUpperCase()}`;
+    await seedCompany(two);
+    await seedCatalog('AREA', two, '20100', 'LOGISTICA');
+    // El formulario pide primero las áreas de la empresa por omisión; esa primera respuesta llega tarde,
+    // cuando el usuario ya cambió de empresa.
+    let delayed = false;
+    await page.route('**/admin/catalogs/AREA?*', async (route) => {
+      if (!delayed) {
+        delayed = true;
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+      await route.continue();
+    });
+    await page.goto('/admin/empleados');
+    await page.getByRole('button', { name: 'Nuevo empleado' }).click();
+    const d = page.getByRole('dialog');
+    const company = d.getByLabel('Empresa (C_EMP)');
+    await expect(company.locator('option')).not.toHaveCount(0);
+    // se elige una empresa distinta de la que el formulario tomó por omisión
+    await expect.poll(async () => company.inputValue()).not.toBe('');
+    const target = (await company.inputValue()) === one ? two : one;
+    await company.selectOption(target);
+    const expected =
+      target === one
+        ? ['- Seleccione un área -', '10300 - FINANCIERA', '10400 - COMERCIAL']
+        : ['- Seleccione un área -', '20100 - LOGISTICA'];
+    // pasado el retraso, las áreas siguen siendo las de la empresa elegida
+    await page.waitForTimeout(2500);
+    await expect(d.getByLabel('Área (C_AREA)').locator('option')).toHaveText(expected);
+  });
+
   test('alta excepcional, consulta, corrección con historial, baja y reactivación', async ({
     page,
   }) => {

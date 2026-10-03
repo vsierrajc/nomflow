@@ -26,5 +26,4 @@ integración de cada uno.
 ## Pendiente
 
 - Revisar la excepción de `node-forge` antes del 2026-11-01 (versión corregida o renovarla con justificación).
-- Estabilizar `admin-gestion.spec.ts` «las listas dependen de la empresa» (esperar las opciones del área).
 - Proteger `main` y exigir revisión de otra persona (SSD, sección 11).
