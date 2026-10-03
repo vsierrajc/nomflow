@@ -1,6 +1,6 @@
 # Traspaso para la próxima sesión
 
-Actualizado: 3 de octubre de 2026. Estado del código: `main` (PR hasta el #109 integrados; no hay PR abiertos). El usuario revisó y aprobó la integración de los PR #97-#109. Este archivo se **reescribe al cerrar cada sesión** (SSD 10.2); el historial vive en `docs/sessions/`. No contiene claves, correos ni datos de personas. **El plan por fases está en [PLAN.md](PLAN.md).**
+Actualizado: 3 de octubre de 2026. Estado del código: `main` (PR hasta el #111 integrados; no hay PR abiertos). El usuario revisó y aprobó la integración de los PR #97-#109; #110 (documentación) y #111 (arreglo de la interfaz) se integraron sin una revisión registrada. Este archivo se **reescribe al cerrar cada sesión** (SSD 10.2); el historial vive en `docs/sessions/`. No contiene claves, correos ni datos de personas. **El plan por fases está en [PLAN.md](PLAN.md).**
 
 ## 1. Cómo arrancar (10 minutos)
 
@@ -52,13 +52,13 @@ Detalle y decisiones en `docs/sessions/2026-10-03-vacaciones.md`. Lo que convien
 
 ## 3. Pendientes que esperan datos o personas (fase 0 del plan)
 
-Ver [PLAN.md](PLAN.md), fase 0: cargar `nomina.xlsx` y `PROG_VAC` reales (con respaldo previo y aprobación), asignar el director de cada área y el gerente general, firmas de los firmantes, ciudad/pie/código del certificado laboral, primera prueba real del archivo histórico y corrección de las pruebas intermitentes. **Todo lo que escribe datos reales exige aprobación explícita del usuario y un `pg_dump` previo.**
+Ver [PLAN.md](PLAN.md), fase 0: cargar `nomina.xlsx` y `PROG_VAC` reales (con respaldo previo y aprobación), asignar el director de cada área y el gerente general, firmas de los firmantes, ciudad/pie/código del certificado laboral, y la primera prueba real del archivo histórico. **Todo lo que escribe datos reales exige aprobación explícita del usuario y un `pg_dump` previo.**
 
 ## 4. Trabajo de desarrollo pendiente
 
 Está ordenado por prioridad y por fases en [PLAN.md](PLAN.md): seguridad y resiliencia (fase 1), ciclo de vida del empleado y ZIP (fase 2), completar vacaciones y permisos (fase 3), producción (fase 4) y mejoras (fase 5). Patrón que conviene **reutilizar**: importación en dos pasos (vista previa y aplicación atómica, `apps/api/src/imports`), versionado con índice único parcial, historial, auditoría y `ADMIN_ROLES`; PDF con `pdfkit` (`apps/api/src/payroll/voucher.pdf.ts`, `apps/api/src/certificates/labor-cert.pdf.ts`); tareas periódicas dentro de la API (salud, avisos, registros).
 
-Higiene: la matriz `docs/traceability.md` se actualizó el 26 de septiembre de 2026; mantenerla con cada PR.
+Higiene: la matriz `docs/traceability.md` se actualizó el 3 de octubre de 2026; mantenerla con cada PR.
 
 ## 5. Decisiones abiertas (SSD sección 12)
 

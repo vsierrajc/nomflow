@@ -2,8 +2,8 @@
 
 - Versión: 0.0.0 (pre-lanzamiento; sin despliegue en producción). Actualizado el 3 de octubre de 2026.
 - **Plan por fases: [PLAN.md](PLAN.md)**. Traspaso para la próxima sesión: [HANDOFF.md](HANDOFF.md). Última bitácora: [sessions/2026-10-03-vacaciones.md](sessions/2026-10-03-vacaciones.md).
-- `main` contiene los PR hasta el #109 integrados; no hay PR abiertos.
-- Revisión: el usuario revisó y aprobó la integración de los PR #85-#88 y #97-#109; `main` sigue sin protección de rama (la SSD, sección 11, la exige formalmente).
+- `main` contiene los PR hasta el #111 integrados; no hay PR abiertos.
+- Revisión: el usuario revisó y aprobó la integración de los PR #85-#88 y #97-#109; los PR #110 (documentación) y #111 (arreglo de la interfaz) se integraron sin una revisión registrada; `main` sigue sin protección de rama (la SSD, sección 11, la exige formalmente).
 - Pruebas: 506 de API y unas 145 de navegador en verde; CI completo (CodeQL, secretos, e2e) sin alertas abiertas. Ver [README](../README.md).
 
 | módulo | estado | PR | siguiente acción |
@@ -18,7 +18,7 @@
 | Stack local, Graphify, scripts de inicio y pruebas de navegador | DONE | #12, #13, #15, #38 | - |
 | Acceso web y menús (ESS-WEB-001) | DONE | #14, #46, #56, #58, #73 | - |
 | Volantes de pago PDF (ESS-PAY-001) | DONE; diseño carta según el modelo; carga por PER/N_LIQ del archivo; retiro de publicación con motivo y auditoría | #16, #74-#76, #86 | Cargar `nomina.xlsx` real |
-| Módulo administrativo, API e interfaz (ESS-ADM-001/002) | DONE | #17, #18, #39, #64, #70, #72 | - |
+| Módulo administrativo, API e interfaz (ESS-ADM-001/002) | DONE; las listas que dependen de la empresa (áreas, centros de costo, cargos) descartan la respuesta tardía de la empresa anterior | #17, #18, #39, #64, #70, #72, #111 | - |
 | Rediseño de la interfaz (ESS-UX-001) | DONE | #19, #54, #66, #71; conmutador de tema y pruebas del árbol de accesibilidad (#96) | Revisión manual con lectores de pantalla reales y otros navegadores |
 | Certificados de retención (ESS-TAX-001) | DONE (carpeta y carga desde el navegador) | #22, #69 | - |
 | Política de retención de datos (ESS-RET-001) | DONE; sesiones, códigos, filas de importación y ZIP caducados; certificados solo con borrado manual tras la baja | #91 | Activar `auto_enabled` en producción con respaldo previo |
