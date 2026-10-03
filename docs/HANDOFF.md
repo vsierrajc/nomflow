@@ -70,6 +70,7 @@ Higiene: la matriz `docs/traceability.md` se actualizó el 26 de septiembre de 2
 - `API_URL` de la web se lee al **compilar** (rewrites de Next).
 - El job `e2e` del CI es informativo; volverlo obligatorio cuando se estabilice (CodeQL ya lo es).
 - Interfaz: el conmutador de tema existe (Mi cuenta → Apariencia, guardado en el navegador); falta la revisión manual con lectores de pantalla reales y otros navegadores, las tablas administrativas son regiones desplazables, el menú móvil no atrapa el foco.
+- **Aviso `node-forge` (GHSA-86w9-cpqp-85rv)**: `npm run audit:deps` ahora corre `scripts/audit-deps.mjs`, que acepta ese aviso **hasta el 1 de noviembre de 2026** (no hay versión corregida; arreglo abierto en digitalbazaar/forge#1152; NOMFLOW no usa la verificación RSA de forge). Al vencer el CI falla a propósito: revisar si ya existe `node-forge` corregido (actualizar y quitar la excepción) o renovar la fecha con justificación. Si el aviso se vuelve explotable aquí, reemplazar `node-forge` (ver `certificates/digital-signature.ts`).
 - Graphify: solo extracción por código; la semántica con LLM está prohibida sin aprobación (envía contenido a un tercero).
 
 ## 7. Estado del entorno local (no versionado)
