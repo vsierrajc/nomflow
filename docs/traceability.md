@@ -11,7 +11,7 @@ Actualizada el 26 de septiembre de 2026. Estados: BACKLOG, READY, IN_PROGRESS, I
 | ESS-AUTH-006 | Cambio de clave por el propio usuario (3.1) | 1 | #5 | change-password.e2e.spec.ts | DONE |
 | ESS-AUD-001 | Auditoría sin datos sensibles (3.2, 5) | 1 | #17 | audit e2e | DONE (falta correlacionar con eventos de negocio) |
 | ESS-ORG-001 | CRUD de Company/Area/CostCenter/JobPosition/ContractType (9.6) | 2 | #9, #17, #47, #63, #68 | catalogs.e2e.spec.ts, logos.e2e.spec.ts, letterhead.e2e.spec.ts | DONE |
-| ESS-ORG-002 | Jefe y director de área con vigencia e historial (5, 9.1) | 2 | #10, #68 | org.e2e.spec.ts | DONE (faltan suplencias) |
+| ESS-ORG-002 | Jefe y director de área con vigencia e historial (5, 9.1) | 2 | #10, #68 | org.e2e.spec.ts, vacation.e2e.spec.ts, permit.e2e.spec.ts, e2e/suplencias.spec.ts | DONE (suplencias: titular designa, Gestión Humana anula) |
 | ESS-IMPORT-001 | Importación Excel por lotes, staging, idempotencia, reversión (9.2-9.3) | 2 | #8, #16, #75 | imports.e2e.spec.ts, payroll.e2e.spec.ts | DONE |
 | ESS-IMPORT-002 | Importación EMPLEADOS con EST V/C y contrato único vigente (9.1) | 2 | #8, #47 | imports.e2e.spec.ts | DONE (datos reales cargados) |
 | ESS-EMP-002 | Cambio de correo por resolución administrativa; la importación conserva una corrección manual (9.3) | 2 | #88 | employees.e2e.spec.ts, imports.e2e.spec.ts | DONE |

@@ -11,6 +11,7 @@ import {
   vacaciones,
 } from '../db/schema';
 import { hasActiveRole } from '../auth/roles';
+import { approverIdsFor, canActFor } from './substitutions.service';
 import { resolveAreaManager } from '../org/area-managers.service';
 import { diffDays, isValidIsoDate } from './business-days';
 import { activeContract } from './prog-vac.service';
@@ -358,18 +359,22 @@ export async function listAssignedToManager(db: Db, managerId: string) {
   const rows = await db
     .select()
     .from(permitRequests)
-    .where(eq(permitRequests.managerAccountId, managerId))
+    .where(inArray(permitRequests.managerAccountId, await approverIdsFor(db, managerId)))
     .orderBy(desc(permitRequests.updatedAt))
     .limit(200);
   const n = await names(db, rows);
   return rows.map((r) => view(r, n.get(r.nIde) ?? r.nIde));
 }
 
-/** Solo ven una solicitud su dueño y el jefe de área al que se asignó al enviarla. */
-function access(viewerId: string, req: Row) {
+/**
+ * Ven una solicitud su dueño, el jefe de área al que se asignó al enviarla y, durante una suplencia, su
+ * suplente. `isManager` indica quién puede decidir: el titular en suplencia la ve, pero decide su suplente.
+ */
+async function access(db: Db, viewerId: string, req: Row) {
   const isOwner = req.accountId === viewerId;
-  const isManager = req.managerAccountId === viewerId;
-  return { isOwner, isManager, allowed: isOwner || isManager };
+  const isManager = (await canActFor(db, viewerId, req.managerAccountId)).allowed;
+  const isAssigned = req.managerAccountId === viewerId;
+  return { isOwner, isManager, allowed: isOwner || isManager || isAssigned };
 }
 
 async function load(db: Runner, id: string) {
@@ -380,7 +385,7 @@ async function load(db: Runner, id: string) {
 
 export async function detail(db: Db, viewerId: string, id: string) {
   const req = await load(db, id);
-  const a = access(viewerId, req);
+  const a = await access(db, viewerId, req);
   if (!a.allowed) throw new PermitError('NOT_FOUND');
   const [support] = await db
     .select({
@@ -416,7 +421,7 @@ export async function detail(db: Db, viewerId: string, id: string) {
 
 export async function getSupport(db: Db, viewerId: string, id: string) {
   const req = await load(db, id);
-  if (!access(viewerId, req).allowed) throw new PermitError('NOT_FOUND');
+  if (!(await access(db, viewerId, req)).allowed) throw new PermitError('NOT_FOUND');
   const [s] = await db.select().from(permitSupports).where(eq(permitSupports.requestId, id));
   if (!s) throw new PermitError('NOT_FOUND');
   await audit(db, viewerId, 'PERMIT_SUPPORT_DOWNLOAD', id, 'SUCCESS');
@@ -469,9 +474,12 @@ async function transition(
 }
 
 async function asManager(db: Runner, actor: string, req: Row) {
-  if (req.managerAccountId !== actor) throw new PermitError('NOT_FOUND');
+  const { allowed, onBehalfOf } = await canActFor(db as Db, actor, req.managerAccountId);
+  if (!allowed) throw new PermitError('NOT_FOUND');
   if (req.accountId === actor) throw new PermitError('SELF_APPROVAL');
-  if (!(await hasActiveRole(db as Db, actor, ['AREA_MANAGER']))) throw new PermitError('FORBIDDEN');
+  // el suplente ya tiene un rol que aprueba (se le exigió al designarlo); no el de jefe de área
+  if (!onBehalfOf && !(await hasActiveRole(db as Db, actor, ['AREA_MANAGER'])))
+    throw new PermitError('FORBIDDEN');
 }
 
 const needReason = (reason: string | undefined) => {

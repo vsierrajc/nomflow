@@ -9,12 +9,17 @@ import {
 import { Reflector } from '@nestjs/core';
 import type { Db } from '../db/client';
 import { DB } from '../db/db.module';
+import { isSubstituteNow } from '../leave/substitutions.service';
 import { hasActiveRole, type RoleName } from './roles';
 import type { AuthedRequest } from './session.guard';
 import { REAUTH_WINDOW_MS } from './session.service';
 
 const ROLES_KEY = 'nomflow:roles';
 export const Roles = (...roles: RoleName[]) => SetMetadata(ROLES_KEY, roles);
+
+const SUBSTITUTES_KEY = 'nomflow:allowSubstitutes';
+/** Además de los roles, deja entrar a quien hoy suple a alguien; el servicio decide qué puede hacer. */
+export const AllowSubstitutes = () => SetMetadata(SUBSTITUTES_KEY, true);
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -29,14 +34,14 @@ export class RolesGuard implements CanActivate {
       context.getClass(),
     ]);
     const req = context.switchToHttp().getRequest<AuthedRequest>();
-    if (
-      !roles ||
-      roles.length === 0 ||
-      !(await hasActiveRole(this.db, req.auth.accountId, roles))
-    ) {
-      throw new ForbiddenException();
-    }
-    return true;
+    if (!roles || roles.length === 0) throw new ForbiddenException();
+    if (await hasActiveRole(this.db, req.auth.accountId, roles)) return true;
+    const substitutes = this.reflector.getAllAndOverride<boolean | undefined>(SUBSTITUTES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (substitutes && (await isSubstituteNow(this.db, req.auth.accountId))) return true;
+    throw new ForbiddenException();
   }
 }
 

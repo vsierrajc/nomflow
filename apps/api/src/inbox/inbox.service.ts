@@ -1,5 +1,5 @@
 import { and, desc, eq, gte, inArray, or } from 'drizzle-orm';
-import { activeCompaniesForRole } from '../auth/roles';
+import { approverIdsFor, finalCompaniesFor } from '../leave/substitutions.service';
 import type { Db } from '../db/client';
 import {
   employeeSnapshots,
@@ -148,19 +148,20 @@ export async function inboxFor(db: Db, accountId: string) {
   const names = new Map<string, string>();
   const tasks: InboxTask[] = [];
 
-  // Jefe de área: vacaciones por decidir.
+  // Jefe de área: vacaciones por decidir (las suyas y las de quien suple hoy).
+  const managerIds = await approverIdsFor(db, accountId);
   const asManager = await db
     .select()
     .from(vacationRequests)
     .where(
       and(
-        eq(vacationRequests.managerAccountId, accountId),
+        inArray(vacationRequests.managerAccountId, managerIds),
         eq(vacationRequests.status, 'PENDIENTE_JEFE'),
       ),
     )
     .orderBy(vacationRequests.updatedAt);
   // Aprobador final: solo las empresas donde tiene el rol vigente.
-  const companies = await activeCompaniesForRole(db, accountId, 'VACATION_FINAL_APPROVER');
+  const { companies } = await finalCompaniesFor(db, accountId);
   const asFinal =
     companies.length === 0
       ? []
@@ -190,7 +191,7 @@ export async function inboxFor(db: Db, accountId: string) {
     .from(permitRequests)
     .where(
       and(
-        eq(permitRequests.managerAccountId, accountId),
+        inArray(permitRequests.managerAccountId, managerIds),
         eq(permitRequests.status, 'PENDIENTE_JEFE'),
       ),
     )

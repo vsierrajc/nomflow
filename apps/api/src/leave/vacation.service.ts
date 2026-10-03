@@ -12,7 +12,8 @@ import {
   vacationRevisionAllocations,
   vacationRevisions,
 } from '../db/schema';
-import { activeCompaniesForRole, hasActiveRole, type RoleName } from '../auth/roles';
+import { hasActiveRole, type RoleName } from '../auth/roles';
+import { approverIdsFor, canActFor, finalCompaniesFor } from './substitutions.service';
 import {
   resolveAreaDirector,
   resolveAreaManager,
@@ -133,6 +134,7 @@ async function record(
   action: string,
   contentHash: string,
   comment?: string | null,
+  onBehalfOf?: string | null,
 ) {
   await db.insert(vacationActions).values({
     requestId,
@@ -141,6 +143,7 @@ async function record(
     action,
     contentHash,
     comment: comment ?? null,
+    onBehalfOfAccountId: onBehalfOf ?? null,
   });
 }
 
@@ -304,10 +307,11 @@ export async function listMine(db: Db, accountId: string) {
 }
 
 export async function listAssignedToManager(db: Db, managerId: string) {
+  // lo suyo (salvo que esté en suplencia) y lo de quienes suple hoy
   const reqs = await db
     .select()
     .from(vacationRequests)
-    .where(eq(vacationRequests.managerAccountId, managerId))
+    .where(inArray(vacationRequests.managerAccountId, await approverIdsFor(db, managerId)))
     .orderBy(desc(vacationRequests.updatedAt))
     .limit(200);
   const rows = await summary(db, reqs);
@@ -316,7 +320,7 @@ export async function listAssignedToManager(db: Db, managerId: string) {
 
 /** Solo las solicitudes de las empresas donde el usuario es aprobador final. */
 export async function listForFinal(db: Db, actorId: string) {
-  const companies = await activeCompaniesForRole(db, actorId, 'VACATION_FINAL_APPROVER');
+  const { companies } = await finalCompaniesFor(db, actorId);
   if (companies.length === 0) return [];
   const reqs = await db
     .select()
@@ -355,12 +359,15 @@ async function withNames(
 export async function loadViewable(db: Db, viewerId: string, id: string) {
   const req = await loadRequest(db, id);
   const isOwner = req.accountId === viewerId;
-  const isManager = req.managerAccountId === viewerId;
+  // `isManager`: puede decidir (el titular en suplencia ve la solicitud, pero decide su suplente)
+  const isManager = (await canActFor(db, viewerId, req.managerAccountId)).allowed;
+  const isAssigned = req.managerAccountId === viewerId;
   const canFinal =
     !isOwner &&
     !isManager &&
-    (await activeCompaniesForRole(db, viewerId, 'VACATION_FINAL_APPROVER')).includes(req.cEmp);
-  if (!isOwner && !isManager && !canFinal) throw new VacationError('NOT_FOUND');
+    !isAssigned &&
+    (await finalCompaniesFor(db, viewerId)).companies.includes(req.cEmp);
+  if (!isOwner && !isManager && !isAssigned && !canFinal) throw new VacationError('NOT_FOUND');
   return { req, isOwner, isManager };
 }
 
@@ -429,21 +436,24 @@ async function transition(
     to: string;
     action: string;
     comment?: string | null;
-    guard: (req: typeof vacationRequests.$inferSelect) => Promise<void> | void;
+    /** Devuelve a quién suple quien decide (nulo si actúa por sí mismo). */
+    guard: (
+      req: typeof vacationRequests.$inferSelect,
+    ) => Promise<string | null | undefined | void> | string | null | undefined | void;
   },
 ) {
   try {
     await db.transaction(async (tx) => {
       await lockRequest(tx, id);
       const req = await loadRequest(tx, id);
-      await opts.guard(req);
+      const behalf = (await opts.guard(req)) ?? null;
       if (!opts.from.includes(req.status)) throw new VacationError('INVALID_STATE');
       const rev = await currentRevision(tx, req);
       await tx
         .update(vacationRequests)
         .set({ status: opts.to, updatedAt: new Date() })
         .where(eq(vacationRequests.id, id));
-      await record(tx, id, rev.number, actor, opts.action, rev.contentHash, opts.comment);
+      await record(tx, id, rev.number, actor, opts.action, rev.contentHash, opts.comment, behalf);
     });
   } catch (e) {
     await audit(
@@ -458,11 +468,19 @@ async function transition(
   await audit(db, actor, `VACATION_${opts.action}`, id, 'SUCCESS');
 }
 
-async function asManager(db: Runner, actor: string, req: typeof vacationRequests.$inferSelect) {
-  if (req.managerAccountId !== actor) throw new VacationError('NOT_FOUND');
+/** Autoriza al jefe asignado o a su suplente de hoy; devuelve a quién suple (nulo si actúa por sí mismo). */
+async function asManager(
+  db: Runner,
+  actor: string,
+  req: typeof vacationRequests.$inferSelect,
+): Promise<string | null> {
+  const { allowed, onBehalfOf } = await canActFor(db as Db, actor, req.managerAccountId);
+  if (!allowed) throw new VacationError('NOT_FOUND');
   if (req.accountId === actor) throw new VacationError('SELF_APPROVAL');
-  if (!(await hasActiveRole(db as Db, actor, [req.firstApproverRole as RoleName])))
+  // El suplente ya tiene un rol que aprueba (se le exigió al designarlo); no el del titular.
+  if (!onBehalfOf && !(await hasActiveRole(db as Db, actor, [req.firstApproverRole as RoleName])))
     throw new VacationError('FORBIDDEN');
+  return onBehalfOf;
 }
 
 const needReason = (reason: string | undefined) => {
@@ -527,7 +545,7 @@ export async function managerPropose(
     await db.transaction(async (tx) => {
       await lockRequest(tx, id);
       const req = await loadRequest(tx, id);
-      await asManager(tx, actor, req);
+      const behalf = await asManager(tx, actor, req);
       if (req.status !== 'PENDIENTE_JEFE') throw new VacationError('INVALID_STATE');
       const plan = await planLeave(tx as unknown as Db, req, input.start, input.allocations);
       if (await overlaps(tx, req.nIde, plan.start, plan.end, req.id))
@@ -538,7 +556,7 @@ export async function managerPropose(
         .update(vacationRequests)
         .set({ status: 'REVISION_EMPLEADO', currentRevision: number, updatedAt: new Date() })
         .where(eq(vacationRequests.id, id));
-      await record(tx, id, number, actor, 'PROPONER', plan.contentHash, reason);
+      await record(tx, id, number, actor, 'PROPONER', plan.contentHash, reason, behalf);
     });
   } catch (e) {
     await audit(db, actor, 'VACATION_PROPONER', id, errCode(e));
@@ -550,12 +568,18 @@ export async function managerPropose(
 const errCode = (e: unknown) =>
   e instanceof VacationError || e instanceof PlanError ? e.code : 'ERROR';
 
-async function asFinal(db: Runner, actor: string, req: typeof vacationRequests.$inferSelect) {
+/** Autoriza la aprobación final (por rol propio o por suplencia); devuelve a quién suple, si es el caso. */
+async function asFinal(
+  db: Runner,
+  actor: string,
+  req: typeof vacationRequests.$inferSelect,
+): Promise<string | null> {
   if (req.accountId === actor) throw new VacationError('SELF_APPROVAL');
-  const companies = await activeCompaniesForRole(db as Db, actor, 'VACATION_FINAL_APPROVER');
+  const { companies, viaTitular } = await finalCompaniesFor(db as Db, actor);
   if (companies.length === 0) throw new VacationError('FORBIDDEN');
   // Con el rol, pero de otra empresa: la solicitud no existe para él.
   if (!companies.includes(req.cEmp)) throw new VacationError('NOT_FOUND');
+  return viaTitular.get(req.cEmp) ?? null;
 }
 
 export async function finalReject(db: Db, actor: string, id: string, reason?: string) {
@@ -578,7 +602,7 @@ export async function finalApprove(db: Db, actor: string, id: string) {
     await db.transaction(async (tx) => {
       await lockRequest(tx, id);
       const req = await loadRequest(tx, id);
-      await asFinal(tx, actor, req);
+      const behalf = await asFinal(tx, actor, req);
       if (req.status !== 'PENDIENTE_FINAL') throw new VacationError('INVALID_STATE');
       const rev = await currentRevision(tx, req);
       const allocs = await tx
@@ -652,7 +676,7 @@ export async function finalApprove(db: Db, actor: string, id: string) {
         .update(vacationRequests)
         .set({ status: 'APROBADA', updatedAt: new Date() })
         .where(eq(vacationRequests.id, id));
-      await record(tx, id, rev.number, actor, 'APROBAR_FINAL', rev.contentHash);
+      await record(tx, id, rev.number, actor, 'APROBAR_FINAL', rev.contentHash, null, behalf);
     });
   } catch (e) {
     await audit(db, actor, 'VACATION_APROBAR_FINAL', id, errCode(e));

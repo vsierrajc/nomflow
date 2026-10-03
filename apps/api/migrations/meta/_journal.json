@@ -260,6 +260,13 @@
       "when": 1790879037754,
       "tag": "0036_firma_aprobador",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1790881508261,
+      "tag": "0037_suplencias_aprobadores",
+      "breakpoints": true
     }
   ]
 }

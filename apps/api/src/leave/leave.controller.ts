@@ -26,7 +26,7 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { z } from 'zod';
-import { RecentAuthGuard, Roles, RolesGuard } from '../auth/guards';
+import { AllowSubstitutes, RecentAuthGuard, Roles, RolesGuard } from '../auth/guards';
 import { ADMIN_ROLES } from '../auth/roles';
 import { SessionGuard, type AuthedRequest } from '../auth/session.guard';
 import type { Db } from '../db/client';
@@ -484,6 +484,7 @@ export class MeVacationsController {
 @Controller('approvals/vacations/manager')
 @UseGuards(SessionGuard, RolesGuard)
 @Roles('AREA_MANAGER', 'AREA_DIRECTOR', 'GENERAL_MANAGER')
+@AllowSubstitutes()
 export class ManagerVacationsController {
   constructor(@Inject(DB) private readonly db: Db) {}
 
@@ -547,6 +548,7 @@ export class ManagerVacationsController {
 @Controller('approvals/vacations/final')
 @UseGuards(SessionGuard, RolesGuard)
 @Roles('VACATION_FINAL_APPROVER')
+@AllowSubstitutes()
 export class FinalVacationsController {
   constructor(
     @Inject(DB) private readonly db: Db,

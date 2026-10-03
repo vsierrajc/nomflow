@@ -26,6 +26,8 @@ export interface VacationDocData {
     name: string;
     at: Date;
     image: Buffer | null;
+    /** Si aprobó en suplencia: el nombre del titular a quien suplía. */
+    onBehalfOf?: string;
   }[];
   approvedAt: Date;
 }
@@ -229,7 +231,12 @@ export function renderVacationPdf(
           .fontSize(8)
           .text(clean(sg.title), x, doc.y, { width: w })
           .fillColor('#555')
-          .text(`Aprobó el ${dateTimeFmt.format(sg.at)}`, x, doc.y, { width: w })
+          .text(
+            `${sg.onBehalfOf ? `En suplencia de ${clean(sg.onBehalfOf)}. ` : ''}Aprobó el ${dateTimeFmt.format(sg.at)}`,
+            x,
+            doc.y,
+            { width: w },
+          )
           .fillColor('#000');
       });
       doc.x = LEFT;

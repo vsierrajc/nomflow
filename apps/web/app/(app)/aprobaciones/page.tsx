@@ -7,6 +7,7 @@ import { PermitInbox } from '@/components/permit-inbox';
 import { VacationDetail } from '@/components/vacation-detail';
 import { Alert, EmptyState, Field, Loading } from '@/components/ui';
 import { NETWORK_ERROR } from '@/lib/api';
+import { dateLabel, type MySubstitutions } from '@/lib/substitutions';
 import { useAdmin } from '@/lib/admin';
 import {
   OPEN,
@@ -198,12 +199,44 @@ function Inbox({ mode }: { mode: Mode }) {
   );
 }
 
-export default function ApprovalsPage() {
-  const { profile } = useAdmin();
-  const isManager = profile.roles.some((r) =>
-    ['AREA_MANAGER', 'AREA_DIRECTOR', 'GENERAL_MANAGER'].includes(r.role),
+/** Avisa si hoy decide en suplencia de otra persona o si otra decide por usted. */
+function SubstitutionBanner({ subs }: { subs: MySubstitutions | null }) {
+  const acting = subs?.asSubstitute.filter((s) => s.phase === 'VIGENTE') ?? [];
+  const away = subs?.asTitular.find((s) => s.phase === 'VIGENTE');
+  return (
+    <>
+      {acting.map((s) => (
+        <Notice key={s.id} kind="warn">
+          Hoy decide en suplencia de {s.titular}, hasta el {dateLabel(s.validTo)}. Lo que decida
+          queda registrado como suplencia.
+        </Notice>
+      ))}
+      {away ? (
+        <Notice kind="warn">
+          Está en suplencia: {away.substitute} decide por usted hasta el {dateLabel(away.validTo)}.
+          Puede terminarla antes en Mi cuenta → Mis suplencias.
+        </Notice>
+      ) : null}
+    </>
   );
-  const isFinal = profile.roles.some((r) => r.role === 'VACATION_FINAL_APPROVER');
+}
+
+export default function ApprovalsPage() {
+  const { profile, call } = useAdmin();
+  const [subs, setSubs] = useState<MySubstitutions | null>(null);
+  useEffect(() => {
+    void call<MySubstitutions>('/me/substitutions').then((r) => {
+      if (r.status === 200 && r.data) setSubs(r.data);
+    });
+  }, [call]);
+  // Quien hoy suple a alguien entra a las dos bandejas: el servidor decide qué le toca.
+  const substituting = (subs?.asSubstitute ?? []).some((s) => s.phase === 'VIGENTE');
+  const isManager =
+    substituting ||
+    profile.roles.some((r) =>
+      ['AREA_MANAGER', 'AREA_DIRECTOR', 'GENERAL_MANAGER'].includes(r.role),
+    );
+  const isFinal = substituting || profile.roles.some((r) => r.role === 'VACATION_FINAL_APPROVER');
   const [mode, setMode] = useState<Mode>(isManager ? 'manager' : 'final');
   // Los permisos solo los decide el jefe de área; el aprobador final no interviene.
   const [topic, setTopic] = useState<'vacaciones' | 'permisos'>('vacaciones');
@@ -228,6 +261,7 @@ export default function ApprovalsPage() {
           vacaciones descuenta los días disponibles; los permisos solo los decide el jefe de área.
         </p>
       </div>
+      <SubstitutionBanner subs={subs} />
       {isManager ? (
         <div role="tablist" aria-label="Tipo de solicitud" className="tabs">
           <button

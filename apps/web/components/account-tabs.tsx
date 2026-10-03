@@ -12,14 +12,17 @@ const TABS = [
 ];
 
 /** Solo quienes aprueban vacaciones tienen firma de aprobación. */
-const APPROVER_TAB = { href: '/cuenta/firma', label: 'Mi firma de aprobación' };
+const APPROVER_TABS = [
+  { href: '/cuenta/firma', label: 'Mi firma de aprobación' },
+  { href: '/cuenta/suplencias', label: 'Mis suplencias' },
+];
 
 /** Navegación entre las pantallas de «Mi cuenta». */
 export function AccountTabs() {
   const pathname = usePathname();
   const { profile } = useAdmin();
   const tabs = profile.roles.some((r) => APPROVER_ROLES.includes(r.role))
-    ? [...TABS, APPROVER_TAB]
+    ? [...TABS, ...APPROVER_TABS]
     : TABS;
   return (
     <nav className="admin-nav" aria-label="Mi cuenta">

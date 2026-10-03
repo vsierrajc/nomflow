@@ -39,6 +39,8 @@ const EMPLOYEE_PAGES = [
   '/cuenta/clave',
   '/cuenta/seguridad',
   '/cuenta/apariencia',
+  '/cuenta/suplencias',
+  '/cuenta/firma',
 ];
 
 test.describe('lectores de pantalla: estructura y nombres', () => {
@@ -121,6 +123,7 @@ test.describe('lectores de pantalla: estructura y nombres', () => {
       '/admin/certificados-emitidos',
       '/admin/registros',
       '/admin/retencion',
+      '/admin/suplencias',
     ]) {
       await page.goto(path);
       expect(await findings(page), path).toEqual([]);
