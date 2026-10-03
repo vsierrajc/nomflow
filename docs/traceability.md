@@ -6,7 +6,7 @@ Actualizada el 26 de septiembre de 2026. Estados: BACKLOG, READY, IN_PROGRESS, I
 | --- | --- | --- | --- | --- | --- |
 | ESS-AUTH-001 | Alta administrativa, clave temporal Argon2id, cambio obligatorio; restablecer y mostrar la clave asignada (3.1) | 1 | #7, #36, #51, #52 | admin-accounts.e2e.spec.ts, e2e/admin-gestion.spec.ts | DONE |
 | ESS-AUTH-002 | Verificación de correo por secreto de un solo uso vía SMTP (3.1) | 1 | #6 | e2e/acceso.spec.ts, e2e/correo.spec.ts | DONE (falta STARTTLS del servidor interno) |
-| ESS-AUTH-003 | Login, sesiones revocables, CSRF, reautenticación opcional, doble paso opcional, sesión caducada, límite de peticiones por IP (3.1) | 1 | #3-#5, #36, #55, #60, #90 | auth e2e, e2e/doble-paso.spec.ts, e2e/sesion-expirada.spec.ts, ip-rate-limit.e2e.spec.ts | DONE |
+| ESS-AUTH-003 | Login, sesiones revocables, CSRF, reautenticación opcional, doble paso opcional por correo o app autenticadora (TOTP con QR y códigos de respaldo), sesión caducada, límite de peticiones por IP (3.1) | 1 | #3-#5, #36, #55, #60, #90, #99 | auth e2e, totp.e2e.spec.ts, totp-login.e2e.spec.ts, e2e/doble-paso.spec.ts, e2e/doble-paso-totp.spec.ts, e2e/sesion-expirada.spec.ts, ip-rate-limit.e2e.spec.ts | DONE |
 | ESS-AUTH-004 | Roles con alcance y vigencia; autorización por N_IDE (3.1, 5) | 1 | #7, #10, #53, #67 | org.e2e.spec.ts, admin-access.e2e.spec.ts | DONE (roles AREA_DIRECTOR y GENERAL_MANAGER incluidos) |
 | ESS-AUTH-006 | Cambio de clave por el propio usuario (3.1) | 1 | #5 | change-password.e2e.spec.ts | DONE |
 | ESS-AUD-001 | Auditoría sin datos sensibles (3.2, 5) | 1 | #17 | audit e2e | DONE (falta correlacionar con eventos de negocio) |

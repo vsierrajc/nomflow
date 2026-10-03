@@ -69,7 +69,7 @@ Decisiones de esta fase: valor inicial de `PRE_BAJA_AVISO_DIAS`, si cuenta días
 ## Fase 5 - Mejoras
 
 - Validación pública del certificado laboral por código, sellado de tiempo y HSM.
-- ~~Segundo factor por correo en cada ingreso~~: ya existe y lo activa cada persona en Mi cuenta → Verificación en dos pasos (`/me/two-factor`). Pendiente solo si se quisiera hacerlo obligatorio por rol.
+- ~~Segundo factor por correo en cada ingreso~~: ya existe y lo activa cada persona en Mi cuenta → Verificación en dos pasos (`/me/two-factor`). Además de la app autenticadora TOTP con QR (PR #99). Pendiente solo si se quisiera hacerlo obligatorio por rol y aceptar el TOTP en los actos de firma (reautenticación).
 - ~~Conmutador manual de tema~~ DONE (Mi cuenta → Apariencia, se guarda en el navegador). Las pruebas con lectores de pantalla son ahora automáticas (árbol de accesibilidad y axe); falta la revisión manual con NVDA, JAWS, VoiceOver u Orca y probar otros navegadores.
 - Unificar el estilo de botones y tablas en todas las pantallas de administración.
 - Correlacionar la auditoría de peticiones con los eventos de negocio (guardar `requestId`).

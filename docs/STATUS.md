@@ -1,6 +1,6 @@
 # Estado del proyecto NOMFLOW
 
-- Versión: 0.0.0 (pre-lanzamiento; sin despliegue en producción). Actualizado el 29 de septiembre de 2026.
+- Versión: 0.0.0 (pre-lanzamiento; sin despliegue en producción). Actualizado el 2 de octubre de 2026.
 - **Plan por fases: [PLAN.md](PLAN.md)**. Traspaso para la próxima sesión: [HANDOFF.md](HANDOFF.md). Última bitácora: [sessions/2026-09-29-turnos-dias-habiles.md](sessions/2026-09-29-turnos-dias-habiles.md).
 - `main` contiene los PR #1 a #88 integrados; no hay PR abiertos.
 - Revisión por otra persona: el usuario revisó y aprobó la integración de los PR #85-#88; `main` sigue sin protección de rama (la SSD, sección 11, la exige formalmente).
@@ -9,7 +9,7 @@
 | módulo | estado | PR | siguiente acción |
 | --- | --- | --- | --- |
 | Monorepo, CI y ADR-001/002 (ESS-OPS-001) | DONE | #1, #2 | Job e2e obligatorio; protección de `main` |
-| Cuentas, login, sesiones, clave asignada y doble paso (ESS-AUTH-001/003) | DONE; límite de peticiones por IP en los endpoints públicos (`AUTH_RATE_LIMIT_MAX`/`_WINDOW_MS`) y `TRUST_PROXY` para leer la IP real detrás de un proxy | #3-#5, #36, #51, #52, #60, #90 | - |
+| Cuentas, login, sesiones, clave asignada y doble paso por correo o app autenticadora TOTP (ESS-AUTH-001/003) | DONE; TOTP con QR y 10 códigos de respaldo en revisión (PR #99, `feat/ESS-AUTH-003-totp`); límite de peticiones por IP en los endpoints públicos (`AUTH_RATE_LIMIT_MAX`/`_WINDOW_MS`) y `TRUST_PROXY` para leer la IP real detrás de un proxy | #3-#5, #36, #51, #52, #60, #90 | - |
 | Verificación SMTP y activación (ESS-AUTH-002) | DONE | #6 | STARTTLS en el servidor interno |
 | Alta por API, roles y reautenticación opcional (ESS-AUTH-004/005/006) | DONE | #7, #11, #55 | Revisión de otra persona |
 | Importación de EMPLEADOS (ESS-IMPORT-002) | DONE | #8, #47 | Datos ya cargados desde `initconfigdata` |
