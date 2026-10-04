@@ -65,7 +65,7 @@ Decisiones de esta fase: valor inicial de `PRE_BAJA_AVISO_DIAS`, si cuenta días
 | 4.1 | `Dockerfile` de la API y de la web, y compose de producción | ESS-OPS-001 |
 | 4.2 | Despliegue, `API_URL` en tiempo de ejecución (hoy se lee al compilar) y TLS | ESS-OPS-001 |
 | 4.3 | Monitoreo de CPU y memoria del servidor y alertas por otros canales | Salud del sistema |
-| 4.4 | ~~Actualizar a Node 22~~ DONE: `.nvmrc`, `engines` (`>=22`) y `@types/node` ^22; el CI toma la versión de `.nvmrc`. Falta revisar las dependencias con avisos (`exceljs`, `pdfjs-dist` fijado, `eslint` 9.39 en fin de soporte) | Deuda técnica |
+| 4.4 | ~~Actualizar a Node 22~~ DONE: `.nvmrc`, `engines` (`>=22`) y `@types/node` ^22; el CI toma la versión de `.nvmrc`. Dependencias con avisos revisadas: `pdfjs-dist` desfijado (^6.4.299), `eslint` 10 y actualizaciones dentro de rango; quedan los deprecados internos de `exceljs` (sin mantenimiento) y de `drizzle-kit`, que no se arreglan actualizando | Deuda técnica |
 
 ## Fase 5 - Mejoras
 

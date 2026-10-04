@@ -1,0 +1,1 @@
+Dependencias: eslint pasa a la versión 10 (la 9.39 ya no tenía soporte), pdfjs-dist se desfija y sube a la 6.4 (la vulnerabilidad que lo fijaba ya está corregida) y se actualizan aws-sdk, nest, next, nodemailer, pg, supertest y swc dentro de sus rangos.
