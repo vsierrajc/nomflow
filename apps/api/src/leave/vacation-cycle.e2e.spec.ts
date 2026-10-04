@@ -4,7 +4,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createDb } from '../db/client';
 import { runMigrations } from '../db/migrate';
 import { employeeSnapshots, progVac, progVacAdjustments } from '../db/schema';
-import { addDays } from './business-days';
+import { addDays, todayBogota } from './business-days';
 import { CYCLE_DAYS, cycleRange, dueCycles, runVacationCycles } from './vacation-cycle.service';
 
 const url = process.env.DATABASE_URL;
@@ -55,9 +55,9 @@ describe.skipIf(!url)('generación automática de vacaciones por ciclo (HTTP + P
       .orderBy(progVac.perIni);
 
   it('crea el período del ciclo recién cumplido, con 15 días', async () => {
-    const start = addDays(new Date().toISOString().slice(0, 10), -CYCLE_DAYS);
+    const start = addDays(todayBogota(), -CYCLE_DAYS);
     await employee('100', start);
-    const r = await runVacationCycles(db, new Date().toISOString().slice(0, 10));
+    const r = await runVacationCycles(db, todayBogota());
     expect(r.created).toBe(1);
     const rows = await periodsOf('100');
     expect(rows).toHaveLength(1);
@@ -71,7 +71,7 @@ describe.skipIf(!url)('generación automática de vacaciones por ciclo (HTTP + P
   });
 
   it('no crea nada si el ciclo aún no se cumple, y no duplica si se corre dos veces', async () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayBogota();
     await employee('200', addDays(today, -CYCLE_DAYS + 5));
     expect((await runVacationCycles(db, today)).created).toBe(0);
     expect(await periodsOf('200')).toHaveLength(0);
@@ -83,7 +83,7 @@ describe.skipIf(!url)('generación automática de vacaciones por ciclo (HTTP + P
   });
 
   it('con muchos ciclos atrasados, solo crea los 3 más recientes', async () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayBogota();
     const start = addDays(today, -CYCLE_DAYS * 5); // 5 ciclos cumplidos, nunca cargados
     await employee('400', start);
     const r = await runVacationCycles(db, today);
@@ -99,7 +99,7 @@ describe.skipIf(!url)('generación automática de vacaciones por ciclo (HTTP + P
   });
 
   it('al superar el tope de 3 acumulados, el más antiguo con días pasa a VENCIDA', async () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayBogota();
     const start = addDays(today, -CYCLE_DAYS * 4);
     await employee('500', start);
     // simula 3 ciclos ya acumulados manualmente (ciclos 1, 2 y 3)
@@ -119,7 +119,7 @@ describe.skipIf(!url)('generación automática de vacaciones por ciclo (HTTP + P
   });
 
   it('el vencimiento deja un ajuste versionado del sistema con los días que se pierden', async () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayBogota();
     const start = addDays(today, -CYCLE_DAYS * 4);
     await employee('510', start);
     for (let n = 1; n <= 3; n++) {
@@ -162,7 +162,7 @@ describe.skipIf(!url)('generación automática de vacaciones por ciclo (HTTP + P
   });
 
   it('un período ya liquidado no cuenta para el tope de 3', async () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayBogota();
     const start = addDays(today, -CYCLE_DAYS * 4);
     await employee('600', start);
     for (let n = 1; n <= 3; n++) {
@@ -186,7 +186,7 @@ describe.skipIf(!url)('generación automática de vacaciones por ciclo (HTTP + P
   });
 
   it('un contrato sin fecha de inicio o cancelado no genera nada', async () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayBogota();
     await db
       .insert(employeeSnapshots)
       .values({ nIde: '700', nCont: '1', email: '700@x.co', est: 'V', nombre: '700' }); // sin f_ini

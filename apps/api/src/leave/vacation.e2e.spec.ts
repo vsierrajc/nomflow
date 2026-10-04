@@ -847,8 +847,8 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
       send(s, 'post', `/admin/vacations/${id}/annul`, { reason });
     const disp = async (id: string) =>
       (await db.select().from(progVac).where(eq(progVac.id, id)))[0]?.disp;
-    const future = () => new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10);
-    const past = () => new Date(Date.now() - 5 * 86_400_000).toISOString().slice(0, 10);
+    const future = () => addDays(todayBogota(), 5);
+    const past = () => addDays(todayBogota(), -5);
     /** El disfrute del escenario es de marzo de 2026: se lo lleva al futuro, sin ningún día ya disfrutado. */
     const notStarted = async () => {
       for (const v of await db.select().from(vacaciones)) {
@@ -1089,7 +1089,7 @@ describe.skipIf(!url)('solicitud de vacaciones: flujo completo (HTTP + PostgreSQ
   });
 
   describe('suplencias de quien aprueba', () => {
-    const d = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+    const d = (n: number) => addDays(todayBogota(), n);
     const designate = (s: Sess, substituteAccountId: string, from = d(0), to = d(3)) =>
       send(s, 'post', '/me/substitutions', { substituteAccountId, validFrom: from, validTo: to });
     const mine = async (s: Sess) => (await send(s, 'get', '/me/substitutions').expect(200)).body;

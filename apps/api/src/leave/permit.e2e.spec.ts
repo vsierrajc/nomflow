@@ -21,6 +21,7 @@ import {
   vacationRequests,
   vacationRevisions,
 } from '../db/schema';
+import { addDays, todayBogota } from './business-days';
 
 const url = process.env.DATABASE_URL;
 const PASSWORD = 'Clave-Definitiva-1';
@@ -179,7 +180,7 @@ describe.skipIf(!url)('permisos: tipos, solicitud y decisión del jefe (HTTP + P
   it('en suplencia del jefe, decide su suplente y no el titular; al terminar, vuelve el titular', async () => {
     const dir = await person('250', 'd@x.co', [{ role: 'AREA_DIRECTOR', area: true }]);
     const id = (await form(emp, base()).expect(201)).body.id as string;
-    const d = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+    const d = (n: number) => addDays(todayBogota(), n);
     const sub = await send(mgr, 'post', '/me/substitutions', {
       substituteAccountId: dir.id,
       validFrom: d(0),
