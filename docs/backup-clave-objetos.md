@@ -2,6 +2,8 @@
 
 Los certificados de retención y las constancias de vacaciones se guardan en Garage **cifrados por la aplicación** (AES-256-GCM). Sin esta clave los objetos son bytes ilegibles y no hay forma de recuperarlos. La clave solo existe en el `.env` del servidor (no está en git). Ver [ADR-003](decisions/ADR-003-almacenamiento-objetos-garage.md).
 
+Esta clave es la mitad que falta del respaldo de objetos; el procedimiento completo está en [respaldo-y-restauracion.md](respaldo-y-restauracion.md).
+
 ## Qué respaldar
 
 - `OBJECT_ENCRYPTION_KEY` (una línea de texto, mínimo 32 caracteres).

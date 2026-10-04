@@ -136,6 +136,8 @@ BOOTSTRAP_ADMIN_EMAIL=admin@nomflow.local BOOTSTRAP_ADMIN_PASSWORD="$CLAVE_INICI
 
 Después, entre en http://localhost:3000/login con ese correo, cree la empresa y cargue los archivos desde **Administración** (ver [Cómo se cargan los datos](#cómo-se-cargan-los-datos)).
 
+**Respaldo y restauración:** `npm run backup` (PostgreSQL y objetos de Garage) y `npm run restore:ensayo -- backups/<fecha>` (restaura en una base y un bucket de ensayo y lo verifica); ver [`docs/respaldo-y-restauracion.md`](docs/respaldo-y-restauracion.md).
+
 `./detener_app.sh --borrar-datos` además elimina los volúmenes (la base de desarrollo, Garage): pide escribir `BORRAR` y no hace nada si se cancela. Más detalles (SMTP real, puertos, Chromium en WSL) en [`docs/local-stack.md`](docs/local-stack.md).
 
 ## Configuración
@@ -292,6 +294,7 @@ Una rama por incidencia (`feat/ESS-…`, `fix/…`, `docs/…`), PR con verifica
 | [`docs/decisions`](docs/decisions)                                     | Decisiones de arquitectura (stack, ORM)                                                                 |
 | [`docs/sessions`](docs/sessions)                                       | Bitácora de cada sesión de desarrollo                                                                   |
 | [`docs/design`](docs/design)                                           | Guía de diseño, rediseño de la interfaz y capturas                                                      |
+| [`docs/respaldo-y-restauracion.md`](docs/respaldo-y-restauracion.md)   | Respaldo, restauración y su ensayo                                                                      |
 | [`docs/local-stack.md`](docs/local-stack.md)                           | Entorno local y pruebas de navegador                                                                    |
 | [`docs/graphify.md`](docs/graphify.md)                                 | Mapa del código y análisis de impacto                                                                   |
 
