@@ -20,6 +20,7 @@ import {
   roleAssignments,
 } from '../db/schema';
 import { MAILER, type Mailer } from '../mail/mailer';
+import { todayBogota } from '../common/dates';
 
 const url = process.env.DATABASE_URL;
 const PASSWORD = 'Clave-Definitiva-1';
@@ -252,7 +253,7 @@ describe.skipIf(!url)(
           .select()
           .from(roleAssignments)
           .where(sql`account_id = ${id}`);
-        const today = new Date().toISOString().slice(0, 10);
+        const today = todayBogota();
         expect((await put(`/admin/accounts/${id}/roles/${role?.id}/end`, {})).status).toBe(204);
         expect(
           (

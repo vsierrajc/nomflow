@@ -15,6 +15,7 @@ import {
   roleAssignments,
 } from '../db/schema';
 import { resolveAreaManager } from './area-managers.service';
+import { todayBogota } from '../common/dates';
 
 const url = process.env.DATABASE_URL;
 const PASSWORD = 'Clave-Definitiva-1';
@@ -241,7 +242,7 @@ describe.skipIf(!url)('roles con alcance y jefes de área (HTTP + PostgreSQL)', 
         .set('Cookie', s.cookie)
         .set('X-CSRF-Token', s.csrf)
         .send(body);
-    const today = () => new Date().toISOString().slice(0, 10);
+    const today = () => todayBogota();
     const roleOn = async (id: string, role: string) =>
       (
         await db

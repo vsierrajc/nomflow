@@ -11,7 +11,9 @@ async function openAs(browser: Browser, u: SeedUser): Promise<Page> {
   return page;
 }
 
-const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+// Días de Colombia (como el servidor), no de UTC: de noche no coinciden.
+const bogota = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' });
+const day = (n: number) => bogota.format(new Date(Date.now() + n * 86_400_000));
 
 test.describe('suplencias de quienes aprueban', () => {
   test.beforeEach(async () => {

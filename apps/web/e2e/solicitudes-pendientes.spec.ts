@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { newUser, query, seedActiveAccount, seedAdminUser, type SeedUser } from './support';
+import { newUser, query, seedActiveAccount, seedAdminUser, uid, type SeedUser } from './support';
 
 async function login(page: Page, u: SeedUser) {
   await page.goto('/login');
@@ -10,7 +10,9 @@ async function login(page: Page, u: SeedUser) {
   await expect(page).toHaveURL(/\/$/);
 }
 
-const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+// Días de Colombia (como el servidor), no de UTC: de noche no coinciden.
+const bogota = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' });
+const day = (n: number) => bogota.format(new Date(Date.now() + n * 86_400_000));
 const accountId = async (u: SeedUser) =>
   (await query<{ id: string }>(`select id from accounts where n_ide = $1`, [u.nIde]))[0]?.id ?? '';
 
@@ -31,16 +33,17 @@ test.describe('solicitudes pendientes del primer visto bueno', () => {
       await accountId(newMgr),
       await accountId(admin),
     ];
-    // el área tenía al jefe viejo; hoy tiene al nuevo
+    // el área (propia de esta prueba, para no depender de ni afectar a las demás) tenía al jefe viejo; hoy tiene al nuevo
+    const area = `Z${uid().toUpperCase()}`;
     await query(
       `insert into area_manager_assignments (c_emp, c_area, manager_account_id, valid_from, valid_to, created_by)
-       values ('GA', '10300', $1, '2020-01-01', '2020-06-30', $3), ('GA', '10300', $2, '2020-07-01', null, $3)`,
-      [oldId, newId, adminId],
+       values ('GA', $4, $1, '2020-01-01', '2020-06-30', $3), ('GA', $4, $2, '2020-07-01', null, $3)`,
+      [oldId, newId, adminId, area],
     );
     const [req] = await query<{ id: string }>(
       `insert into vacation_requests (account_id, n_ide, n_cont, c_emp, c_area, manager_account_id, status)
-       values ($1, $2, '1', 'GA', '10300', $3, 'PENDIENTE_JEFE') returning id`,
-      [empId, emp.nIde, oldId],
+       values ($1, $2, '1', 'GA', $4, $3, 'PENDIENTE_JEFE') returning id`,
+      [empId, emp.nIde, oldId, area],
     );
     await query(
       `insert into vacation_revisions (request_id, number, start_date, end_date, calendar_diff, business_days,
