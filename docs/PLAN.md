@@ -29,7 +29,7 @@ Actualizado: 26 de septiembre de 2026. Estado de partida: `main` con los PR #1 a
 | 1.1 | Custodia de `OBJECT_ENCRYPTION_KEY` fuera del servidor y **rotación** con identificador de clave (`NF2\|kid`, varias claves, `storage:rotate`) | `docs/backup-clave-objetos.md`, ADR-003 |
 | 1.2 | ~~**Límite de intentos por IP** en los endpoints públicos y configuración de `trust proxy`~~ DONE: `AUTH_RATE_LIMIT_MAX`/`AUTH_RATE_LIMIT_WINDOW_MS` (20 cada 15 min por omisión) en login, login/verify, activate y verify-email/resend; `TRUST_PROXY` para leer `X-Forwarded-For` detrás de un proxy reverso | ESS-AUTH-001/003 |
 | 1.3 | **STARTTLS** en el servidor de correo interno | Operación |
-| 1.4 | **Respaldo y restauración probados** de PostgreSQL y Garage, con una restauración de ensayo documentada | ESS-OPS-001 |
+| 1.4 | **Respaldo y restauración probados** de PostgreSQL y Garage, con una restauración de ensayo documentada: scripts (`npm run backup`, `npm run restore:ensayo`) y ensayo hechos con datos de prueba, ver `docs/respaldo-y-restauracion.md`. Falta: ensayo con datos reales, programarlo, cifrar y copiar fuera del servidor, y definir retención, RPO y RTO | ESS-OPS-001 |
 | 1.5 | Protección de `main`, revisión por otra persona y job e2e obligatorio | SSD 11 |
 | 1.6 | ~~**Política de retención**: filas de preparación de importaciones (salarios), auditoría de peticiones, sesiones y códigos vencidos, PDF y ZIP~~ DONE: plazos configurables y depuración manual o diaria de sesiones, códigos, filas de importación y ZIP caducados (`/admin/retencion`); la auditoría de peticiones conserva su política en Registros (365 días); los certificados de retención nunca se purgan solos, solo borrado manual de personas dadas de baja | SSD 12 |
 

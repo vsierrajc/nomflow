@@ -68,3 +68,6 @@ playwright-report/
 /data/
 *.pdf
 !**/fixtures/**/*.pdf
+
+# Respaldos (datos personales; ver docs/respaldo-y-restauracion.md)
+backups/

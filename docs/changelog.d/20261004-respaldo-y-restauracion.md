@@ -1,0 +1,1 @@
+Respaldo y restauración: npm run backup respalda PostgreSQL y los objetos de Garage (con manifiesto y sha256), y npm run restore:ensayo restaura en una base y un bucket de ensayo y verifica filas, migraciones, bytes y descifrado; procedimiento y registro del ensayo en docs/respaldo-y-restauracion.md.

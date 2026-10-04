@@ -21,7 +21,9 @@
     "stack:down": "bash scripts/stack.sh down",
     "changelog:compile": "node scripts/compile-changelog.mjs",
     "stack:status": "bash scripts/stack.sh status",
-    "test:e2e": "npm run test:e2e -w @nomflow/web"
+    "test:e2e": "npm run test:e2e -w @nomflow/web",
+    "backup": "bash scripts/backup.sh",
+    "restore:ensayo": "bash scripts/restore-ensayo.sh"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
